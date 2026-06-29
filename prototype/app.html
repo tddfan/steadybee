@@ -32,6 +32,27 @@
 .minibar{height:8px;background:#eceae3;border-radius:5px;margin:6px 0}.minibar>div{height:100%;border-radius:5px}
 .accbar{height:8px;background:rgba(255,255,255,.25);border-radius:5px;width:120px}.accbar>div{height:100%;background:#e8a12c;border-radius:5px}
 @media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.sgrid{grid-template-columns:1fr}}
+/* Feature 4 — data-entry friction + Sharpen juice */
+.status .acc{position:relative}
+.accbar>div{transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.blur{transition:filter .6s ease,opacity .6s ease}
+.hold{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.tikwrap{position:relative}
+.tikin{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;box-sizing:border-box}
+.tikdrop{position:absolute;left:0;right:0;top:100%;z-index:10;background:#fff;border:1px solid var(--line);border-radius:9px;margin-top:4px;box-shadow:0 6px 24px rgba(0,0,0,.08);max-height:260px;overflow:auto}
+.tikrow{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer}
+.tikrow:hover,.tikrow.sel{background:#f3f7f6}
+.tikrow .tk{font-weight:600;color:var(--teal);width:56px}
+.tikrow .nm{flex:1;font-size:14px;color:var(--ink-soft)}.tikrow .fl{font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;min-height:4px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#eef5f4;border:1px solid #d3e4e1;border-radius:20px;padding:6px 8px 6px 12px;font-size:14px;animation:pop .18s ease}
+.chip b{color:var(--teal)}.chip .x{cursor:pointer;border:none;background:#dce8e6;border-radius:50%;width:20px;height:20px;line-height:1;font-size:14px}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.pastebox{width:100%;min-height:64px;font-family:inherit;font-size:14px;padding:10px;border:1px dashed var(--line);border-radius:9px;resize:vertical;box-sizing:border-box}
+.spark{position:absolute;right:8px;top:0;font-family:Georgia,serif;font-weight:600;color:#ffd98a;pointer-events:none;animation:floatup 1s ease forwards}
+@keyframes floatup{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-28px);opacity:0}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#0f5c59;color:#fff;padding:12px 18px;border-radius:24px;font-size:15px;opacity:0;transition:.3s;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style></head><body>
 <nav>
   <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
@@ -137,6 +158,22 @@
       <div class="center" style="margin-top:8px"><span class="muted">Want the deep risk analysis? </span><a class="toggle" onclick="setLevel('hold')">add your holdings ▸</a></div>
     </div>
 
+    <div class="hold" id="holdpanel" style="display:none">
+      <b>Your holdings</b>
+      <p class="muted" style="margin:4px 0 10px;font-size:14px">Type a ticker or fund — we fill in the rest. Each one you add sharpens your plan.</p>
+      <div class="tikwrap">
+        <input class="tikin" id="tik" autocomplete="off" placeholder="Search ticker or fund — e.g. VWRL, S&amp;P 500, gilts…" oninput="tikSearch(this.value)" onkeydown="tikKey(event)" onblur="setTimeout(function(){$('tikdrop').style.display='none';},150)">
+        <div class="tikdrop" id="tikdrop" style="display:none"></div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <details style="margin-top:6px">
+        <summary class="muted" style="cursor:pointer;font-size:14px">📋 Paste from your broker instead</summary>
+        <textarea class="pastebox" id="paste" placeholder="Paste rows from your statement, e.g.&#10;VWRL   120   £12,400&#10;VUSA    80   £9,100"></textarea>
+        <div class="center" style="margin-top:6px"><button class="btn btn-ghost" onclick="parsePaste()">Find my holdings →</button></div>
+      </details>
+      <div class="note" style="margin-top:8px">We store nothing in free mode. Confirm your holdings before we calculate. Figures illustrative, not advice.</div>
+    </div>
+
     <h3>At a glance</h3>
     <div class="seg" style="margin-bottom:8px"><button class="on">Household</button><button>You</button><button>Partner</button></div>
 
@@ -157,6 +194,7 @@
     <div class="note">Greyed panels are examples of what you'd unlock — not your data. Figures illustrative, not advice.</div>
   </section>
 </div>
+<div class="toast" id="toast"></div>
 <footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
 <script>
 function $(id){return document.getElementById(id);}
@@ -166,7 +204,7 @@ var planType='couple', dataLevel='wrap', scenarios=[];
 function tab(t){['you','plan','portfolio'].forEach(function(x){$('tab-'+x).classList.toggle('on',x===t);$('tb_'+x).classList.toggle('on',x===t);});window.scrollTo(0,0);}
 function ed(p){$('det'+p).classList.toggle('hide');}
 function setPlan(p){planType=p;$('pt_solo').classList.toggle('on',p==='solo');$('pt_couple').classList.toggle('on',p==='couple');$('cardB').style.display=p==='solo'?'none':'';$('s_surv').parentNode.style.display=p==='solo'?'none':'';recompute();}
-function setLevel(l){dataLevel=l;['tot','wrap','hold'].forEach(function(x){$('lv_'+x).classList.toggle('on',x===l);});$('wrapcard').style.display=l==='tot'?'none':'';
+function setLevel(l){dataLevel=l;['tot','wrap','hold'].forEach(function(x){$('lv_'+x).classList.toggle('on',x===l);});$('wrapcard').style.display=l==='tot'?'none':'';$('holdpanel').style.display=l==='hold'?'':'none';
   var unlocked=(l==='hold');for(var i=1;i<=6;i++){var c=$('lk'+i);c.classList.toggle('locked',!unlocked);c.querySelector('.blur').style.filter=unlocked?'none':'';c.querySelector('.blur').style.opacity=unlocked?'1':'';c.querySelector('.lockmsg').style.display=unlocked?'none':'';}
   recompute();}
 function inp(){var couple=planType==='couple';return{
@@ -200,8 +238,10 @@ function recompute(){
   var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(d,100)-80)*3.5)));$('k_succ').textContent=p+'%';$('s_succ').textContent=p+'%';
   $('k_age').className='v'+(d>=95?'':' red');$('k_succ').className='v'+(d>=95?'':' red');
   $('k_pot').textContent=fmt(c.A.pot+c.B.pot);$('k_peak').textContent=fmt(Math.max.apply(null,mid.raw));
-  // accuracy
-  var acc=40+(dataLevel==='wrap'?20:dataLevel==='hold'?45:0)+(planType==='couple'?5:0);acc=Math.min(acc,98);
+  // accuracy (rewards data completion; each holding sharpens the plan)
+  var acc=40+(dataLevel==='wrap'?20:dataLevel==='hold'?35:0)+(planType==='couple'?5:0)+(dataLevel==='hold'?Math.min(holdings.length*3,18):0);acc=Math.min(acc,98);
+  if(lastAcc>=0&&acc>lastAcc){pulseSharpen(acc-lastAcc);checkMilestone(lastAcc,acc);}
+  lastAcc=acc;
   $('s_acc').textContent=acc+'%';$('s_accbar').style.width=acc+'%';
   // chart
   var x0=40,w=545,yb=200,yt=20,b0=c.A.age,plot=function(val){return yb-Math.max(val,0)/max*(yb-yt);};
@@ -225,6 +265,54 @@ function recompute(){
 }
 function saveScenario(){var d=$('k_age').textContent,s=$('k_succ').textContent;scenarios.push({label:'Scenario '+(scenarios.length+1),age:d,succ:s});
   $('compare').innerHTML=scenarios.map(function(x){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)"><b>'+x.label+'</b><span>lasts to '+x.age+' · '+x.succ+'</span></div>';}).join('');}
+// ---- Feature 4: holdings entry + Sharpen juice ----
+var TICKERS=[
+ {t:'VWRL',n:'Vanguard FTSE All-World',r:'Global',cur:'USD',f:'🌍'},
+ {t:'VWRP',n:'Vanguard FTSE All-World (Acc)',r:'Global',cur:'USD',f:'🌍'},
+ {t:'VUSA',n:'Vanguard S&P 500',r:'US',cur:'USD',f:'🇺🇸'},
+ {t:'VUKE',n:'Vanguard FTSE 100',r:'UK',cur:'GBP',f:'🇬🇧'},
+ {t:'VMID',n:'Vanguard FTSE 250',r:'UK',cur:'GBP',f:'🇬🇧'},
+ {t:'VFEM',n:'Vanguard FTSE Emerging Markets',r:'EM',cur:'USD',f:'🌏'},
+ {t:'VEVE',n:'Vanguard FTSE Developed World',r:'Global',cur:'USD',f:'🌍'},
+ {t:'VGOV',n:'Vanguard UK Gilts',r:'UK',cur:'GBP',f:'🇬🇧'},
+ {t:'VAGP',n:'Vanguard Global Bond (GBP Hedged)',r:'Global',cur:'GBP',f:'🌍'},
+ {t:'SGLN',n:'iShares Physical Gold',r:'Global',cur:'USD',f:'🪙'},
+ {t:'ISF',n:'iShares Core FTSE 100',r:'UK',cur:'GBP',f:'🇬🇧'},
+ {t:'CSP1',n:'iShares Core S&P 500',r:'US',cur:'USD',f:'🇺🇸'},
+ {t:'EQQQ',n:'Invesco Nasdaq-100',r:'US',cur:'USD',f:'🇺🇸'},
+ {t:'AGGG',n:'iShares Core Global Aggregate Bond',r:'Global',cur:'USD',f:'🌍'},
+ {t:'FCIT',n:'F&C Investment Trust',r:'Global',cur:'GBP',f:'🌍'}
+];
+var holdings=[], tikRes=[], tikSel=-1, lastAcc=-1;
+function tikSearch(q){q=(q||'').trim().toLowerCase();var dd=$('tikdrop');
+  if(!q){dd.style.display='none';tikRes=[];return;}
+  tikRes=TICKERS.filter(function(x){return x.t.toLowerCase().indexOf(q)>=0||x.n.toLowerCase().indexOf(q)>=0;})
+    .sort(function(a,b){return (a.t.toLowerCase().indexOf(q)===0?0:1)-(b.t.toLowerCase().indexOf(q)===0?0:1);})
+    .slice(0,6);
+  tikSel=-1;
+  if(!tikRes.length){dd.style.display='none';return;}
+  dd.innerHTML=tikRes.map(function(x,i){return '<div class="tikrow" onmousedown="tikPick('+i+')"><span class="tk">'+x.t+'</span><span class="nm">'+x.n+'</span><span class="fl">'+x.f+'</span></div>';}).join('');
+  dd.style.display='';}
+function tikKey(e){if(e.key==='ArrowDown'){tikSel=Math.min(tikSel+1,tikRes.length-1);hlRow();e.preventDefault();}
+  else if(e.key==='ArrowUp'){tikSel=Math.max(tikSel-1,0);hlRow();e.preventDefault();}
+  else if(e.key==='Enter'){if(tikSel>=0)tikPick(tikSel);else if(tikRes.length)tikPick(0);e.preventDefault();}
+  else if(e.key==='Escape'){$('tikdrop').style.display='none';}}
+function hlRow(){var rows=$('tikdrop').querySelectorAll('.tikrow');for(var i=0;i<rows.length;i++)rows[i].classList.toggle('sel',i===tikSel);}
+function tikPick(i){var x=tikRes[i];if(x)addHolding(x);$('tik').value='';$('tikdrop').style.display='none';tikRes=[];$('tik').focus();}
+function addHolding(x){if(holdings.some(function(h){return h.t===x.t;}))return;holdings.push(x);renderChips();recompute();}
+function delHolding(t){holdings=holdings.filter(function(h){return h.t!==t;});renderChips();recompute();}
+function renderChips(){$('chips').innerHTML=holdings.map(function(h){return '<span class="chip"><b>'+h.t+'</b> <span class="muted" style="font-size:12px">'+h.r+' · '+h.cur+'</span><button class="x" onclick="delHolding(\''+h.t+'\')">×</button></span>';}).join('');}
+function parsePaste(){var lines=$('paste').value.split(/\n+/),added=0;
+  lines.forEach(function(ln){var m=ln.trim().match(/^([A-Za-z]{2,6})\b/);if(!m)return;
+    var x=TICKERS.find(function(z){return z.t.toLowerCase()===m[1].toLowerCase();});
+    if(x&&!holdings.some(function(h){return h.t===x.t;})){holdings.push(x);added++;}});
+  if(added){renderChips();recompute();toast(added+' holding'+(added>1?'s':'')+' found — check and confirm');}
+  else toast("Couldn't read those — try a ticker like VWRL");
+  $('paste').value='';}
+function pulseSharpen(delta){var acEl=document.querySelector('.status .acc');if(acEl){var s=document.createElement('span');s.className='spark';s.textContent='+'+delta+'%';acEl.appendChild(s);setTimeout(function(){s.remove();},1000);}
+  if(navigator.vibrate)navigator.vibrate(8);}
+function checkMilestone(prev,now){[[60,'Concentration analysis'],[80,'Correlation & overlap'],[95,'Full risk metrics']].forEach(function(m){if(prev<m[0]&&now>=m[0])toast('🔓 '+m[1]+' unlocked');});}
+function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(function(){t.classList.remove('show');},2600);}
 setLevel('wrap');recompute();
 </script>
 </body></html>
