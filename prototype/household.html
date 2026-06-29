@@ -1,11 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steadybee — household plan (Pro)</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 <style>
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
 .tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.tile .v{font-family:Georgia,serif;font-size:26px;color:var(--teal);line-height:1.1}
+.tile .v{font-family:"Inter",sans-serif;font-size:26px;color:var(--teal);line-height:1.1}
 .tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted);margin-top:2px}
 .people{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .person{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -18,12 +18,12 @@
 .ctrl label b{color:var(--ink)} input[type=range]{width:100%;accent-color:var(--teal)}
 .chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px}
 .sens .bar{height:14px;background:#eef7f6;border-radius:7px;overflow:hidden}
-.sens .bar>div{height:100%;background:#0f5c59;border-radius:7px}
+.sens .bar>div{height:100%;background:#0d9488;border-radius:7px}
 .sens .lev{display:grid;grid-template-columns:200px 1fr 60px;gap:10px;align-items:center;margin:8px 0;font-size:14px}
 @media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.people{grid-template-columns:1fr}.hh .grid{grid-template-columns:1fr}.sens .lev{grid-template-columns:130px 1fr 50px}}
 </style></head><body>
 <nav>
-  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span style="font-size:11px;background:#fdeccd;color:#8a5a12;padding:2px 7px;border-radius:10px">Pro · Household</span></div>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span style="font-size:11px;background:#fdeccd;color:#8a5a12;padding:2px 7px;border-radius:10px">Pro · Household</span></div>
   <div class="navlinks"><a href="plan.html">Calm view</a><a href="lab.html">Single</a><span class="badge">prototype</span></div>
 </nav>
 <div class="wrap" style="max-width:860px">
@@ -132,7 +132,7 @@ function recompute(){
   var band='';var b0=inp().A.age;for(i=0;i<hi.raw.length&&b0+i<=100;i++)band+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(hi.raw[i]).toFixed(1);for(var j=Math.min(lo.raw.length-1,100-b0);j>=0;j--)band+='L'+mapX(b0+j,x0,w).toFixed(1)+' '+plot(lo.raw[j]).toFixed(1);
   var aRx=mapX(inp().A.ret,x0,w),bRx=mapX(inp().B.ret,x0,w);
   var dx=d<=100?mapX(d,x0,w):0;
-  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/>'+
+  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0d9488" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0d9488" stroke-width="2.5"/>'+
     '<line x1="'+aRx+'" y1="20" x2="'+aRx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+aRx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">you retire</text>'+
     '<line x1="'+bRx+'" y1="30" x2="'+bRx+'" y2="200" stroke="#cfc7b6" stroke-dasharray="3 3"/><text x="'+bRx+'" y="246" font-size="9" fill="#8a9695" text-anchor="middle">partner</text>'+
     (d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
@@ -141,7 +141,7 @@ function recompute(){
   var levers=[['Both work 2 more years',{rb:2}],['Spend £300/mo less',{sd:3600}],['Each pay £300/mo more',{cb:3600}],['Lower fees 0.15%/yr',{fb:1}],['Defer state pension 1yr',{defer:1}]];
   var res=levers.map(function(l){return{name:l[0],delta:Math.min(project(l[1]).dep,102)-base};}).sort(function(a,b){return b.delta-a.delta;});
   var mx=Math.max.apply(null,res.map(function(r){return Math.abs(r.delta);}).concat([1]));
-  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div class="lev"><span>'+r.name+'</span><div class="bar"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0f5c59')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+' yrs</span></div>';}).join('');
+  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div class="lev"><span>'+r.name+'</span><div class="bar"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0d9488')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+' yrs</span></div>';}).join('');
 }
 recompute();
 </script>

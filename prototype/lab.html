@@ -1,11 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steadybee — advanced plan (Pro)</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 <style>
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
 .tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.tile .v{font-family:Georgia,serif;font-size:26px;color:var(--teal);line-height:1.1}
+.tile .v{font-family:"Inter",sans-serif;font-size:26px;color:var(--teal);line-height:1.1}
 .tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted);margin-top:2px}
 .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
 .ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between;margin-bottom:2px}
@@ -23,7 +23,7 @@ input[type=range]{width:100%;accent-color:var(--teal)}
 @media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}.controls{grid-template-columns:1fr}}
 </style></head><body>
 <nav>
-  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span class="tag md">Pro</span></div>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span class="tag md">Pro</span></div>
   <div class="navlinks"><a href="plan.html">Calm view</a><a href="input.html">Edit</a><span class="badge">prototype</span></div>
 </nav>
 <div class="wrap" style="max-width:840px">
@@ -113,12 +113,12 @@ function recompute(){
   function pth(a){var s='';for(var i=0;i<a.length;i++)s+=(i?'L':'M')+mapX(60+i,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);return s;}
   var bandP='';for(i=0;i<hi.length;i++)bandP+=(i?'L':'M')+mapX(60+i,x0,w).toFixed(1)+' '+plot(hi[i]).toFixed(1);for(var j=lo.length-1;j>=0;j--)bandP+='L'+mapX(60+j,x0,w).toFixed(1)+' '+plot(lo[j]).toFixed(1);
   var rx=mapX(c.retire,x0,w),dx=d<=100?mapX(d,x0,w):0;
-  $('main').innerHTML=g+'<path d="'+bandP+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="10" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="300" y="225" font-size="10" fill="#8a9695">80</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
+  $('main').innerHTML=g+'<path d="'+bandP+' Z" fill="#0d9488" opacity="0.12"/><path d="'+pth(mid)+'" fill="none" stroke="#0d9488" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="10" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="300" y="225" font-size="10" fill="#8a9695">80</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
   // monte carlo spaghetti
-  var mh='';for(var k=0;k<10;k++){var path=project(c.r+(k-4.5)*0.006);var s='';for(i=0;i<path.length;i++)s+=(i?'L':'M')+mapX(60+i,15,275).toFixed(1)+' '+(150-Math.max(path[i],0)/max*135).toFixed(1);mh+='<path d="'+s+'" fill="none" stroke="#0f5c59" stroke-width="'+(k===5?2:1)+'" opacity="'+(k===5?1:0.25)+'"/>';}
+  var mh='';for(var k=0;k<10;k++){var path=project(c.r+(k-4.5)*0.006);var s='';for(i=0;i<path.length;i++)s+=(i?'L':'M')+mapX(60+i,15,275).toFixed(1)+' '+(150-Math.max(path[i],0)/max*135).toFixed(1);mh+='<path d="'+s+'" fill="none" stroke="#0d9488" stroke-width="'+(k===5?2:1)+'" opacity="'+(k===5?1:0.25)+'"/>';}
   mh+='<line x1="15" y1="150" x2="290" y2="150" stroke="#e7e3da"/>';$('mc').innerHTML=mh;
   // donut (static)
-  var seg=[[62,'#b4452e'],[18,'#e8a12c'],[8,'#0f5c59'],[12,'#cfd8d6']],C=2*Math.PI*55,off=0,dn='';
+  var seg=[[62,'#b4452e'],[18,'#e8a12c'],[8,'#0d9488'],[12,'#cfd8d6']],C=2*Math.PI*55,off=0,dn='';
   seg.forEach(function(s){var len=s[0]/100*C;dn+='<circle cx="85" cy="85" r="55" fill="none" stroke="'+s[1]+'" stroke-width="22" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 85 85)"/>';off+=len;});
   $('donut').innerHTML=dn;
 }

@@ -1,14 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steadybee — will your money last?</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 <style>
 .hero{text-align:center;padding:14px 0 8px}
 .hero h1{font-size:38px;line-height:1.18;max-width:600px;margin:8px auto}
 .preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;max-width:540px;margin:18px auto 0;box-shadow:0 1px 0 #f0ece3}
 .minitiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-.mt{background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:8px}
-.mt .v{font-family:Georgia,serif;font-size:22px;color:var(--teal)}.mt .v.red{color:var(--red)}.mt .l{font-size:11px;color:var(--muted)}
+.mt{background:#f7f9fb;border:1px solid var(--line);border-radius:8px;padding:8px}
+.mt .v{font-family:"Inter",sans-serif;font-weight:800;font-size:22px;color:var(--teal)}.mt .v.red{color:var(--red)}.mt .l{font-size:11px;color:var(--muted)}
 .drawline{stroke-dasharray:600;stroke-dashoffset:600;animation:draw 1.6s ease forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
 .feature{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;margin:34px 0}
@@ -17,11 +17,11 @@
 .xbar{display:flex;justify-content:space-between;font-size:13px;margin:9px 0 3px;color:var(--ink-soft)}
 .ladder{display:flex;gap:8px}.ladder .lc{flex:1;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;text-align:center;color:var(--muted)}
 .ladder .lc.lock{opacity:.55;background:#f4f1ea}
-.trust{background:#0f5c59;color:#fff;border-radius:14px;padding:20px;text-align:center;margin:30px 0}
+.trust{background:var(--teal-deep);color:#fff;border-radius:14px;padding:20px;text-align:center;margin:30px 0}
 @media(max-width:640px){.feature{grid-template-columns:1fr}.feature.rev .txt{order:0}.hero h1{font-size:30px}}
 </style></head><body>
 <nav>
-  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
   <div class="navlinks"><a href="app.html">Open the app</a><span class="badge">prototype</span></div>
 </nav>
 <div class="wrap" style="max-width:760px">
@@ -38,8 +38,8 @@
       </div>
       <svg viewBox="0 0 500 150" style="width:100%;height:auto">
         <line x1="20" y1="120" x2="480" y2="120" stroke="#efece4"/>
-        <polygon points="20,95 90,55 90,55 200,70 320,108 420,120 420,120 20,120" fill="#0f5c59" opacity="0.10"/>
-        <path class="drawline" d="M20 95 L90 55 L160 64 L230 82 L300 104 L380 119 L420 120" fill="none" stroke="#0f5c59" stroke-width="3"/>
+        <polygon points="20,95 90,55 90,55 200,70 320,108 420,120 420,120 20,120" fill="#0d9488" opacity="0.10"/>
+        <path class="drawline" d="M20 95 L90 55 L160 64 L230 82 L300 104 L380 119 L420 120" fill="none" stroke="#0d9488" stroke-width="3"/>
         <line x1="90" y1="35" x2="90" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="90" y="30" font-size="10" fill="#8a9695" text-anchor="middle">retire</text>
         <circle cx="380" cy="120" r="4.5" fill="#b4452e"/>
         <text x="20" y="140" font-size="10" fill="#8a9695">60</text><text x="465" y="140" font-size="10" fill="#8a9695">100</text>
@@ -54,8 +54,8 @@
     <div class="txt"><h2>See if you're on track — in one number</h2><p>Your money modelled over your whole life, with the range of likely outcomes. One clear answer, not a spreadsheet.</p></div>
     <div class="vis"><svg viewBox="0 0 400 150" style="width:100%;height:auto">
       <line x1="15" y1="120" x2="385" y2="120" stroke="#efece4"/>
-      <polygon points="15,92 80,50 170,66 260,100 330,118 330,118 15,120" fill="#0f5c59" opacity="0.10"/>
-      <path d="M15 92 L80 50 L150 60 L220 80 L290 106 L330 118" fill="none" stroke="#0f5c59" stroke-width="2.5"/>
+      <polygon points="15,92 80,50 170,66 260,100 330,118 330,118 15,120" fill="#0d9488" opacity="0.10"/>
+      <path d="M15 92 L80 50 L150 60 L220 80 L290 106 L330 118" fill="none" stroke="#0d9488" stroke-width="2.5"/>
       <line x1="80" y1="34" x2="80" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="80" y="30" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>
       <circle cx="330" cy="118" r="4" fill="#b4452e"/></svg></div>
   </div>
@@ -75,8 +75,8 @@
     <div class="txt"><h2>Plan together, as a household</h2><p>You and your partner in one view — combined, plus survivor scenarios so you know you'd both be okay.</p></div>
     <div class="vis"><svg viewBox="0 0 400 150" style="width:100%;height:auto">
       <line x1="15" y1="120" x2="385" y2="120" stroke="#efece4"/>
-      <polygon points="15,96 70,60 150,70 250,98 340,116 340,116 15,120" fill="#0f5c59" opacity="0.10"/>
-      <path d="M15 96 L70 60 L150 70 L250 98 L340 116" fill="none" stroke="#0f5c59" stroke-width="2.5"/>
+      <polygon points="15,96 70,60 150,70 250,98 340,116 340,116 15,120" fill="#0d9488" opacity="0.10"/>
+      <path d="M15 96 L70 60 L150 70 L250 98 L340 116" fill="none" stroke="#0d9488" stroke-width="2.5"/>
       <line x1="70" y1="40" x2="70" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="70" y="36" font-size="9" fill="#8a9695" text-anchor="middle">you</text>
       <line x1="120" y1="48" x2="120" y2="120" stroke="#cfc7b6" stroke-dasharray="3 3"/><text x="120" y="44" font-size="9" fill="#8a9695" text-anchor="middle">partner</text></svg></div>
   </div>

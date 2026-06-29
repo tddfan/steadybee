@@ -1,0 +1,111 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — portfolio X-ray</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f7fa;--card:#fff;--line:#e5ebf1;--ink:#162130;--ink2:#516170;--muted:#8a99a8;
+  --teal:#0d9488;--teal2:#14b8a6;--green:#16a34a;--red:#e0533d;--amber:#e0922a;--r:16px;
+  --shadow:0 1px 2px rgba(22,33,48,.04),0 4px 16px rgba(22,33,48,.05)}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(900px 480px at 100% -8%, rgba(13,148,136,.07), transparent 60%),
+    radial-gradient(700px 480px at -8% 8%, rgba(56,120,200,.06), transparent 55%),
+    var(--bg);
+  background-attachment:fixed;min-height:100vh}
+.wrap{max-width:960px;margin:0 auto;padding:0 18px 64px}
+nav{background:rgba(255,255,255,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.navin{max-width:960px;margin:0 auto;padding:16px 18px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;font-family:"Montserrat";font-weight:800;font-size:19px;letter-spacing:.5px}
+.logo .l{color:var(--teal)}
+.badge{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:4px 10px;text-transform:uppercase;letter-spacing:.5px}
+h1{font-family:"Montserrat";font-size:26px;font-weight:800;margin:22px 0 2px}
+.sub{color:var(--ink2);margin:0 0 18px}
+.grid{display:grid;gap:14px}.tiles{grid-template-columns:repeat(6,1fr)}.viz2{grid-template-columns:1fr 1fr}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+.tile .v{font-size:23px;font-weight:700}.tile .l{font-size:12px;color:var(--muted);margin-top:2px}
+.v.bad{color:var(--red)}.v.ok{color:var(--teal)}.v.warn{color:var(--amber)}
+.score{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.grade{font-family:"Montserrat";font-size:50px;font-weight:800;color:var(--amber);line-height:1}
+.hm{display:grid;grid-template-columns:auto repeat(12,1fr);gap:3px;font-size:10px;color:var(--muted)}
+.hm .cell{aspect-ratio:1;border-radius:3px}.hm .yl{display:flex;align-items:center}
+.cor .cell{padding:8px 4px;text-align:center;border-radius:4px;font-weight:600;font-size:11px}
+.cor .lbl{color:var(--ink2);font-weight:500;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:11px}
+.cor .top{color:var(--muted);text-align:center;font-size:10px}
+.legend{font-size:11px;color:var(--muted);margin-top:10px}
+.issue{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.pill{font-size:11px;padding:3px 9px;border-radius:10px}.pill.hi{background:#fadbd3;color:#a23a23}.pill.md{background:#fdeccd;color:#8a5a12}
+@media(max-width:760px){.tiles{grid-template-columns:repeat(3,1fr)}.viz2{grid-template-columns:1fr}}
+</style></head><body>
+<nav><div class="navin">
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#fff"/></svg>STEADY<span class="l">BEE</span></div>
+  <span class="badge">light theme · prototype</span>
+</div></nav>
+<div class="wrap">
+  <h1>Portfolio X-ray</h1>
+  <p class="sub">£400,000 · valued just now · nothing stored</p>
+
+  <div class="card" style="margin-bottom:14px"><div class="score">
+    <svg viewBox="0 0 200 110" width="200" height="110"><polyline id="gbg" fill="none" stroke="#e5ebf1" stroke-width="14" stroke-linecap="round"/><polyline id="gval" fill="none" stroke="#e0922a" stroke-width="14" stroke-linecap="round"/><text x="100" y="80" text-anchor="middle" font-size="30" font-weight="800" fill="#162130">62</text><text x="100" y="100" text-anchor="middle" font-size="11" fill="#8a99a8">health score</text></svg>
+    <div><div class="grade">C</div><div style="color:var(--ink2);max-width:380px">Concentrated and tech-heavy. Solid growth potential, but exposed in a downturn — a few changes could lift this to a B.</div></div>
+  </div></div>
+
+  <div class="grid tiles" style="margin-bottom:14px">
+    <div class="card tile"><div class="v bad">62%</div><div class="l">US tech</div></div>
+    <div class="card tile"><div class="v bad">62%</div><div class="l">USD exposure</div></div>
+    <div class="card tile"><div class="v warn">14.2%</div><div class="l">volatility</div></div>
+    <div class="card tile"><div class="v ok">0.61</div><div class="l">Sharpe</div></div>
+    <div class="card tile"><div class="v bad">−46%</div><div class="l">max drawdown</div></div>
+    <div class="card tile"><div class="v warn">£1,140</div><div class="l">fees / yr</div></div>
+  </div>
+
+  <div class="grid viz2" style="margin-bottom:14px">
+    <div class="card"><h3>Drawdown</h3>
+      <svg viewBox="0 0 420 150" style="width:100%;height:auto">
+        <line x1="10" y1="20" x2="410" y2="20" stroke="#eef2f6"/>
+        <path d="M10 20 L60 26 L100 70 L140 120 L175 60 L220 30 L260 38 L300 95 L340 50 L410 24 L410 20 Z" fill="#e0533d" opacity="0.12"/>
+        <path d="M10 20 L60 26 L100 70 L140 120 L175 60 L220 30 L260 38 L300 95 L340 50 L410 24" fill="none" stroke="#e0533d" stroke-width="2"/>
+        <text x="12" y="16" font-size="10" fill="#8a99a8">0%</text><text x="118" y="136" font-size="10" fill="#8a99a8">−46% (2008)</text></svg>
+    </div>
+    <div class="card"><h3>Monthly returns</h3><div id="heat" class="hm"></div>
+      <div class="legend">teal = positive month · red = negative</div></div>
+  </div>
+
+  <div class="grid viz2" style="margin-bottom:14px">
+    <div class="card"><h3>Correlation — moves together</h3><div id="cor"></div>
+      <div class="legend">darker = moves together · your equity funds ~0.9 (little real diversification)</div></div>
+    <div class="card"><h3>Top issues to look at</h3>
+      <div class="issue"><span>Single-theme concentration (US tech)</span><span class="pill hi">high</span></div>
+      <div class="issue"><span>Currency risk — 62% in US dollars</span><span class="pill hi">high</span></div>
+      <div class="issue"><span>Little real diversification (corr ~0.9)</span><span class="pill hi">high</span></div>
+      <div class="issue"><span>Fee drag — 0.29% blended</span><span class="pill md">watch</span></div>
+      <div class="legend" style="margin-top:12px">Illustration, not advice · figures computed by code, not AI.</div>
+    </div>
+  </div>
+</div>
+<script>
+function poly(deg0,deg1){var p=[];for(var d=deg0;d>=deg1;d-=3){var r=80,cx=100,cy=90;p.push((cx+r*Math.cos(d*Math.PI/180)).toFixed(1)+','+(cy-r*Math.sin(d*Math.PI/180)).toFixed(1));}return p.join(' ');}
+document.getElementById('gbg').setAttribute('points',poly(180,0));
+document.getElementById('gval').setAttribute('points',poly(180,180-180*62/100));
+var years=['2024','2023','2022','2021','2020'],h='<div></div>';
+for(var m=0;m<12;m++)h+='<div style="text-align:center">'+'JFMAMJJASOND'[m]+'</div>';
+for(var y=0;y<years.length;y++){h+='<div class="yl">'+years[y]+'</div>';
+  for(m=0;m<12;m++){var v=Math.sin(y*2.3+m*1.1)+Math.cos(m*0.7-y);var pos=v>=0;var int=Math.min(1,Math.abs(v)/2);
+    var col=pos?'rgba(20,184,166,'+(0.18+int*0.72)+')':'rgba(224,83,61,'+(0.16+int*0.7)+')';
+    h+='<div class="cell" style="background:'+col+'"></div>';}}
+document.getElementById('heat').innerHTML=h;
+var a=['US Tech','US','World','Bonds','Gold'];
+var M=[[1,.92,.85,-.1,.05],[.92,1,.9,-.05,0],[.85,.9,1,.05,.1],[-.1,-.05,.05,1,.3],[.05,0,.1,.3,1]];
+var c='<div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:3px">';
+c+='<div></div>';a.forEach(function(x){c+='<div class="top">'+x+'</div>';});
+for(var i=0;i<5;i++){c+='<div class="lbl">'+a[i]+'</div>';
+  for(var j=0;j<5;j++){var val=M[i][j];var t=Math.max(0,Math.min(1,(val+0.2)/1.2));
+    var bg= val<0 ? 'rgba(224,83,61,'+(0.10+Math.abs(val)*0.45)+')' : 'rgba(13,148,136,'+(0.08+t*0.85)+')';
+    c+='<div class="cell" style="background:'+bg+';color:'+(t>0.5&&val>=0?'#fff':'#162130')+'">'+val.toFixed(2)+'</div>';}}
+c+='</div>';document.getElementById('cor').innerHTML=c;
+</script>
+</body></html>

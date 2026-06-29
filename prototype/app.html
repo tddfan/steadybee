@@ -1,11 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steadybee — your future</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 <style>
-.status{position:sticky;top:0;z-index:5;background:#0f5c59;color:#fff;padding:12px 20px}
+.status{position:sticky;top:0;z-index:5;background:#0d9488;color:#fff;padding:12px 20px}
 .status .in{max-width:840px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.status b{font-family:Georgia,serif;font-weight:400}
+.status b{font-family:"Inter",sans-serif;font-weight:400}
 .status .acc{background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer}
 .tabs2{display:flex;gap:6px;max-width:840px;margin:14px auto 0;padding:0 20px}
 .tabbtn{flex:1;text-align:center;padding:11px;border:1px solid var(--line);border-radius:10px 10px 0 0;background:#fff;cursor:pointer;font-size:15px}
@@ -13,7 +13,7 @@
 .tab{display:none}.tab.on{display:block}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
 .tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.tile .v{font-family:Georgia,serif;font-size:24px;color:var(--teal)}.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted)}
+.tile .v{font-family:"Inter",sans-serif;font-size:24px;color:var(--teal)}.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted)}
 .pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
 .psum{display:flex;justify-content:space-between;align-items:center}
 .pdet{margin-top:12px}.pdet .row{display:flex;justify-content:space-between;margin:7px 0;font-size:14px;color:var(--ink-soft)}
@@ -49,13 +49,13 @@
 .chip b{color:var(--teal)}.chip .x{cursor:pointer;border:none;background:#dce8e6;border-radius:50%;width:20px;height:20px;line-height:1;font-size:14px}
 @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 .pastebox{width:100%;min-height:64px;font-family:inherit;font-size:14px;padding:10px;border:1px dashed var(--line);border-radius:9px;resize:vertical;box-sizing:border-box}
-.spark{position:absolute;right:8px;top:0;font-family:Georgia,serif;font-weight:600;color:#ffd98a;pointer-events:none;animation:floatup 1s ease forwards}
+.spark{position:absolute;right:8px;top:0;font-family:"Inter",sans-serif;font-weight:600;color:#ffd98a;pointer-events:none;animation:floatup 1s ease forwards}
 @keyframes floatup{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-28px);opacity:0}}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#0f5c59;color:#fff;padding:12px 18px;border-radius:24px;font-size:15px;opacity:0;transition:.3s;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#0d9488;color:#fff;padding:12px 18px;border-radius:24px;font-size:15px;opacity:0;transition:.3s;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style></head><body>
 <nav>
-  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
   <div class="navlinks"><span class="badge">prototype</span></div>
 </nav>
 
@@ -249,13 +249,13 @@ function recompute(){
   function pth(a){var s='';for(var i=0;i<a.length&&b0+i<=100;i++)s+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);return s;}
   var band='';for(i=0;i<hi.raw.length&&b0+i<=100;i++)band+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(hi.raw[i]).toFixed(1);for(var j=Math.min(lo.raw.length-1,100-b0);j>=0;j--)band+='L'+mapX(b0+j,x0,w).toFixed(1)+' '+plot(lo.raw[j]).toFixed(1);
   var rx=mapX(c.A.ret,x0,w),dx=d<=100?mapX(d,x0,w):0;
-  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
+  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0d9488" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0d9488" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
   // sensitivity (independent of applied levers)
   var base=Math.min(project().dep,102);
   var L=[['Both work 2 more years',{rb:2}],['Spend £300/mo less',{sd:3600}],['Each pay £300/mo more',{cb:3600}],['Lower fees 0.15%',{fb:1}]];
   var res=L.map(function(l){return{name:l[0],delta:Math.min(project(l[1]).dep,102)-base};}).sort(function(a,b){return b.delta-a.delta;});
   var mx=Math.max.apply(null,res.map(function(r){return Math.abs(r.delta)}).concat([1]));
-  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div style="display:grid;grid-template-columns:150px 1fr 55px;gap:8px;align-items:center;margin:7px 0;font-size:14px"><span>'+r.name+'</span><div class="minibar" style="margin:0"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0f5c59')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+'y</span></div>';}).join('');
+  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div style="display:grid;grid-template-columns:150px 1fr 55px;gap:8px;align-items:center;margin:7px 0;font-size:14px"><span>'+r.name+'</span><div class="minibar" style="margin:0"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0d9488')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+'y</span></div>';}).join('');
   // portfolio free cards
   if(dataLevel!=='tot'){var isa=n('W_isa'),sipp=n('W_sipp'),gia=n('W_gia'),cash=n('W_cash'),tot=isa+sipp+gia+cash;
     $('x_wrap').textContent='ISA '+Math.round(isa/tot*100)+'% · SIPP '+Math.round(sipp/tot*100)+'% · GIA '+Math.round(gia/tot*100)+'% · cash '+Math.round(cash/tot*100)+'% — '+(gia/tot>0.15?'a lot held in a taxable account; using ISA allowance could help (illustrative)':'tax-efficiently wrapped');
