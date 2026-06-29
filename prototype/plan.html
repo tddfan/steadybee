@@ -1,0 +1,129 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — your plan</title>
+<link rel="stylesheet" href="styles.css"></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="navlinks"><a href="household.html">Advanced (Pro)</a><a href="input.html">Edit portfolio</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap">
+  <p class="muted">Your plan · Bella, 60 · £400,000 · valued just now at live prices · nothing stored <span class="evt">event: plan_viewed</span></p>
+
+  <!-- HERO: the answer + chart -->
+  <div class="card center">
+    <div class="muted">Your money is likely to last to</div>
+    <div id="age" class="num">91</div>
+    <span id="chip" class="chip amber">78% likely · you wanted to reach 95</span>
+    <svg id="chart" viewBox="0 0 600 210" style="width:100%;height:auto;margin-top:10px" aria-label="projection chart">
+      <line x1="10" y1="170" x2="590" y2="170" stroke="#e7e3da"></line>
+      <polygon id="band" points="" fill="#0f5c59" opacity="0.12"></polygon>
+      <path id="line" d="" fill="none" stroke="#0f5c59" stroke-width="2.5"></path>
+      <line id="retire" x1="0" y1="10" x2="0" y2="170" stroke="#b9b3a6" stroke-dasharray="4 4"></line>
+      <circle id="dep" r="4" fill="#b4452e" style="display:none"></circle>
+      <text x="10" y="188" font-size="11" fill="#8a9695">60</text>
+      <text x="290" y="188" font-size="11" fill="#8a9695">80</text>
+      <text x="575" y="188" font-size="11" fill="#8a9695">100</text>
+      <text id="retlbl" x="0" y="24" font-size="11" fill="#8a9695" text-anchor="middle">retire</text>
+    </svg>
+    <div class="muted">shaded band = range of likely outcomes · pot value over your lifetime</div>
+  </div>
+
+  <!-- LEVERS -->
+  <h2>Pull a lever — watch your plan move</h2>
+  <p class="muted">Things you control. We show what happens; we never tell you which to choose.</p>
+  <label class="lever"><span>Work 2 more years</span><input type="checkbox" id="L_work" onchange="update()"></label>
+  <label class="lever"><span>Spend £200/month less</span><input type="checkbox" id="L_spend" onchange="update()"></label>
+  <label class="lever"><span>Pay £300/month more into your SIPP <span class="muted">(illustrative tax relief included)</span></span><input type="checkbox" id="L_sipp" onchange="update()"></label>
+  <label class="lever"><span>Lower your fund fees by 0.15%/yr</span><input type="checkbox" id="L_fee" onchange="update()"></label>
+  <div class="field"><label>Add a one-off event</label>
+    <select id="L_event" onchange="update()">
+      <option value="none">None</option>
+      <option value="wind">Windfall: £40,000 inheritance at 70</option>
+      <option value="exp">Big expense: £60,000 care cost at 75</option>
+    </select>
+  </div>
+
+  <!-- X-RAY -->
+  <h2>Your portfolio X-ray</h2>
+  <div class="card center">
+    <div class="muted">A 2022-style crash could cost you</div>
+    <div class="num red sm">−£138,000</div>
+    <div class="muted">−34% vs −21% for a globally diversified portfolio</div>
+  </div>
+  <div class="card">
+    <div class="kpi"><span><b>Concentration · high</b><br><span class="muted">62% in US technology</span></span><span>62%</span></div>
+    <div class="bar"><div class="bar-fill red" style="width:62%"></div></div>
+    <span class="toggle" onclick="t('x1')">show me why ▸</span><div id="x1" class="detail hide">Your funds overlap: the global tracker, the S&amp;P 500 fund and the tech fund all hold the same mega-cap US names. Top 7 stocks ≈ 38% of everything.</div>
+  </div>
+  <div class="card">
+    <div class="kpi"><span><b>How much moves together · high</b><br><span class="muted">~80% behaves as one</span></span><span>~0.9</span></div>
+    <div class="bar"><div class="bar-fill red" style="width:80%"></div></div>
+    <span class="toggle" onclick="t('x2')">show me why ▸</span><div id="x2" class="detail hide">Average correlation ≈ 0.9 (1.0 = identical). Three funds, but they rise and fall together — so less protection than it looks.</div>
+  </div>
+  <div class="card">
+    <div class="kpi"><span><b>Currency risk · high</b><br><span class="muted">62% of your money is in US dollars</span></span><span>62%</span></div>
+    <div class="bar"><div class="bar-fill amber" style="width:62%"></div></div>
+    <span class="toggle" onclick="t('x3')">show me why ▸</span><div id="x3" class="detail hide">A 10% stronger pound would knock roughly <b>−£25,000</b> off your portfolio, regardless of how the shares do. You're betting on the dollar as well as on tech.</div>
+  </div>
+  <div class="card">
+    <div class="kpi"><span><b>Fees · £1,140 / year</b><br><span class="muted">blended 0.29%</span></span><span>~£41k / 20yr</span></div>
+    <span class="toggle" onclick="t('x4')">show me why ▸</span><div id="x4" class="detail hide">Your tech fund (0.32%) is the priciest sleeve; broad trackers in the same category typically run ~0.10–0.20%. Trimming 0.15%/yr ≈ <b>+£X</b> and your money lasting longer — try the "lower fees" lever above. This is information, not a recommendation to buy or sell any fund.</div>
+  </div>
+
+  <!-- PREMIUM TEASER (locked) -->
+  <div class="card" style="opacity:.75;border-style:dashed">
+    <h3>🔒 Advanced planning · Premium <span class="muted">(coming soon)</span></h3>
+    <p class="muted">Drawdown sequencing · ISA/SIPP/GIA withdrawal modelling · inheritance-tax illustrations · year-by-year detail. For when you want to go deeper — opt-in, never the default.</p>
+  </div>
+
+  <!-- CTA -->
+  <div class="card center" style="background:#fff7ec;border-color:#f2d49a">
+    <h3>Keep this as your annual Retirement MOT</h3>
+    <div class="num sm">£129<span style="font-size:16px;color:var(--muted)"> / year</span></div>
+    <p class="muted">A professional report you keep &amp; share · re-run any time · independent, we sell you nothing.</p>
+    <a class="btn btn-primary" href="reserve.html">Reserve mine →</a>
+    <div class="muted" style="margin-top:8px"><span class="evt">event: reserve_clicked</span></div>
+  </div>
+
+  <div class="note">Illustration, not advice · figures computed by code, not AI · current rules, subject to change · we never model transferring a final-salary pension.</div>
+</div>
+<footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
+<script>
+function t(id){document.getElementById(id).classList.toggle('hide');}
+var ageEl=document.getElementById('age'),chip=document.getElementById('chip'),
+    band=document.getElementById('band'),line=document.getElementById('line'),
+    retire=document.getElementById('retire'),retlbl=document.getElementById('retlbl'),dep=document.getElementById('dep');
+function mapX(a){return 10+(a-60)/40*580;}
+function vals(radj){
+  var work=document.getElementById('L_work').checked, spendL=document.getElementById('L_spend').checked,
+      sipp=document.getElementById('L_sipp').checked, fee=document.getElementById('L_fee').checked,
+      ev=document.getElementById('L_event').value;
+  var retAge=65+(work?2:0), contrib=9600+(sipp?5400:0), spend=40000-(spendL?2400:0),
+      r=0.029+(fee?0.0015:0)+radj, v=400000, out=[];
+  for(var age=60;age<=100;age++){
+    if(ev==='wind'&&age===70)v+=40000;
+    if(ev==='exp'&&age===75)v-=60000;
+    if(age< (work?67:65)){v=v*(1+r)+contrib;}
+    else{var inc=age>=67?11500:0; v=v*(1+r)-(spend-inc);}
+    out.push(v);
+  }
+  return out;
+}
+function pathFrom(a,max){var s='';for(var i=0;i<a.length;i++){var x=mapX(60+i),y=170-Math.max(a[i],0)/max*160;s+=(i?'L':'M')+x.toFixed(1)+' '+Math.max(y,10).toFixed(1);}return s;}
+function update(){
+  var hi=vals(0.015),mid=vals(0),lo=vals(-0.015);
+  var max=Math.max.apply(null,hi.concat([420000]));
+  band.setAttribute('points',(function(){var p=[];for(var i=0;i<hi.length;i++)p.push(mapX(60+i).toFixed(1)+','+Math.max(170-Math.max(hi[i],0)/max*160,10).toFixed(1));for(var j=lo.length-1;j>=0;j--)p.push(mapX(60+j).toFixed(1)+','+(170-Math.max(lo[j],0)/max*160).toFixed(1));return p.join(' ');})());
+  line.setAttribute('d',pathFrom(mid,max));
+  var work=document.getElementById('L_work').checked,rx=mapX(work?67:65);
+  retire.setAttribute('x1',rx);retire.setAttribute('x2',rx);retlbl.setAttribute('x',rx);
+  var depAge=101;for(var i=0;i<mid.length;i++){if(mid[i]<=0){depAge=60+i;break;}}
+  if(depAge<=100){dep.style.display='';dep.setAttribute('cx',mapX(depAge));dep.setAttribute('cy',170);ageEl.textContent=depAge;}
+  else{dep.style.display='none';ageEl.textContent='100+';}
+  var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(depAge,100)-80)*3.5)));
+  chip.textContent=p+'% likely · you wanted to reach 95';
+  chip.className='chip '+(depAge>=95?'green':'amber');
+}
+update();
+</script>
+</body></html>

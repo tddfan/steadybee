@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — reserve your MOT</title>
+<link rel="stylesheet" href="styles.css"></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="navlinks"><a href="plan.html">Back</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap">
+  <div id="form">
+    <h1>Reserve your annual Retirement MOT</h1>
+    <p class="lead">Be first in line. No payment now — we'll email you when it opens. <span class="evt">event: reserve_viewed · price_variant shown</span></p>
+
+    <div class="card">
+      <div class="field"><label>Your email</label><input id="email" placeholder="you@example.com" type="email"></div>
+
+      <div class="field"><label>What matters most to you? (helps us build the right thing)</label>
+        <label class="lever"><span>Will my money last?</span><input type="checkbox" checked></label>
+        <label class="lever"><span>Am I paying too much in fees?</span><input type="checkbox"></label>
+        <label class="lever"><span>Leaving money to family / inheritance tax</span><input type="checkbox"></label>
+        <span class="muted">(the inheritance option just measures interest — it's not built yet)</span>
+      </div>
+
+      <div class="card center" style="background:#fff7ec;border-color:#f2d49a;margin:14px 0 0">
+        <div class="muted">your price</div><div class="num sm">£129<span style="font-size:16px;color:var(--muted)">/yr</span></div>
+        <div class="muted">(testing £99 vs £150 — you'd see one) <span class="evt">price_variant: p129</span></div>
+      </div>
+
+      <div style="margin-top:18px" class="center">
+        <button class="btn btn-primary" onclick="done()">Reserve my place →</button>
+        <div class="muted" style="margin-top:10px">we store only your email, with your consent · we sell nothing</div>
+      </div>
+    </div>
+    <div class="note">No payment taken. Reserving just joins the waitlist. Illustration, not advice.</div>
+  </div>
+
+  <div id="thanks" class="hide center" style="padding-top:40px">
+    <div class="num">🐝</div>
+    <h1>You're on the list</h1>
+    <p class="lead">Thanks — we'll be in touch when your Retirement MOT is ready.</p>
+    <p class="muted"><span class="evt">event: reserved</span></p>
+    <a class="btn btn-ghost" href="index.html">Back to start</a>
+  </div>
+</div>
+<footer>we sell nothing · we store only what you consent to · illustration, not advice</footer>
+<script>function done(){document.getElementById('form').classList.add('hide');document.getElementById('thanks').classList.remove('hide');window.scrollTo(0,0);}</script>
+</body></html>

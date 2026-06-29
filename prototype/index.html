@@ -1,0 +1,114 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — will your money last?</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.hero{text-align:center;padding:14px 0 8px}
+.hero h1{font-size:38px;line-height:1.18;max-width:600px;margin:8px auto}
+.preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;max-width:540px;margin:18px auto 0;box-shadow:0 1px 0 #f0ece3}
+.minitiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.mt{background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:8px}
+.mt .v{font-family:Georgia,serif;font-size:22px;color:var(--teal)}.mt .v.red{color:var(--red)}.mt .l{font-size:11px;color:var(--muted)}
+.drawline{stroke-dasharray:600;stroke-dashoffset:600;animation:draw 1.6s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.feature{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;margin:34px 0}
+.feature.rev .txt{order:2}
+.vis{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+.xbar{display:flex;justify-content:space-between;font-size:13px;margin:9px 0 3px;color:var(--ink-soft)}
+.ladder{display:flex;gap:8px}.ladder .lc{flex:1;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;text-align:center;color:var(--muted)}
+.ladder .lc.lock{opacity:.55;background:#f4f1ea}
+.trust{background:#0f5c59;color:#fff;border-radius:14px;padding:20px;text-align:center;margin:30px 0}
+@media(max-width:640px){.feature{grid-template-columns:1fr}.feature.rev .txt{order:0}.hero h1{font-size:30px}}
+</style></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="navlinks"><a href="app.html">Open the app</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap" style="max-width:760px">
+
+  <div class="hero">
+    <div class="muted">an honest, two-minute retirement check-up</div>
+    <h1>Will your money last as long as you do?</h1>
+    <p class="lead" style="max-width:480px;margin:6px auto 0">See your whole retirement on one screen — the answer, the risks in what you hold, and the few things that change it.</p>
+    <div class="preview">
+      <div class="minitiles">
+        <div class="mt"><div class="v red">89</div><div class="l">money lasts to</div></div>
+        <div class="mt"><div class="v red">72%</div><div class="l">reach age 95</div></div>
+        <div class="mt"><div class="v">£450k</div><div class="l">pot today</div></div>
+      </div>
+      <svg viewBox="0 0 500 150" style="width:100%;height:auto">
+        <line x1="20" y1="120" x2="480" y2="120" stroke="#efece4"/>
+        <polygon points="20,95 90,55 90,55 200,70 320,108 420,120 420,120 20,120" fill="#0f5c59" opacity="0.10"/>
+        <path class="drawline" d="M20 95 L90 55 L160 64 L230 82 L300 104 L380 119 L420 120" fill="none" stroke="#0f5c59" stroke-width="3"/>
+        <line x1="90" y1="35" x2="90" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="90" y="30" font-size="10" fill="#8a9695" text-anchor="middle">retire</text>
+        <circle cx="380" cy="120" r="4.5" fill="#b4452e"/>
+        <text x="20" y="140" font-size="10" fill="#8a9695">60</text><text x="465" y="140" font-size="10" fill="#8a9695">100</text>
+      </svg>
+    </div>
+    <a class="btn btn-primary" href="app.html" style="margin-top:18px">Try it free →</a>
+    <div class="muted" style="margin-top:12px">we store nothing in free mode · we sell nothing · never sell your data</div>
+  </div>
+
+  <!-- Feature: projection -->
+  <div class="feature">
+    <div class="txt"><h2>See if you're on track — in one number</h2><p>Your money modelled over your whole life, with the range of likely outcomes. One clear answer, not a spreadsheet.</p></div>
+    <div class="vis"><svg viewBox="0 0 400 150" style="width:100%;height:auto">
+      <line x1="15" y1="120" x2="385" y2="120" stroke="#efece4"/>
+      <polygon points="15,92 80,50 170,66 260,100 330,118 330,118 15,120" fill="#0f5c59" opacity="0.10"/>
+      <path d="M15 92 L80 50 L150 60 L220 80 L290 106 L330 118" fill="none" stroke="#0f5c59" stroke-width="2.5"/>
+      <line x1="80" y1="34" x2="80" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="80" y="30" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>
+      <circle cx="330" cy="118" r="4" fill="#b4452e"/></svg></div>
+  </div>
+
+  <!-- Feature: X-ray -->
+  <div class="feature rev">
+    <div class="txt"><h2>Spot the hidden risk in what you hold</h2><p>Concentration, currency exposure, how much really moves together, crash exposure — the things your broker dashboard never shows you.</p></div>
+    <div class="vis">
+      <div class="xbar"><span>US technology</span><span>62%</span></div><div class="bar"><div class="bar-fill red" style="width:62%"></div></div>
+      <div class="xbar"><span>In US dollars (FX)</span><span>62%</span></div><div class="bar"><div class="bar-fill amber" style="width:62%"></div></div>
+      <div class="xbar"><span>Moves as one</span><span>~80%</span></div><div class="bar"><div class="bar-fill red" style="width:80%"></div></div>
+    </div>
+  </div>
+
+  <!-- Feature: household -->
+  <div class="feature">
+    <div class="txt"><h2>Plan together, as a household</h2><p>You and your partner in one view — combined, plus survivor scenarios so you know you'd both be okay.</p></div>
+    <div class="vis"><svg viewBox="0 0 400 150" style="width:100%;height:auto">
+      <line x1="15" y1="120" x2="385" y2="120" stroke="#efece4"/>
+      <polygon points="15,96 70,60 150,70 250,98 340,116 340,116 15,120" fill="#0f5c59" opacity="0.10"/>
+      <path d="M15 96 L70 60 L150 70 L250 98 L340 116" fill="none" stroke="#0f5c59" stroke-width="2.5"/>
+      <line x1="70" y1="40" x2="70" y2="120" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="70" y="36" font-size="9" fill="#8a9695" text-anchor="middle">you</text>
+      <line x1="120" y1="48" x2="120" y2="120" stroke="#cfc7b6" stroke-dasharray="3 3"/><text x="120" y="44" font-size="9" fill="#8a9695" text-anchor="middle">partner</text></svg></div>
+  </div>
+
+  <!-- Feature: levers -->
+  <div class="feature rev">
+    <div class="txt"><h2>See what moves your plan most</h2><p>Work a bit longer? Spend a little less? We rank the levers by impact — you decide. We never tell you what to buy.</p></div>
+    <div class="vis">
+      <div class="xbar"><span>Work 2 more years</span><span style="color:#1f7a4d">+4y</span></div><div class="bar"><div class="bar-fill" style="width:100%"></div></div>
+      <div class="xbar"><span>Spend £300/mo less</span><span style="color:#1f7a4d">+3y</span></div><div class="bar"><div class="bar-fill" style="width:75%"></div></div>
+      <div class="xbar"><span>Defer state pension</span><span style="color:#1f7a4d">+2y</span></div><div class="bar"><div class="bar-fill" style="width:50%"></div></div>
+      <div class="xbar"><span>Lower fees 0.15%</span><span style="color:#1f7a4d">+0.5y</span></div><div class="bar"><div class="bar-fill" style="width:14%"></div></div>
+    </div>
+  </div>
+
+  <!-- Feature: depth ladder -->
+  <div class="feature">
+    <div class="txt"><h2>Sneak a peek, or go deep</h2><p>Start with our typical defaults. Add as much as you like — the more you tell us, the sharper it gets, unlocking the deep portfolio analysis.</p></div>
+    <div class="vis"><div class="ladder">
+      <div class="lc">Totals<br><b style="color:var(--teal)">free</b></div>
+      <div class="lc">By account<br><b style="color:var(--teal)">+ tax insights</b></div>
+      <div class="lc lock">🔒 Full holdings<br>deep risk</div>
+    </div><div class="muted" style="text-align:center;margin-top:8px">accuracy climbs as you add detail</div></div>
+  </div>
+
+  <div class="trust">
+    <h2 style="color:#fff;margin:0 0 6px">Independent. Honest. Yours.</h2>
+    <p style="color:#dbeae8;margin:0">We sell no funds and earn no commission — so we tell you the truth. In free mode we store nothing.</p>
+  </div>
+
+  <div class="center" style="margin:10px 0 20px"><a class="btn btn-primary" href="app.html">See your full picture — free →</a></div>
+  <div class="note center">Illustration, not advice. Steadybee is decision-support and educational software, not regulated financial advice.</div>
+</div>
+<footer>we sell nothing · independent · your data is never sold · illustration, not advice</footer>
+</body></html>

@@ -1,0 +1,127 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — advanced plan (Pro)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .v{font-family:Georgia,serif;font-size:26px;color:var(--teal);line-height:1.1}
+.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted);margin-top:2px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+.ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between;margin-bottom:2px}
+.ctrl label b{color:var(--ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--teal)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+.chartcard h3{margin-bottom:4px}
+.full{grid-column:1 / -1}
+.xtable{width:100%;border-collapse:collapse;font-size:14px}
+.xtable td{padding:8px 6px;border-top:1px solid var(--line)}
+.xtable td:last-child{text-align:right;font-weight:500}
+.tag{font-size:11px;padding:2px 7px;border-radius:10px}
+.tag.hi{background:#f7ddd5;color:#9c3a23}.tag.md{background:#fdeccd;color:#8a5a12}
+@media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}.controls{grid-template-columns:1fr}}
+</style></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span class="tag md">Pro</span></div>
+  <div class="navlinks"><a href="plan.html">Calm view</a><a href="input.html">Edit</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap" style="max-width:840px">
+  <p class="muted">Advanced plan · Bella, 60 · £400,000 · live prices · nothing stored <span class="evt">event: lab_viewed</span></p>
+
+  <div class="tiles">
+    <div class="tile"><div class="v" id="k_age">89</div><div class="l">money lasts to age</div></div>
+    <div class="tile"><div class="v" id="k_succ">72%</div><div class="l">success (reach 95)</div></div>
+    <div class="tile"><div class="v" id="k_peak">£540k</div><div class="l">peak net worth</div></div>
+    <div class="tile"><div class="v" id="k_end">£0</div><div class="l">balance at 95</div></div>
+  </div>
+
+  <h2>Inputs</h2>
+  <div class="controls">
+    <div class="ctrl"><label>Retirement age <b id="v_ret">65</b></label><input type="range" id="s_ret" min="55" max="75" value="65" oninput="recompute()"></div>
+    <div class="ctrl"><label>Monthly spending <b id="v_spend">£3,333</b></label><input type="range" id="s_spend" min="1500" max="5000" step="50" value="3333" oninput="recompute()"></div>
+    <div class="ctrl"><label>Monthly contribution <b id="v_con">£800</b></label><input type="range" id="s_con" min="0" max="3000" step="50" value="800" oninput="recompute()"></div>
+    <div class="ctrl"><label>Expected return <b id="v_r">2.9%</b></label><input type="range" id="s_r" min="10" max="70" value="29" oninput="recompute()"></div>
+    <div class="ctrl"><label>Inflation <b id="v_inf">2.5%</b></label><input type="range" id="s_inf" min="10" max="50" value="25" oninput="recompute()"></div>
+    <div class="ctrl"><label>One-off event</label><select id="s_ev" onchange="recompute()"><option value="none">None</option><option value="wind">+£40k windfall at 70</option><option value="exp">−£60k care cost at 75</option></select></div>
+  </div>
+
+  <div class="charts" style="margin-top:14px">
+    <div class="chartcard full"><h3>Net worth projection</h3>
+      <svg id="main" viewBox="0 0 600 240" style="width:100%;height:auto"></svg>
+      <div class="muted">shaded = range of outcomes (±1.5% return) · dashed = retirement · dot = money runs out</div>
+    </div>
+    <div class="chartcard"><h3>Range of outcomes</h3>
+      <svg id="mc" viewBox="0 0 300 170" style="width:100%;height:auto"></svg>
+      <div class="muted">10 simulated market paths · most land between these</div>
+    </div>
+    <div class="chartcard"><h3>What you hold</h3>
+      <svg id="donut" viewBox="0 0 170 170" style="width:60%;height:auto;display:block;margin:0 auto"></svg>
+      <div class="muted center">US tech 62% · US 18% · world 8% · cash 12%</div>
+    </div>
+  </div>
+
+  <h2>Portfolio X-ray</h2>
+  <div class="chartcard">
+    <table class="xtable">
+      <tr><td>Concentration — 62% US technology</td><td><span class="tag hi">high</span></td></tr>
+      <tr><td>How much moves together — ~0.9 correlation</td><td><span class="tag hi">high</span></td></tr>
+      <tr><td>Currency risk — 62% in US dollars (10% stronger £ ≈ −£25k)</td><td><span class="tag hi">high</span></td></tr>
+      <tr><td>Fees — £1,140/yr (0.29%), ~£41k over 20yr</td><td><span class="tag md">watch</span></td></tr>
+      <tr><td>Crash exposure — −£138k (−34%) in a 2022 repeat</td><td><span class="tag hi">high</span></td></tr>
+    </table>
+    <div class="muted" style="margin-top:8px">Fees vs category benchmark shown for information — not a recommendation to buy or sell any fund.</div>
+  </div>
+
+  <div class="card center" style="background:#fff7ec;border-color:#f2d49a">
+    <h3>Keep your annual Retirement MOT — Pro</h3>
+    <div class="num sm">£199<span style="font-size:16px;color:var(--muted)"> / year</span></div>
+    <p class="muted">Advanced planning, full detail. Independent — we sell you nothing.</p>
+    <a class="btn btn-primary" href="reserve.html">Reserve Pro →</a>
+  </div>
+  <div class="note">Illustration, not advice · figures computed by code, not AI · current rules, subject to change · we never model transferring a final-salary pension.</div>
+</div>
+<footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
+<script>
+function $(id){return document.getElementById(id);}
+function fmt(v){v=Math.round(v);if(Math.abs(v)>=1e6)return '£'+(v/1e6).toFixed(2)+'m';return '£'+Math.round(v/1000)+'k';}
+function controls(){return{retire:+$('s_ret').value,spend:(+$('s_spend').value)*12,contrib:(+$('s_con').value)*12,r:(+$('s_r').value)/1000,inf:(+$('s_inf').value)/1000,ev:$('s_ev').value};}
+function project(rOver){var c=controls(),r=(rOver==null?c.r:rOver),v=400000,out=[];
+  for(var age=60;age<=100;age++){
+    if(c.ev==='wind'&&age===70)v+=40000; if(c.ev==='exp'&&age===75)v-=60000;
+    if(age<c.retire){v=v*(1+r)+c.contrib;}
+    else{var sp=age>=67?11500:0; var spendY=c.spend*Math.pow(1+c.inf,age-c.retire); v=v*(1+r)-(spendY-sp);}
+    out.push(v);
+  } return out;}
+function mapX(a,x0,w){return x0+(a-60)/40*w;}
+function depAge(a){for(var i=0;i<a.length;i++)if(a[i]<=0)return 60+i;return 101;}
+function recompute(){
+  var c=controls();
+  $('v_ret').textContent=c.retire;$('v_spend').textContent='£'+(+$('s_spend').value).toLocaleString();
+  $('v_con').textContent='£'+(+$('s_con').value).toLocaleString();$('v_r').textContent=(c.r*100).toFixed(1)+'%';
+  $('v_inf').textContent=(c.inf*100).toFixed(1)+'%';
+  var hi=project(c.r+0.015),mid=project(c.r),lo=project(c.r-0.015);
+  var max=Math.max.apply(null,hi.concat([420000]));
+  // KPIs
+  var d=depAge(mid); $('k_age').textContent=d>100?'100+':d;
+  var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(d,100)-80)*3.5)));$('k_succ').textContent=p+'%';
+  $('k_succ').className='v'+(d>=95?'':' red'); $('k_age').className='v'+(d>=95?'':' red');
+  $('k_peak').textContent=fmt(Math.max.apply(null,mid)); var bal95=mid[35]; $('k_end').textContent=fmt(Math.max(bal95,0));
+  // main chart
+  var x0=40,w=545,yb=200,yt=20,plot=function(v){return yb-Math.max(v,0)/max*(yb-yt);};
+  var g='';[0,.5,1].forEach(function(f){var y=yb-f*(yb-yt);g+='<line x1="40" y1="'+y+'" x2="585" y2="'+y+'" stroke="#efece4"/><text x="6" y="'+(y+4)+'" font-size="10" fill="#8a9695">'+fmt(max*f)+'</text>';});
+  function pth(a){var s='';for(var i=0;i<a.length;i++)s+=(i?'L':'M')+mapX(60+i,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);return s;}
+  var bandP='';for(i=0;i<hi.length;i++)bandP+=(i?'L':'M')+mapX(60+i,x0,w).toFixed(1)+' '+plot(hi[i]).toFixed(1);for(var j=lo.length-1;j>=0;j--)bandP+='L'+mapX(60+j,x0,w).toFixed(1)+' '+plot(lo[j]).toFixed(1);
+  var rx=mapX(c.retire,x0,w),dx=d<=100?mapX(d,x0,w):0;
+  $('main').innerHTML=g+'<path d="'+bandP+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="10" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="300" y="225" font-size="10" fill="#8a9695">80</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
+  // monte carlo spaghetti
+  var mh='';for(var k=0;k<10;k++){var path=project(c.r+(k-4.5)*0.006);var s='';for(i=0;i<path.length;i++)s+=(i?'L':'M')+mapX(60+i,15,275).toFixed(1)+' '+(150-Math.max(path[i],0)/max*135).toFixed(1);mh+='<path d="'+s+'" fill="none" stroke="#0f5c59" stroke-width="'+(k===5?2:1)+'" opacity="'+(k===5?1:0.25)+'"/>';}
+  mh+='<line x1="15" y1="150" x2="290" y2="150" stroke="#e7e3da"/>';$('mc').innerHTML=mh;
+  // donut (static)
+  var seg=[[62,'#b4452e'],[18,'#e8a12c'],[8,'#0f5c59'],[12,'#cfd8d6']],C=2*Math.PI*55,off=0,dn='';
+  seg.forEach(function(s){var len=s[0]/100*C;dn+='<circle cx="85" cy="85" r="55" fill="none" stroke="'+s[1]+'" stroke-width="22" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 85 85)"/>';off+=len;});
+  $('donut').innerHTML=dn;
+}
+recompute();
+</script>
+</body></html>

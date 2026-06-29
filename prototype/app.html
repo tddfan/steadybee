@@ -1,0 +1,230 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — your future</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.status{position:sticky;top:0;z-index:5;background:#0f5c59;color:#fff;padding:12px 20px}
+.status .in{max-width:840px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.status b{font-family:Georgia,serif;font-weight:400}
+.status .acc{background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer}
+.tabs2{display:flex;gap:6px;max-width:840px;margin:14px auto 0;padding:0 20px}
+.tabbtn{flex:1;text-align:center;padding:11px;border:1px solid var(--line);border-radius:10px 10px 0 0;background:#fff;cursor:pointer;font-size:15px}
+.tabbtn.on{border-bottom-color:#fff;color:var(--teal);font-weight:600;background:#fff}
+.tab{display:none}.tab.on{display:block}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .v{font-family:Georgia,serif;font-size:24px;color:var(--teal)}.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted)}
+.pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.psum{display:flex;justify-content:space-between;align-items:center}
+.pdet{margin-top:12px}.pdet .row{display:flex;justify-content:space-between;margin:7px 0;font-size:14px;color:var(--ink-soft)}
+.pdet input{width:120px;text-align:right}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:none;background:#fff;padding:8px 14px;cursor:pointer;font-size:14px}
+.seg button.on{background:var(--teal);color:#fff}
+.ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between}input[type=range]{width:100%;accent-color:var(--teal)}
+.chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.lev{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0;font-size:15px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.locked{position:relative;overflow:hidden}
+.locked .blur{filter:blur(4px);opacity:.5;pointer-events:none}
+.lockmsg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(251,250,247,.7);text-align:center;padding:10px}
+.lockmsg .btn{margin-top:6px}
+.minibar{height:8px;background:#eceae3;border-radius:5px;margin:6px 0}.minibar>div{height:100%;border-radius:5px}
+.accbar{height:8px;background:rgba(255,255,255,.25);border-radius:5px;width:120px}.accbar>div{height:100%;background:#e8a12c;border-radius:5px}
+@media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.sgrid{grid-template-columns:1fr}}
+</style></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="navlinks"><span class="badge">prototype</span></div>
+</nav>
+
+<div class="status"><div class="in">
+  <div>On track to <b id="s_age">—</b> · <span id="s_succ">—</span> chance of reaching 95</div>
+  <div class="acc" onclick="tab('portfolio')">accuracy <b id="s_acc">45%</b> · sharpen ▸<div class="accbar"><div id="s_accbar" style="width:45%"></div></div></div>
+</div></div>
+
+<div class="tabs2">
+  <div class="tabbtn on" id="tb_you" onclick="tab('you')">You</div>
+  <div class="tabbtn" id="tb_plan" onclick="tab('plan')">Plan</div>
+  <div class="tabbtn" id="tb_portfolio" onclick="tab('portfolio')">Portfolio</div>
+</div>
+
+<div class="wrap" style="max-width:840px">
+
+  <!-- ===== YOU ===== -->
+  <section class="tab on" id="tab-you">
+    <p class="muted" style="margin-top:14px">We've started you off with typical values — change anything to match your life. <span class="evt">event: you_tab</span></p>
+    <div class="seg" style="margin-bottom:8px">
+      <button id="pt_solo" onclick="setPlan('solo')">Just me</button>
+      <button id="pt_couple" class="on" onclick="setPlan('couple')">Me + partner</button>
+    </div>
+
+    <div class="pcard" id="cardA">
+      <div class="psum"><b id="sumA">You · 60 · retire 65 · £300k</b><span class="toggle" onclick="ed('A')">edit ▸</span></div>
+      <div class="pdet hide" id="detA">
+        <div class="row"><span>Age</span><input type="number" id="A_age" value="60" oninput="recompute()"></div>
+        <div class="row"><span>Retire at</span><input type="number" id="A_ret" value="65" oninput="recompute()"></div>
+        <div class="row"><span>Pension/ISA pot £</span><input type="number" id="A_pot" value="300000" oninput="recompute()"></div>
+        <div class="row"><span>Pay in £/mo</span><input type="number" id="A_con" value="800" oninput="recompute()"></div>
+        <div class="row"><span>State pension £/yr</span><input type="number" id="A_sp" value="11500" oninput="recompute()"></div>
+        <div class="row"><span>DB (final-salary) pension £/yr</span><input type="number" id="A_db" value="0" oninput="recompute()"></div>
+      </div>
+    </div>
+
+    <div class="pcard" id="cardB">
+      <div class="psum"><b id="sumB">Partner · 58 · retire 66 · £150k</b><span class="toggle" onclick="ed('B')">edit ▸</span></div>
+      <div class="pdet hide" id="detB">
+        <div class="row"><span>Age</span><input type="number" id="B_age" value="58" oninput="recompute()"></div>
+        <div class="row"><span>Retire at</span><input type="number" id="B_ret" value="66" oninput="recompute()"></div>
+        <div class="row"><span>Pension/ISA pot £</span><input type="number" id="B_pot" value="150000" oninput="recompute()"></div>
+        <div class="row"><span>Pay in £/mo</span><input type="number" id="B_con" value="500" oninput="recompute()"></div>
+        <div class="row"><span>State pension £/yr</span><input type="number" id="B_sp" value="11000" oninput="recompute()"></div>
+        <div class="row"><span>DB pension £/yr</span><input type="number" id="B_db" value="7000" oninput="recompute()"></div>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="ctrl"><label>Household spending <b id="v_spend">£3,800/mo</b></label><input type="range" id="s_spend" min="2000" max="6000" step="50" value="3800" oninput="recompute()"></div>
+      <div class="ctrl" style="margin-top:8px"><label>Expected return <b id="v_r">2.9%</b></label><input type="range" id="s_r" min="10" max="70" value="29" oninput="recompute()"></div>
+      <div class="ctrl" style="margin-top:8px"><label>Inflation <b id="v_inf">2.5%</b></label><input type="range" id="s_inf" min="10" max="50" value="25" oninput="recompute()"></div>
+      <div class="row" style="display:flex;justify-content:space-between;margin-top:10px;font-size:14px;color:var(--ink-soft)"><span>Survivor scenario</span><select id="s_surv" onchange="recompute()"><option value="none">Both live</option><option value="A82">If You pass at 82</option><option value="B84">If Partner passes at 84</option></select></div>
+    </div>
+    <div class="center"><button class="btn btn-primary" onclick="tab('plan')">See my plan →</button></div>
+  </section>
+
+  <!-- ===== PLAN ===== -->
+  <section class="tab" id="tab-plan">
+    <div class="tiles">
+      <div class="tile"><div class="v" id="k_age">—</div><div class="l">money lasts to</div></div>
+      <div class="tile"><div class="v" id="k_succ">—</div><div class="l">success (reach 95)</div></div>
+      <div class="tile"><div class="v" id="k_pot">—</div><div class="l">pot today</div></div>
+      <div class="tile"><div class="v" id="k_peak">—</div><div class="l">peak net worth</div></div>
+    </div>
+    <div class="chartcard"><h3>Your money over time</h3>
+      <svg id="main" viewBox="0 0 600 240" style="width:100%;height:auto"></svg>
+      <div class="muted">shaded = range of outcomes · dashed = retirement · dot = money runs out</div>
+    </div>
+    <h3>Play with the levers</h3>
+    <label class="lev"><span>Both work 2 more years</span><input type="checkbox" id="L_work" onchange="recompute()"></label>
+    <label class="lev"><span>Spend £300/month less</span><input type="checkbox" id="L_spend" onchange="recompute()"></label>
+    <label class="lev"><span>Each pay £300/month more</span><input type="checkbox" id="L_con" onchange="recompute()"></label>
+    <label class="lev"><span>Lower fees 0.15%/yr</span><input type="checkbox" id="L_fee" onchange="recompute()"></label>
+    <div class="chartcard"><h3>What moves your plan most</h3>
+      <p class="muted">Each lever on its own, ranked. Illustrative — you choose; we don't recommend.</p>
+      <div id="sens"></div>
+    </div>
+    <div class="chartcard"><h3>Compare scenarios</h3>
+      <div id="compare" class="muted">No saved scenarios yet.</div>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="saveScenario()">📸 Save this scenario</button>
+    </div>
+  </section>
+
+  <!-- ===== PORTFOLIO ===== -->
+  <section class="tab" id="tab-portfolio">
+    <p class="muted" style="margin-top:14px">How much do you want to tell us? More detail = sharper insights. <span class="evt">event: portfolio_tab</span></p>
+    <div class="seg" id="lvlseg">
+      <button id="lv_tot" onclick="setLevel('tot')">Totals only</button>
+      <button id="lv_wrap" class="on" onclick="setLevel('wrap')">By account</button>
+      <button id="lv_hold" onclick="setLevel('hold')">Full holdings</button>
+    </div>
+    <div class="pcard" id="wrapcard">
+      <div class="sgrid">
+        <div class="row" style="display:flex;justify-content:space-between"><span>ISA £</span><input type="number" id="W_isa" value="120000" oninput="recompute()" style="width:120px;text-align:right"></div>
+        <div class="row" style="display:flex;justify-content:space-between"><span>SIPP/pension £</span><input type="number" id="W_sipp" value="250000" oninput="recompute()" style="width:120px;text-align:right"></div>
+        <div class="row" style="display:flex;justify-content:space-between"><span>GIA £</span><input type="number" id="W_gia" value="30000" oninput="recompute()" style="width:120px;text-align:right"></div>
+        <div class="row" style="display:flex;justify-content:space-between"><span>Cash £</span><input type="number" id="W_cash" value="50000" oninput="recompute()" style="width:120px;text-align:right"></div>
+      </div>
+      <div class="center" style="margin-top:8px"><span class="muted">Want the deep risk analysis? </span><a class="toggle" onclick="setLevel('hold')">add your holdings ▸</a></div>
+    </div>
+
+    <h3>At a glance</h3>
+    <div class="seg" style="margin-bottom:8px"><button class="on">Household</button><button>You</button><button>Partner</button></div>
+
+    <!-- FREE cards -->
+    <div class="pcard"><b>Tax-wrapper balance</b><br><span class="muted" id="x_wrap">—</span>
+      <div class="minibar"><div id="x_wrapbar" style="width:60%;background:var(--teal)"></div></div></div>
+    <div class="pcard"><b>Cash drag</b><br><span class="muted" id="x_cash">—</span></div>
+
+    <!-- LOCKED cards -->
+    <div id="lockwrap">
+    <div class="pcard locked" id="lk1"><div class="blur"><b>Concentration</b><br><span class="muted">62% in US technology</span><div class="minibar"><div style="width:62%;background:var(--red)"></div></div></div><div class="lockmsg">🔒 Add holdings to see your real concentration<a class="btn btn-primary" style="font-size:13px;padding:8px 14px" onclick="setLevel('hold')">Unlock</a></div></div>
+    <div class="pcard locked" id="lk2"><div class="blur"><b>US tech &amp; sector exposure</b><br><span class="muted">tech-heavy</span><div class="minibar"><div style="width:55%;background:var(--honey)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
+    <div class="pcard locked" id="lk3"><div class="blur"><b>Regional exposure</b><br><span class="muted">US / UK / world / EM</span><div class="minibar"><div style="width:70%;background:var(--teal)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
+    <div class="pcard locked" id="lk4"><div class="blur"><b>Correlation &amp; overlap</b><br><span class="muted">how much moves as one</span><div class="minibar"><div style="width:80%;background:var(--red)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
+    <div class="pcard locked" id="lk5"><div class="blur"><b>Currency (FX) risk</b><br><span class="muted">62% in US dollars</span><div class="minibar"><div style="width:62%;background:var(--honey)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
+    <div class="pcard locked" id="lk6"><div class="blur"><b>Risk metrics &amp; alpha</b><br><span class="muted">volatility · beta · Sharpe · drawdown</span></div><div class="lockmsg">🔒 Needs your holdings</div></div>
+    </div>
+    <div class="note">Greyed panels are examples of what you'd unlock — not your data. Figures illustrative, not advice.</div>
+  </section>
+</div>
+<footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
+<script>
+function $(id){return document.getElementById(id);}
+function n(id){return +$(id).value;}
+function fmt(v){v=Math.round(v);if(Math.abs(v)>=1e6)return '£'+(v/1e6).toFixed(2)+'m';return '£'+Math.round(v/1000)+'k';}
+var planType='couple', dataLevel='wrap', scenarios=[];
+function tab(t){['you','plan','portfolio'].forEach(function(x){$('tab-'+x).classList.toggle('on',x===t);$('tb_'+x).classList.toggle('on',x===t);});window.scrollTo(0,0);}
+function ed(p){$('det'+p).classList.toggle('hide');}
+function setPlan(p){planType=p;$('pt_solo').classList.toggle('on',p==='solo');$('pt_couple').classList.toggle('on',p==='couple');$('cardB').style.display=p==='solo'?'none':'';$('s_surv').parentNode.style.display=p==='solo'?'none':'';recompute();}
+function setLevel(l){dataLevel=l;['tot','wrap','hold'].forEach(function(x){$('lv_'+x).classList.toggle('on',x===l);});$('wrapcard').style.display=l==='tot'?'none':'';
+  var unlocked=(l==='hold');for(var i=1;i<=6;i++){var c=$('lk'+i);c.classList.toggle('locked',!unlocked);c.querySelector('.blur').style.filter=unlocked?'none':'';c.querySelector('.blur').style.opacity=unlocked?'1':'';c.querySelector('.lockmsg').style.display=unlocked?'none':'';}
+  recompute();}
+function inp(){var couple=planType==='couple';return{
+  A:{age:n('A_age'),ret:n('A_ret'),pot:n('A_pot'),con:n('A_con')*12,sp:n('A_sp'),spA:67,db:n('A_db')},
+  B:couple?{age:n('B_age'),ret:n('B_ret'),pot:n('B_pot'),con:n('B_con')*12,sp:n('B_sp'),spA:67,db:n('B_db')}:{age:60,ret:60,pot:0,con:0,sp:0,spA:67,db:0},
+  spend:n('s_spend')*12,r:n('s_r')/1000,inf:n('s_inf')/1000,surv:couple?$('s_surv').value:'none'};}
+function project(o){o=o||{};var c=inp();var rb=o.rb||0,sd=o.sd||0,cb=o.cb||0,radj=o.radj||0,fb=o.fb?0.0015:0;
+  var aRet=c.A.ret+rb,bRet=c.B.ret+rb;var firstRetI=Math.max(0,Math.min(aRet-c.A.age,c.B.pot>0?bRet-c.B.age:99));
+  var v=c.A.pot+c.B.pot,raw=[],r=c.r+radj+fb,sw=c.surv.charAt(0),sage=+c.surv.slice(1)||999;
+  for(var i=0;i<=42;i++){var aAge=c.A.age+i,bAge=c.B.age+i;
+    var aDead=(sw==='A'&&aAge>=sage),bDead=(sw==='B'&&bAge>=sage),dead=aDead||bDead;
+    var contrib=((aAge<aRet&&!aDead)?c.A.con+cb:0)+((c.B.pot>0&&bAge<bRet&&!bDead)?c.B.con+cb:0);
+    var retired=(aAge>=aRet)||(c.B.pot>0&&bAge>=bRet);var income=0;
+    if(!aDead)income+=(aAge>=c.A.spA?c.A.sp:0)+(aAge>=aRet?c.A.db:0);
+    if(c.B.pot>0){if(!bDead)income+=(bAge>=c.B.spA?c.B.sp:0)+(bAge>=bRet?c.B.db:0);else income+=(bAge>=bRet?c.B.db*0.5:0);}
+    var mult=dead?0.65:1;
+    if(!retired)v=v*(1+r)+contrib; else{var spendY=(c.spend-sd)*Math.pow(1+c.inf,Math.max(0,i-firstRetI))*mult;v=v*(1+r)+contrib-(spendY-income);}
+    raw.push(v);}
+  var dep=102;for(i=0;i<raw.length;i++){if(raw[i]<=0){dep=c.A.age+i;break;}}
+  return{raw:raw,dep:dep,base:c.A.age};}
+function mapX(a,x0,w){return x0+(a-60)/40*w;}
+function recompute(){
+  var c=inp();
+  $('v_spend').textContent='£'+n('s_spend').toLocaleString()+'/mo';$('v_r').textContent=(n('s_r')/10).toFixed(1)+'%';$('v_inf').textContent=(n('s_inf')/10).toFixed(1)+'%';
+  $('sumA').textContent='You · '+c.A.age+' · retire '+c.A.ret+' · '+fmt(c.A.pot);
+  if(c.B.pot>0)$('sumB').textContent='Partner · '+c.B.age+' · retire '+c.B.ret+' · '+fmt(c.B.pot);
+  var lev={rb:$('L_work').checked?2:0,sd:$('L_spend').checked?3600:0,cb:$('L_con').checked?3600:0,fb:$('L_fee').checked};
+  var mid=project(lev),hi=project(Object.assign({radj:0.015},lev)),lo=project(Object.assign({radj:-0.015},lev));
+  var max=Math.max.apply(null,hi.raw.concat([400000]));
+  var d=mid.dep;$('k_age').textContent=d>100?'100+':d;$('s_age').textContent=(d>100?'100+':'age '+d);
+  var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(d,100)-80)*3.5)));$('k_succ').textContent=p+'%';$('s_succ').textContent=p+'%';
+  $('k_age').className='v'+(d>=95?'':' red');$('k_succ').className='v'+(d>=95?'':' red');
+  $('k_pot').textContent=fmt(c.A.pot+c.B.pot);$('k_peak').textContent=fmt(Math.max.apply(null,mid.raw));
+  // accuracy
+  var acc=40+(dataLevel==='wrap'?20:dataLevel==='hold'?45:0)+(planType==='couple'?5:0);acc=Math.min(acc,98);
+  $('s_acc').textContent=acc+'%';$('s_accbar').style.width=acc+'%';
+  // chart
+  var x0=40,w=545,yb=200,yt=20,b0=c.A.age,plot=function(val){return yb-Math.max(val,0)/max*(yb-yt);};
+  var g='';[0,.5,1].forEach(function(f){var y=yb-f*(yb-yt);g+='<line x1="40" y1="'+y+'" x2="585" y2="'+y+'" stroke="#efece4"/><text x="4" y="'+(y+4)+'" font-size="10" fill="#8a9695">'+fmt(max*f)+'</text>';});
+  function pth(a){var s='';for(var i=0;i<a.length&&b0+i<=100;i++)s+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);return s;}
+  var band='';for(i=0;i<hi.raw.length&&b0+i<=100;i++)band+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(hi.raw[i]).toFixed(1);for(var j=Math.min(lo.raw.length-1,100-b0);j>=0;j--)band+='L'+mapX(b0+j,x0,w).toFixed(1)+' '+plot(lo.raw[j]).toFixed(1);
+  var rx=mapX(c.A.ret,x0,w),dx=d<=100?mapX(d,x0,w):0;
+  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
+  // sensitivity (independent of applied levers)
+  var base=Math.min(project().dep,102);
+  var L=[['Both work 2 more years',{rb:2}],['Spend £300/mo less',{sd:3600}],['Each pay £300/mo more',{cb:3600}],['Lower fees 0.15%',{fb:1}]];
+  var res=L.map(function(l){return{name:l[0],delta:Math.min(project(l[1]).dep,102)-base};}).sort(function(a,b){return b.delta-a.delta;});
+  var mx=Math.max.apply(null,res.map(function(r){return Math.abs(r.delta)}).concat([1]));
+  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div style="display:grid;grid-template-columns:150px 1fr 55px;gap:8px;align-items:center;margin:7px 0;font-size:14px"><span>'+r.name+'</span><div class="minibar" style="margin:0"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0f5c59')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+'y</span></div>';}).join('');
+  // portfolio free cards
+  if(dataLevel!=='tot'){var isa=n('W_isa'),sipp=n('W_sipp'),gia=n('W_gia'),cash=n('W_cash'),tot=isa+sipp+gia+cash;
+    $('x_wrap').textContent='ISA '+Math.round(isa/tot*100)+'% · SIPP '+Math.round(sipp/tot*100)+'% · GIA '+Math.round(gia/tot*100)+'% · cash '+Math.round(cash/tot*100)+'% — '+(gia/tot>0.15?'a lot held in a taxable account; using ISA allowance could help (illustrative)':'tax-efficiently wrapped');
+    $('x_wrapbar').style.width=Math.round((isa+sipp)/tot*100)+'%';
+    $('x_cash').textContent='£'+Math.round(cash/1000)+'k in cash ≈ £'+Math.round(cash*0.03)+'/yr of lost growth at a 3% gap (illustrative).';}
+  else{$('x_wrap').textContent='add account values to see this';$('x_cash').textContent='add account values to see this';}
+}
+function saveScenario(){var d=$('k_age').textContent,s=$('k_succ').textContent;scenarios.push({label:'Scenario '+(scenarios.length+1),age:d,succ:s});
+  $('compare').innerHTML=scenarios.map(function(x){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)"><b>'+x.label+'</b><span>lasts to '+x.age+' · '+x.succ+'</span></div>';}).join('');}
+setLevel('wrap');recompute();
+</script>
+</body></html>

@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — add your portfolio</title>
+<link rel="stylesheet" href="styles.css"></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
+  <div class="navlinks"><a href="index.html">Home</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap">
+  <h1>Add your portfolio</h1>
+  <p class="lead">Two ways — whichever is easier. <span class="evt">event: input_started</span></p>
+
+  <div class="note trust">🔒 In free mode we store nothing. Your holdings are processed in your session and discarded — they never touch our database. Upgrade later and we'll securely keep your plan (encrypted, delete anytime).</div>
+
+  <div class="tabs">
+    <div class="tab on" id="t-csv" onclick="tab('csv')">Upload a CSV</div>
+    <div class="tab" id="t-man" onclick="tab('man')">Enter it manually</div>
+  </div>
+
+  <!-- CSV path -->
+  <div id="p-csv" class="card">
+    <h3>Upload your broker statement</h3>
+    <p>Works with Hargreaves Lansdown, Vanguard, Interactive Investor exports.</p>
+    <div style="border:2px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted)">
+      Drop your CSV here, or <a href="#" onclick="showConfirm();return false">choose a file</a>
+    </div>
+    <div id="confirm" class="hide">
+      <h3 style="margin-top:20px">We read these holdings — please confirm <span class="evt">event: holdings_confirm</span></h3>
+      <p class="muted">We show you what we parsed before calculating, so nothing is silently misread.</p>
+      <table class="hold"><thead><tr><th>Holding</th><th>Account</th><th>Value</th><th></th></tr></thead><tbody>
+        <tr><td>Vanguard FTSE Global All Cap</td><td>SIPP</td><td>£196,000</td><td>✅</td></tr>
+        <tr><td>L&amp;G Global Technology Index</td><td>ISA</td><td>£84,000</td><td>✅</td></tr>
+        <tr><td>iShares Core S&amp;P 500</td><td>ISA</td><td>£72,000</td><td>✅</td></tr>
+        <tr><td>Cash</td><td>SIPP</td><td>£48,000</td><td>✅</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <!-- Manual path -->
+  <div id="p-man" class="card hide">
+    <h3>Enter your holdings</h3>
+    <table class="hold" id="mtable"><thead><tr><th>Holding</th><th>Account</th><th>Value (£)</th></tr></thead><tbody>
+      <tr><td><input value="Global All Cap"></td><td><select><option>SIPP</option><option>ISA</option><option>GIA</option></select></td><td><input value="196000"></td></tr>
+      <tr><td><input value="Global Technology"></td><td><select><option selected>ISA</option><option>SIPP</option><option>GIA</option></select></td><td><input value="84000"></td></tr>
+    </tbody></table>
+    <a class="toggle" onclick="addRow()">+ add a holding</a>
+  </div>
+
+  <h2>A few details about you</h2>
+  <div class="card">
+    <div class="grid2">
+      <div class="field"><label>Your age</label><input value="60"></div>
+      <div class="field"><label>Target retirement age</label><input value="65"></div>
+      <div class="field"><label>Monthly contribution (£)</label><input value="800"></div>
+      <div class="field"><label>Target yearly spending in retirement (£)</label><input value="24000"></div>
+    </div>
+    <div class="note">Optional, and approximate — leave blank if unsure:</div>
+    <div class="grid2">
+      <div class="field"><label>Defined-benefit (final-salary) pension £/yr <span class="muted">optional · approximate</span></label><input placeholder="e.g. 9,000"></div>
+      <div class="field"><label>State pension £/yr from age 67</label><input value="11500"></div>
+    </div>
+    <div class="muted">We treat any DB pension as a fixed income only — we never model transferring it out.</div>
+  </div>
+
+  <div class="center" style="margin-top:20px">
+    <a class="btn btn-primary" href="plan.html">See my plan →</a>
+    <div class="muted" style="margin-top:10px">free · nothing stored <span class="evt">event: plan_requested</span></div>
+  </div>
+</div>
+<footer>we sell nothing · we store nothing in free mode · illustration, not advice · current rules, subject to change</footer>
+<script>
+function tab(w){var csv=w==='csv';
+ document.getElementById('p-csv').classList.toggle('hide',!csv);
+ document.getElementById('p-man').classList.toggle('hide',csv);
+ document.getElementById('t-csv').classList.toggle('on',csv);
+ document.getElementById('t-man').classList.toggle('on',!csv);}
+function showConfirm(){document.getElementById('confirm').classList.remove('hide');}
+function addRow(){var tb=document.querySelector('#mtable tbody');var tr=document.createElement('tr');
+ tr.innerHTML='<td><input placeholder="fund name"></td><td><select><option>ISA</option><option>SIPP</option><option>GIA</option></select></td><td><input placeholder="0"></td>';tb.appendChild(tr);}
+</script>
+</body></html>

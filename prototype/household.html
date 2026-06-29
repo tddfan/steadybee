@@ -1,0 +1,148 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steadybee — household plan (Pro)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .v{font-family:Georgia,serif;font-size:26px;color:var(--teal);line-height:1.1}
+.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted);margin-top:2px}
+.people{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.person{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+.person h3{margin-bottom:8px}
+.row{display:flex;justify-content:space-between;align-items:center;margin:7px 0;font-size:14px;color:var(--ink-soft)}
+.row input{width:110px;text-align:right}
+.hh{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px}
+.hh .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}
+.ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between}
+.ctrl label b{color:var(--ink)} input[type=range]{width:100%;accent-color:var(--teal)}
+.chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px}
+.sens .bar{height:14px;background:#eef7f6;border-radius:7px;overflow:hidden}
+.sens .bar>div{height:100%;background:#0f5c59;border-radius:7px}
+.sens .lev{display:grid;grid-template-columns:200px 1fr 60px;gap:10px;align-items:center;margin:8px 0;font-size:14px}
+@media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.people{grid-template-columns:1fr}.hh .grid{grid-template-columns:1fr}.sens .lev{grid-template-columns:130px 1fr 50px}}
+</style></head><body>
+<nav>
+  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0f5c59"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee <span style="font-size:11px;background:#fdeccd;color:#8a5a12;padding:2px 7px;border-radius:10px">Pro · Household</span></div>
+  <div class="navlinks"><a href="plan.html">Calm view</a><a href="lab.html">Single</a><span class="badge">prototype</span></div>
+</nav>
+<div class="wrap" style="max-width:860px">
+  <p class="muted">Household plan · You &amp; Partner · live prices · nothing stored <span class="evt">event: household_viewed</span></p>
+
+  <div class="tiles">
+    <div class="tile"><div class="v" id="k_age">—</div><div class="l">household money lasts to</div></div>
+    <div class="tile"><div class="v" id="k_succ">—</div><div class="l">success (reach 95)</div></div>
+    <div class="tile"><div class="v" id="k_pot">—</div><div class="l">combined pot today</div></div>
+    <div class="tile"><div class="v" id="k_peak">—</div><div class="l">peak net worth</div></div>
+  </div>
+
+  <h2>The household</h2>
+  <div class="people">
+    <div class="person" id="pA"><h3>You</h3>
+      <div class="row"><span>Age</span><input type="number" id="A_age" value="60"></div>
+      <div class="row"><span>Retire at</span><input type="number" id="A_ret" value="65"></div>
+      <div class="row"><span>Pot £</span><input type="number" id="A_pot" value="300000"></div>
+      <div class="row"><span>Pay in £/mo</span><input type="number" id="A_con" value="800"></div>
+      <div class="row"><span>State pension £/yr</span><input type="number" id="A_sp" value="11500"></div>
+      <div class="row"><span>DB pension £/yr</span><input type="number" id="A_db" value="0"></div>
+    </div>
+    <div class="person" id="pB"><h3>Partner</h3>
+      <div class="row"><span>Age</span><input type="number" id="B_age" value="58"></div>
+      <div class="row"><span>Retire at</span><input type="number" id="B_ret" value="66"></div>
+      <div class="row"><span>Pot £</span><input type="number" id="B_pot" value="150000"></div>
+      <div class="row"><span>Pay in £/mo</span><input type="number" id="B_con" value="500"></div>
+      <div class="row"><span>State pension £/yr</span><input type="number" id="B_sp" value="11000"></div>
+      <div class="row"><span>DB pension £/yr</span><input type="number" id="B_db" value="7000"></div>
+    </div>
+  </div>
+
+  <div class="hh">
+    <div class="grid">
+      <div class="ctrl"><label>Household spending <b id="v_spend">£3,800/mo</b></label><input type="range" id="s_spend" min="2000" max="6000" step="50" value="3800" oninput="recompute()"></div>
+      <div class="ctrl"><label>Expected return <b id="v_r">2.9%</b></label><input type="range" id="s_r" min="10" max="70" value="29" oninput="recompute()"></div>
+      <div class="ctrl"><label>Inflation <b id="v_inf">2.5%</b></label><input type="range" id="s_inf" min="10" max="50" value="25" oninput="recompute()"></div>
+      <div class="ctrl"><label>Survivor scenario</label><select id="s_surv" onchange="recompute()"><option value="none">Both live</option><option value="A82">If You pass at 82</option><option value="B84">If Partner passes at 84</option></select></div>
+    </div>
+    <div class="muted" style="margin-top:8px">Survivor view models reduced spending, one state pension, and ~50% spousal DB.</div>
+  </div>
+
+  <div class="chartcard"><h3>Combined net worth</h3>
+    <svg id="main" viewBox="0 0 600 240" style="width:100%;height:auto"></svg>
+    <div class="muted">shaded = range of outcomes · dashed lines = each retirement · dot = money runs out</div>
+  </div>
+
+  <div class="chartcard sens"><h3>What moves your plan most</h3>
+    <p class="muted">Each lever run on its own, ranked by impact. Illustrative — you choose; we don't recommend.</p>
+    <div id="sens"></div>
+  </div>
+
+  <div class="card center" style="background:#fff7ec;border-color:#f2d49a">
+    <h3>Your household Retirement MOT — Pro</h3>
+    <div class="num sm">£199<span style="font-size:16px;color:var(--muted)"> / year</span></div>
+    <a class="btn btn-primary" href="reserve.html">Reserve Pro →</a>
+  </div>
+  <div class="note">Illustration, not advice · figures computed by code, not AI · current rules, subject to change · we never model transferring a final-salary pension.</div>
+</div>
+<footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
+<script>
+function $(id){return document.getElementById(id);}
+function n(id){return +$(id).value;}
+function fmt(v){v=Math.round(v);if(Math.abs(v)>=1e6)return '£'+(v/1e6).toFixed(2)+'m';return '£'+Math.round(v/1000)+'k';}
+function inp(){return{
+  A:{age:n('A_age'),ret:n('A_ret'),pot:n('A_pot'),con:n('A_con')*12,sp:n('A_sp'),spA:67,db:n('A_db'),dbA:n('A_ret')},
+  B:{age:n('B_age'),ret:n('B_ret'),pot:n('B_pot'),con:n('B_con')*12,sp:n('B_sp'),spA:67,db:n('B_db'),dbA:n('B_ret')},
+  spend:n('s_spend')*12, r:n('s_r')/1000, inf:n('s_inf')/1000, surv:$('s_surv').value};}
+function project(o){o=o||{};var c=inp();
+  var rb=o.rb||0,sd=o.sd||0,cb=o.cb||0,defer=o.defer?1:0,radj=o.radj||0,fb=o.fb?0.0015:0;
+  var aRet=c.A.ret+rb,bRet=c.B.ret+rb, spU=defer?1.058:1;
+  var firstRetI=Math.max(0,Math.min(aRet-c.A.age,bRet-c.B.age));
+  var v=c.A.pot+c.B.pot, raw=[], r=c.r+radj+fb;
+  var sw=c.surv.charAt(0), sage=+c.surv.slice(1)||999;
+  for(var i=0;i<=42;i++){
+    var aAge=c.A.age+i,bAge=c.B.age+i;
+    var aDead=(sw==='A'&&aAge>=sage),bDead=(sw==='B'&&bAge>=sage),dead=aDead||bDead;
+    var contrib=((aAge<aRet&&!aDead)?c.A.con+cb:0)+((bAge<bRet&&!bDead)?c.B.con+cb:0);
+    var retired=(aAge>=aRet)||(bAge>=bRet);
+    var income=0;
+    if(!aDead){income+=(aAge>=c.A.spA+defer?c.A.sp*spU:0)+(aAge>=aRet?c.A.db:0);}
+    else{income+=(aAge>=c.A.spA+defer?0:0)+(aAge>=aRet?c.A.db*0.5:0);}
+    if(!bDead){income+=(bAge>=c.B.spA+defer?c.B.sp*spU:0)+(bAge>=bRet?c.B.db:0);}
+    else{income+=(bAge>=bRet?c.B.db*0.5:0);}
+    var mult=dead?0.65:1;
+    if(!retired){v=v*(1+r)+contrib;}
+    else{var spendY=(c.spend-sd)*Math.pow(1+c.inf,Math.max(0,i-firstRetI))*mult; v=v*(1+r)+contrib-(spendY-income);}
+    raw.push(v);
+  }
+  var dep=102; for(i=0;i<raw.length;i++){if(raw[i]<=0){dep=c.A.age+i;break;}}
+  return {raw:raw, dep:dep, base:c.A.age};
+}
+function mapX(a,x0,w){return x0+(a-60)/40*w;}
+function recompute(){
+  $('v_spend').textContent='£'+n('s_spend').toLocaleString()+'/mo';$('v_r').textContent=(n('s_r')/10).toFixed(1)+'%';$('v_inf').textContent=(n('s_inf')/10).toFixed(1)+'%';
+  var mid=project(),hi=project({radj:0.015}),lo=project({radj:-0.015});
+  var max=Math.max.apply(null,hi.raw.concat([500000]));
+  var d=mid.dep; $('k_age').textContent=d>100?'100+':d;
+  var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(d,100)-80)*3.5)));$('k_succ').textContent=p+'%';
+  $('k_age').className='v'+(d>=95?'':' red');$('k_succ').className='v'+(d>=95?'':' red');
+  $('k_pot').textContent=fmt(n('A_pot')+n('B_pot'));$('k_peak').textContent=fmt(Math.max.apply(null,mid.raw));
+  // chart
+  var x0=40,w=545,yb=200,yt=20,plot=function(val){return yb-Math.max(val,0)/max*(yb-yt);};
+  var g='';[0,.5,1].forEach(function(f){var y=yb-f*(yb-yt);g+='<line x1="40" y1="'+y+'" x2="585" y2="'+y+'" stroke="#efece4"/><text x="4" y="'+(y+4)+'" font-size="10" fill="#8a9695">'+fmt(max*f)+'</text>';});
+  function pth(a){var s='';for(var i=0;i<a.length;i++){var ag=project().base+i; if(ag>100)break; s+=(i?'L':'M')+mapX(ag,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);}return s;}
+  var band='';var b0=inp().A.age;for(i=0;i<hi.raw.length&&b0+i<=100;i++)band+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(hi.raw[i]).toFixed(1);for(var j=Math.min(lo.raw.length-1,100-b0);j>=0;j--)band+='L'+mapX(b0+j,x0,w).toFixed(1)+' '+plot(lo.raw[j]).toFixed(1);
+  var aRx=mapX(inp().A.ret,x0,w),bRx=mapX(inp().B.ret,x0,w);
+  var dx=d<=100?mapX(d,x0,w):0;
+  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0f5c59" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0f5c59" stroke-width="2.5"/>'+
+    '<line x1="'+aRx+'" y1="20" x2="'+aRx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+aRx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">you retire</text>'+
+    '<line x1="'+bRx+'" y1="30" x2="'+bRx+'" y2="200" stroke="#cfc7b6" stroke-dasharray="3 3"/><text x="'+bRx+'" y="246" font-size="9" fill="#8a9695" text-anchor="middle">partner</text>'+
+    (d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
+  // sensitivity
+  var base=Math.min(project().dep,102);
+  var levers=[['Both work 2 more years',{rb:2}],['Spend £300/mo less',{sd:3600}],['Each pay £300/mo more',{cb:3600}],['Lower fees 0.15%/yr',{fb:1}],['Defer state pension 1yr',{defer:1}]];
+  var res=levers.map(function(l){return{name:l[0],delta:Math.min(project(l[1]).dep,102)-base};}).sort(function(a,b){return b.delta-a.delta;});
+  var mx=Math.max.apply(null,res.map(function(r){return Math.abs(r.delta);}).concat([1]));
+  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div class="lev"><span>'+r.name+'</span><div class="bar"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0f5c59')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+' yrs</span></div>';}).join('');
+}
+recompute();
+</script>
+</body></html>
