@@ -1,0 +1,4 @@
+# Netlify config — serves the static prototype, auto-deploys on every push to GitHub.
+[build]
+  publish = "prototype"
+  command = ""
