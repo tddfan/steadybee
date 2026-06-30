@@ -24,7 +24,15 @@
 .seg button.on{background:var(--teal);color:#fff}
 .ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between}input[type=range]{width:100%;accent-color:var(--teal)}
 .chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
-.lev{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0;font-size:15px}
+.lev{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0;font-size:15px;cursor:pointer;transition:.15s}
+.lev>span:first-child{flex:1}
+.lev:hover{border-color:#cbd5dd}
+.lev.on{background:#e9f6f4;border-color:var(--teal)}
+.lveff{color:#1f7a4d;font-weight:600;font-size:14px}
+.lev input[type=checkbox]{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:14px;background:#d7dee5;position:relative;cursor:pointer;transition:.2s;flex:none;margin:0}
+.lev input[type=checkbox]:checked{background:var(--teal)}
+.lev input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.lev input[type=checkbox]:checked::after{left:20px}
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .locked{position:relative;overflow:hidden}
 .locked .blur{filter:blur(4px);opacity:.5;pointer-events:none}
@@ -138,10 +146,11 @@
       <div class="muted">Each faint line is one possible market future — most land in the middle. Updates as you change anything.</div>
     </div>
     <h3>Play with the levers</h3>
-    <label class="lev"><span>Both work 2 more years</span><input type="checkbox" id="L_work" onchange="recompute()"></label>
-    <label class="lev"><span>Spend £300/month less</span><input type="checkbox" id="L_spend" onchange="recompute()"></label>
-    <label class="lev"><span>Each pay £300/month more</span><input type="checkbox" id="L_con" onchange="recompute()"></label>
-    <label class="lev"><span>Lower fees 0.15%/yr</span><input type="checkbox" id="L_fee" onchange="recompute()"></label>
+    <p class="muted" style="margin-top:-4px">Flip a switch to see the effect on your plan.</p>
+    <label class="lev"><span>Both work 2 more years</span><span class="lveff" id="eff_work"></span><input type="checkbox" id="L_work" onchange="recompute()"></label>
+    <label class="lev"><span>Spend £300/month less</span><span class="lveff" id="eff_spend"></span><input type="checkbox" id="L_spend" onchange="recompute()"></label>
+    <label class="lev"><span>Each pay £300/month more</span><span class="lveff" id="eff_con"></span><input type="checkbox" id="L_con" onchange="recompute()"></label>
+    <label class="lev"><span>Lower fees 0.15%/yr</span><span class="lveff" id="eff_fee"></span><input type="checkbox" id="L_fee" onchange="recompute()"></label>
     <div class="field" style="margin-top:6px"><label style="font-size:14px;color:var(--ink-soft)">Add a one-off event</label>
       <select id="L_event" onchange="recompute()"><option value="none">None</option><option value="wind">Windfall: £40,000 inheritance at 70</option><option value="exp">Big expense: £60,000 care cost at 75</option></select></div>
     <div class="chartcard"><h3>What moves your plan most</h3>
@@ -273,6 +282,7 @@ function recompute(){
   $('sumA').textContent='You · '+c.A.age+' · retire '+c.A.ret+' · '+fmt(c.A.pot);
   if(c.B.pot>0)$('sumB').textContent='Partner · '+c.B.age+' · retire '+c.B.ret+' · '+fmt(c.B.pot);
   var lev={rb:$('L_work').checked?2:0,sd:$('L_spend').checked?3600:0,cb:$('L_con').checked?3600:0,fb:$('L_fee').checked};
+  ['L_work','L_spend','L_con','L_fee'].forEach(function(id){var cb=$(id);if(cb)cb.closest('.lev').classList.toggle('on',cb.checked);});
   var mid=project(lev),hi=project(Object.assign({radj:0.015},lev)),lo=project(Object.assign({radj:-0.015},lev));
   var max=Math.max.apply(null,hi.raw.concat([400000]));
   var d=mid.dep;$('k_age').textContent=d>100?'100+':d;$('s_age').textContent=(d>100?'100+':'age '+d);
@@ -312,6 +322,10 @@ function recompute(){
     $('vd_risk').textContent = (dataLevel==='hold') ? "Biggest risk we found: heavy concentration in US tech and the US dollar." : "Tip: add your holdings on the Portfolio tab to find your biggest risk.";
     $('vd_action').textContent = tl ? tl.name+(tl.delta>=99?" (big boost)":(" (≈ +"+tl.delta+" years)")) : "—";
   }
+  // per-lever impact, shown inline on each toggle
+  var bdep=Math.min(project().dep,102);
+  function setEff(id,o){var dd=Math.min(project(o).dep,102)-bdep,el=$(id);if(!el)return;el.textContent=dd>0?'+'+dd+'y':(dd<0?dd+'y':'');el.style.color=dd<0?'#b4452e':'#1f7a4d';}
+  setEff('eff_work',{rb:2});setEff('eff_spend',{sd:3600});setEff('eff_con',{cb:3600});setEff('eff_fee',{fb:1});
 }
 function saveScenario(){var d=$('k_age').textContent,s=$('k_succ').textContent;scenarios.push({label:'Scenario '+(scenarios.length+1),age:d,succ:s});
   $('compare').innerHTML=scenarios.map(function(x){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)"><b>'+x.label+'</b><span>lasts to '+x.age+' · '+x.succ+'</span></div>';}).join('');}
