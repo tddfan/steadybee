@@ -1,4 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/>
-  <polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="384" viewBox="64 64 384 384" role="img" aria-label="Steadybee">
+  <defs>
+    <clipPath id="body"><ellipse cx="256" cy="291" rx="55" ry="87"/></clipPath>
+  </defs>
+  <rect width="512" height="512" fill="#083f3b"/>
+  <path d="M239 230 C220 172 172 148 140 169 C109 190 130 227 187 244 L237 255Z" fill="#fff8e8"/>
+  <path d="M273 230 C292 172 340 148 372 169 C403 190 382 227 325 244 L275 255Z" fill="#fff8e8"/>
+  <path d="M232 244 C185 230 152 240 156 265 C159 288 192 291 238 269Z" fill="#e8eedb"/>
+  <path d="M280 244 C327 230 360 240 356 265 C353 288 320 291 274 269Z" fill="#e8eedb"/>
+  <path d="M245 177 C241 154 232 143 216 138 M267 177 C271 154 280 143 296 138" fill="none" stroke="#e8a12c" stroke-width="12" stroke-linecap="round"/>
+  <path d="M246 369 L256 386 L266 369Z" fill="#e8a12c"/>
+  <ellipse cx="256" cy="291" rx="55" ry="87" fill="#e8a12c"/>
+  <g clip-path="url(#body)" fill="#083f3b">
+    <rect x="192" y="267" width="128" height="18"/>
+    <rect x="192" y="309" width="128" height="18"/>
+  </g>
+  <circle cx="256" cy="199" r="33" fill="#e8a12c"/>
 </svg>
