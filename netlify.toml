@@ -1,4 +1,7 @@
-# Netlify config — serves the static prototype, auto-deploys on every push to GitHub.
+# Netlify config — stamps each deploy so installed web apps can detect updates.
 [build]
-  publish = "prototype"
-  command = ""
+  publish = "dist"
+  command = "node scripts/build-prototype.mjs"
+
+[build.environment]
+  NODE_VERSION = "22"

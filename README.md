@@ -24,3 +24,14 @@ testing). They converged on: the customer (anxious, affluent, 45–70 UK DIY inv
 (free personalised check-up → paid annual report), the #1 risk (one-and-done churn), and the one
 unproven assumption everything rests on — *will people pay, and renew, for an annual check-up?*
 That assumption is tested **first**, by hand, before significant engineering. See [Strategy](docs/STRATEGY.md).
+
+## Prototype deployment
+Netlify builds the static pages with `node scripts/build-prototype.mjs` and publishes `dist/`.
+Each deploy stamps a version into the pages and `version.json`. The installed web app checks
+on reopen, focus, reconnection, and once a minute while visible, then refreshes after a short
+idle period. A temporary snapshot preserves the main app's entries, holdings, scenarios and
+selected screen during that refresh; it stays in the same tab and is deleted after restoration.
+This does not provide permanent saving or offline support.
+
+The manifest and icons support Home Screen installation and browser favicons. Validate update
+behaviour with `node --test tests/test_app_updates.cjs`; build locally with the command above.

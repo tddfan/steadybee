@@ -1,5 +1,15 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="application-name" content="Steadybee">
+<meta name="steadybee-version" content="development">
+<script defer src="app-updates.js"></script>
+<meta name="theme-color" content="#0d9488">
+<meta name="apple-mobile-web-app-title" content="Steadybee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Steadybee — your future</title>
 <link rel="stylesheet" href="styles.css?v=2">
 <style>
@@ -328,6 +338,8 @@ function recompute(){
   setEff('eff_work',{rb:2});setEff('eff_spend',{sd:3600});setEff('eff_con',{cb:3600});setEff('eff_fee',{fb:1});
 }
 function saveScenario(){var d=$('k_age').textContent,s=$('k_succ').textContent;scenarios.push({label:'Scenario '+(scenarios.length+1),age:d,succ:s});
+  renderScenarios();}
+function renderScenarios(){
   $('compare').innerHTML=scenarios.map(function(x){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)"><b>'+x.label+'</b><span>lasts to '+x.age+' · '+x.succ+'</span></div>';}).join('');}
 // ---- Feature 4: holdings entry + Sharpen juice ----
 var TICKERS=[
@@ -391,6 +403,21 @@ function renderXray(){
   for(var i=0;i<5;i++){c+='<div class="lbl">'+a[i]+'</div>';for(var j=0;j<5;j++){var val=M[i][j],t=Math.max(0,Math.min(1,(val+0.2)/1.2));var bg=val<0?'rgba(224,83,61,'+(0.1+Math.abs(val)*0.45)+')':'rgba(13,148,136,'+(0.08+t*0.85)+')';c+='<div class="cell" style="background:'+bg+';color:'+(t>0.5&&val>=0?'#fff':'#162130')+'">'+val.toFixed(2)+'</div>';}}
   c+='</div>';$('x_cor').innerHTML=c;
 }
+// The updater preserves the active plan only for its automatic reload.
+window.snapshotSteadybeePlan=function(){return{
+  planType:planType,dataLevel:dataLevel,holdings:holdings.map(function(h){return h.t;}),
+  scenarios:scenarios,tab:document.querySelector('.tabs2 .tabbtn.on').id.replace('tb_',''),
+  expanded:['detA','detB'].filter(function(id){return !$(id).classList.contains('hide');})};};
+window.restoreSteadybeePlan=function(state){
+  if(!state||typeof state!=='object'){recompute();return;}
+  holdings=(Array.isArray(state.holdings)?state.holdings:[]).map(function(t){return TICKERS.find(function(h){return h.t===t;});}).filter(Boolean);
+  scenarios=(Array.isArray(state.scenarios)?state.scenarios:[]).filter(function(s){return s&&/^Scenario \d+$/.test(s.label)&&(/^\d+$/.test(String(s.age))||s.age==='100+')&&/^\d+%$/.test(s.succ);});
+  renderChips();setPlan(state.planType==='solo'?'solo':'couple');
+  setLevel(['tot','wrap','hold'].indexOf(state.dataLevel)>=0?state.dataLevel:'wrap');
+  renderScenarios();
+  if(!scenarios.length)$('compare').textContent='No saved scenarios yet.';
+  ['detA','detB'].forEach(function(id){$(id).classList.toggle('hide',!Array.isArray(state.expanded)||state.expanded.indexOf(id)<0);});
+  tab(['you','plan','portfolio'].indexOf(state.tab)>=0?state.tab:'you');};
 setLevel('wrap');recompute();
 </script>
 </body></html>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Steadybee">
+  <rect width="512" height="512" fill="#f4f7fa"/>
+  <g transform="translate(88 88) scale(14)">
+    <polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/>
+    <polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/>
+  </g>
+</svg>

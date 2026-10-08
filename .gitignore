@@ -16,6 +16,7 @@ venv/
 # Node / Tailwind build
 node_modules/
 *.log
+dist/
 
 # Data / user files (NEVER commit real user portfolios or PII)
 data/
