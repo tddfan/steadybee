@@ -1,0 +1,416 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  SCHEMA_VERSION,
+  createDraft,
+  createScenario,
+  field,
+  getNextDetail,
+  parseSaved,
+  serialise,
+  summariseDraft,
+  updateBaseline,
+  validateDraft,
+} from "../prototype/state.mjs";
+import { evaluateExample, examples } from "../prototype/fixtures.mjs";
+
+function filled(route = "dc", scope = "individual") {
+  const draft = createDraft(route, scope);
+  Object.assign(draft.profile, {
+    age: field(52),
+    targetRetirementAge: field(route === "retired" ? 50 : 55),
+    pensionTotal: field(400_000),
+    nonPensionTotal: field(70_000),
+    monthlySpending: field(3_000),
+  });
+  return draft;
+}
+
+function incomeStream(owner = "primary", amount = 20_000, startAge = 65) {
+  return {
+    id: `stream-${owner}`,
+    owner,
+    type: "db",
+    label: "Entered DB income",
+    annualAmount: field(amount),
+    startAge: field(startAge),
+    endAge: field(null),
+    incomeBasis: "net",
+  };
+}
+
+test("a new personal draft contains unknown money, no sample amounts and no income-to-pot conversion", () => {
+  const draft = createDraft("income", "household");
+  assert.equal(draft.schemaVersion, SCHEMA_VERSION);
+  assert.equal(draft.profile.pensionTotal.value, null);
+  assert.equal(draft.profile.annualPensionIncome.value, null);
+  assert.equal(draft.householdStatus, "pending");
+  assert.equal(draft.partner, null);
+  draft.profile.annualPensionIncome = field(12_000, "estimated");
+  assert.equal(summariseDraft(draft).totals.pension, null);
+  assert.equal(summariseDraft(draft).totals.annualPensionIncome, 12_000);
+  assert.equal(summariseDraft(draft).totals.pensionComplete, false);
+  assert.equal(validateDraft(draft).valid, true);
+});
+
+test("unknown, estimated and deliberately supplied zero survive export and restore", () => {
+  const draft = createDraft();
+  draft.profile.pensionTotal = field(0);
+  draft.profile.nonPensionTotal = field(12_345, "estimated");
+  draft.consent.deviceSave = true;
+  const restored = parseSaved(serialise(draft));
+  assert.equal(restored.ok, true);
+  assert.deepEqual(restored.draft.profile.pensionTotal, field(0));
+  assert.deepEqual(
+    restored.draft.profile.nonPensionTotal,
+    field(12_345, "estimated"),
+  );
+  assert.equal(restored.draft.profile.monthlySpending.value, null);
+  assert.equal(restored.draft.consent.deviceSave, true);
+});
+
+test("malformed, unsupported and hostile saved states are rejected without discarding an original draft", () => {
+  assert.equal(parseSaved("{bad json").ok, false);
+  assert.equal(parseSaved(JSON.stringify({ schemaVersion: 999 })).ok, false);
+  assert.equal(
+    parseSaved('{"schemaVersion":1,"__proto__":{"polluted":true}}').ok,
+    false,
+  );
+  const draft = filled();
+  draft.profile.pensionTotal = { value: null, status: "provided" };
+  assert.equal(parseSaved(JSON.stringify(draft)).ok, false);
+  assert.equal({}.polluted, undefined);
+});
+
+test("validation preserves unknown while rejecting impossible dates and non-finite or negative amounts", () => {
+  const draft = filled();
+  draft.profile.targetRetirementAge = field(51);
+  assert.equal(validateDraft(draft).valid, false);
+  draft.profile.retirementStatus = "already-retired";
+  assert.equal(validateDraft(draft).valid, true);
+  draft.profile.nonPensionTotal = field(-1);
+  assert.equal(validateDraft(draft).valid, false);
+  draft.profile.nonPensionTotal = { value: Infinity, status: "provided" };
+  assert.equal(validateDraft(draft).valid, false);
+  draft.profile.nonPensionTotal = field(null);
+  assert.equal(validateDraft(draft).valid, true);
+});
+
+test("next detail responds to household, DB income, an inaccessible bridge and retired context", () => {
+  const household = filled("dc", "household");
+  assert.equal(getNextDetail(household).id, "partner");
+  const income = filled("income");
+  assert.equal(getNextDetail(income).id, "income");
+  const early = filled();
+  early.details.pensionAccessAge = field(60);
+  assert.equal(getNextDetail(early).id, "access");
+  const retired = filled("retired");
+  assert.equal(getNextDetail(retired).id, "income");
+  retired.profile.annualPensionIncome = field(20_000);
+  assert.equal(getNextDetail(retired).id, "income");
+  retired.details.incomeStreams = [incomeStream()];
+  retired.details.pensionAccessAge = field(50);
+  assert.equal(getNextDetail(retired).id, "costs");
+});
+
+test("dated income sends the next question to the access editor rather than repeating the income editor", () => {
+  const draft = filled();
+  draft.details.monthlyContributions = field(700);
+  assert.equal(getNextDetail(draft).group, "income");
+  draft.details.incomeStreams = [incomeStream()];
+  assert.equal(getNextDetail(draft).group, "access");
+  draft.ui.dismissedDetailIds = ["access"];
+  assert.equal(getNextDetail(draft), null);
+  assert.equal(draft.details.pensionAccessAge.value, null);
+});
+
+test("income dates remain owner-specific, and retired DB users do not get an irrelevant pot-access question", () => {
+  const draft = filled();
+  draft.details.monthlyContributions = field(700);
+  draft.details.incomeStreams = [incomeStream("partner")];
+  assert.equal(getNextDetail(draft).group, "income");
+  const retired = filled("retired");
+  retired.profile.pensionTotal = field(null);
+  retired.profile.annualPensionIncome = field(20_000);
+  assert.equal(getNextDetail(retired).group, "income");
+  retired.details.incomeStreams = [incomeStream()];
+  assert.equal(getNextDetail(retired).group, "costs");
+});
+
+test("a confirmed partner object with unknown required inputs still leaves the household incomplete", () => {
+  const draft = filled("dc", "household");
+  draft.partner = createDraft().profile;
+  draft.householdStatus = "confirmed";
+  const partial = summariseDraft(draft);
+  assert.equal(partial.householdIncomplete, true);
+  assert.equal(partial.totals.nonPensionComplete, false);
+  assert.equal(getNextDetail(draft).group, "partner");
+  assert.equal(validateDraft(draft).valid, true);
+  draft.partner = filled().profile;
+  assert.equal(summariseDraft(draft).householdIncomplete, false);
+  assert.equal(summariseDraft(draft).totals.nonPensionComplete, true);
+  draft.partner.targetRetirementAge = field(null);
+  assert.equal(summariseDraft(draft).householdIncomplete, true);
+  draft.partner.retirementStatus = "already-retired";
+  assert.equal(summariseDraft(draft).householdIncomplete, false);
+});
+
+test("dismissing the current detail ends that card rather than immediately cascading", () => {
+  const draft = filled();
+  assert.equal(getNextDetail(draft).id, "contributions");
+  draft.ui.dismissedDetailIds = ["contributions"];
+  assert.equal(getNextDetail(draft), null);
+  assert.equal(draft.details.monthlyContributions.value, null);
+});
+
+test("shared account totals count each account once and reconcile instead of adding to aggregates", () => {
+  const draft = filled("dc", "household");
+  draft.partner = filled().profile;
+  draft.partner.pensionTotal = field(100_000);
+  draft.partner.nonPensionTotal = field(30_000);
+  draft.accounts = [
+    {
+      id: "a",
+      name: "Joint cash",
+      owner: "joint",
+      type: "cash",
+      balance: field(100_000),
+    },
+    {
+      id: "b",
+      name: "Primary pension",
+      owner: "primary",
+      type: "pension",
+      balance: field(400_000),
+    },
+    {
+      id: "c",
+      name: "Partner pension",
+      owner: "partner",
+      type: "pension",
+      balance: field(100_000),
+    },
+  ];
+  const summary = summariseDraft(draft);
+  assert.equal(summary.totals.nonPension, 100_000);
+  assert.equal(summary.accountTotals.nonPension, 100_000);
+  assert.equal(summary.totals.combined, 600_000);
+  assert.equal(
+    summary.reconciliation.find((row) => row.group === "nonPension").difference,
+    0,
+  );
+  draft.accounts.push({ ...draft.accounts[0] });
+  assert.equal(validateDraft(draft).valid, false);
+});
+
+test("inactive partner accounts remain recoverable without affecting active reconciliation", () => {
+  const draft = filled();
+  draft.partner = filled().profile;
+  draft.partner.pensionTotal = field(100_000);
+  draft.partner.nonPensionTotal = field(30_000);
+  draft.accounts = [
+    {
+      id: "primary-savings",
+      name: "Primary cash",
+      owner: "primary",
+      type: "cash",
+      balance: field(70_000),
+    },
+    {
+      id: "partner-savings",
+      name: "Partner cash",
+      owner: "partner",
+      type: "cash",
+      balance: field(30_000),
+    },
+    {
+      id: "partner-pension",
+      name: "Partner pension",
+      owner: "partner",
+      type: "pension",
+      balance: field(100_000),
+    },
+  ];
+  const solo = summariseDraft(draft);
+  assert.equal(solo.accountTotals.nonPension, 70_000);
+  assert.equal(solo.accountTotals.pension, null);
+  assert.equal(solo.reconciliation[0].difference, 0);
+  assert.equal(draft.accounts.length, 3);
+  draft.planningScope = "household";
+  draft.spendingBasis = "household";
+  draft.householdStatus = "confirmed";
+  assert.equal(summariseDraft(draft).accountTotals.nonPension, 100_000);
+  draft.partner = null;
+  draft.householdStatus = "pending";
+  const withoutPartner = summariseDraft(draft);
+  assert.equal(withoutPartner.accountTotals.nonPension, 70_000);
+  assert.equal(withoutPartner.accountTotals.pension, null);
+  assert.equal(withoutPartner.reconciliation[0].difference, 0);
+  assert.equal(draft.accounts.length, 3);
+});
+
+test("two alternatives preserve complete overrides and a changed baseline flags saved comparisons", () => {
+  let draft = filled();
+  const overrides = {
+    retirementAge: 56,
+    monthlySpending: 2_800,
+    partTimeAnnual: 8_000,
+    partTimeEndAge: 60,
+  };
+  const first = createScenario(draft, "Reduce work", overrides);
+  draft.scenarios.push(first);
+  draft.scenarios.push(
+    createScenario(draft, "Spend less", { monthlySpending: 2_600 }),
+  );
+  assert.throws(
+    () => createScenario(draft, "A third alternative", {}),
+    /two alternatives/i,
+  );
+  assert.deepEqual(first.overrides, overrides);
+  const oldRevision = draft.revision;
+  draft = updateBaseline(draft, { profile: { monthlySpending: field(3_200) } });
+  assert.equal(draft.revision, oldRevision + 1);
+  assert.equal(draft.profile.age.value, 52);
+  assert.equal(
+    draft.scenarios.every(
+      (item) => item.stale && item.baseRevision === oldRevision,
+    ),
+    true,
+  );
+  assert.deepEqual(draft.scenarios[0].overrides, overrides);
+  assert.equal(draft.reviewHistory.at(-1).profile.monthlySpending.value, 3_000);
+  assert.equal(draft.reviewHistory.at(-1).details.housingIncluded, null);
+  assert.equal(parseSaved(serialise(draft)).ok, true);
+});
+
+test("a scenario rejects unsupported keys or invalid compound timing instead of inventing a result", () => {
+  const draft = filled();
+  assert.throws(
+    () => createScenario(draft, "Allocation", { recommendedFund: "anything" }),
+    /unsupported/i,
+  );
+  assert.throws(
+    () => evaluateExample("mixed-household", { retirementAge: 56 }),
+    /retirement/i,
+  );
+  assert.throws(
+    () =>
+      evaluateExample("mixed-household", {
+        partTimeAnnual: 8_000,
+        partTimeEndAge: 59,
+        retirementAge: 60,
+      }),
+    /part.time/i,
+  );
+});
+
+test("named fictional examples are deterministic and never become a personal forecast", () => {
+  assert.equal(examples.length, 3);
+  const a = evaluateExample("early-dc");
+  const b = evaluateExample("early-dc");
+  assert.deepEqual(a, b);
+  assert.equal(a.provenance.mode, "fictional-example");
+  assert.match(a.assumptions.join(" "), /no UK tax engine/i);
+  assert.equal("rows" in summariseDraft(filled()), false);
+});
+
+test("first mixed-household year reconciles independently specified flows in today’s pounds", () => {
+  const row = evaluateExample("mixed-household").rows[0];
+  // £130k accessible + 1% real growth + (£66k income - £45.6k spending).
+  assert.equal(row.closingAccessible, 151_700);
+  // £640k pensions + 2% real growth + (£700 + £350) × 12 contributions.
+  assert.equal(row.closingPension, 665_400);
+  assert.equal(row.closingTotal, 817_100);
+  assert.equal(row.annualGap, 0);
+  assert.equal(row.primaryAge, 57);
+  assert.equal(row.partnerAge, 55);
+});
+
+test("early retirement exposes inaccessible pension money despite a large total pot", () => {
+  const result = evaluateExample("early-dc");
+  const gap = result.rows.find((row) => row.bridgeGap > 0);
+  assert.ok(gap);
+  assert.ok(gap.primaryAge < 60);
+  assert.ok(gap.closingPension > 400_000);
+  assert.equal(gap.closingAccessible, 0);
+  assert.equal(gap.withdrawalsPension, 0);
+  assert.ok(
+    evaluateExample("early-dc", { retirementAge: 58 }).summary.bridgeGapTotal <
+      result.summary.bridgeGapTotal,
+  );
+});
+
+test("compound household changes preserve both dates, income end, spending and major cost", () => {
+  const overrides = {
+    retirementAge: 59,
+    partnerRetirementAge: 61,
+    monthlySpending: 3_500,
+    monthlyContributions: 800,
+    partTimeAnnual: 12_000,
+    partTimeEndAge: 64,
+    majorCost: 15_000,
+    majorCostAge: 63,
+  };
+  const result = evaluateExample("mixed-household", overrides);
+  assert.equal(result.changes.length, Object.keys(overrides).length);
+  assert.equal(result.summary.retirementAge, 59);
+  assert.equal(result.summary.partnerRetirementAge, 61);
+  assert.equal(
+    result.rows.find((row) => row.primaryAge === 59).incomeBreakdown.partTime,
+    12_000,
+  );
+  assert.equal(
+    result.rows.find((row) => row.primaryAge === 64).incomeBreakdown.partTime,
+    0,
+  );
+  assert.equal(
+    result.rows.find((row) => row.primaryAge === 63).majorCost,
+    15_000,
+  );
+  assert.equal(
+    result.rows.every((row) => row.spending === 42_000),
+    true,
+  );
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.owner === "partner" &&
+        event.type === "retirement" &&
+        event.year === 2032,
+    ),
+  );
+  assert.ok(
+    result.events.some(
+      (event) => event.type === "income-start" && event.label.includes("DB"),
+    ),
+  );
+});
+
+test("every fixture annual ledger reconciles without negative assets or hidden costs", () => {
+  for (const example of examples) {
+    const result = evaluateExample(example.id);
+    for (const row of result.rows) {
+      const accessible =
+        row.openingAccessible +
+        row.accessibleGrowth +
+        Math.max(0, row.income - row.spending - row.majorCost) -
+        row.withdrawalsAccessible;
+      const pension =
+        row.openingPension +
+        row.pensionGrowth +
+        row.contributions -
+        row.withdrawalsPension;
+      assert.ok(Math.abs(row.closingAccessible - accessible) < 0.03);
+      assert.ok(Math.abs(row.closingPension - pension) < 0.03);
+      const use =
+        row.income +
+        row.withdrawalsAccessible +
+        row.withdrawalsPension +
+        row.annualGap;
+      assert.ok(
+        Math.abs(Math.max(use, row.spending + row.majorCost) - use) < 0.03,
+      );
+      assert.ok(row.closingAccessible >= 0 && row.closingPension >= 0);
+    }
+  }
+});

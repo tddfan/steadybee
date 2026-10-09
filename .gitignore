@@ -17,6 +17,7 @@ venv/
 node_modules/
 *.log
 dist/
+test-artifacts/
 
 # Data / user files (NEVER commit real user portfolios or PII)
 data/

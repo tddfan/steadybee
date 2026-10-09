@@ -1,37 +1,51 @@
 # 🐝 Steadybee
 
-**An honest, affordable, once-a-year "are you on track to retire?" check-up — for people with real money and real worry.**
+A retirement decision workspace for people considering retirement, reduced work or a change in spending.
 
-Steadybee connects what you hold *today* to whether you'll be okay *in retirement*, in plain
-English, for the price of a nice dinner instead of the £5,000 a financial adviser charges.
+**Current status:** working research prototype. It organises information entered by a person or household. Three separately labelled fictional examples demonstrate scenario comparisons and a decision brief. Personal retirement forecasts, accounts and payments are not connected.
 
-- **Domain:** steadybee.co.uk
-- **Status:** Pre-build. Validating willingness-to-pay before building the engine.
-- **Type:** Responsive web app (desktop-first), UK-only.
+## What you can try
 
-> Steadybee is **decision-support and educational software — not regulated financial or tax
-> advice.** We sell no funds, take no commissions, and never sell your data.
+- A short DC or income-led start, with unknown, estimated and zero values kept distinct.
+- Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
+- Owner-aware summaries and calendar timelines. Account details reconcile against entered totals without being added twice.
+- Baseline plus two named alternatives, combining timing, spending, part-time income and major costs. Personal choices record changes without calculated outcomes; fictional examples have inspectable annual workings.
+- A compact printable household example brief, optional workings appendix and CSV export. A personal brief preserves entered facts and missing information.
+- Optional local save, resume, validated JSON backup/import and deletion. Saving is limited to this browser profile, unencrypted and not shared across devices.
+- A feedback download for research notes. It does not submit anything to a server or take payment.
 
-## The docs (read in this order)
-1. [Vision](docs/VISION.md) — what we're building and why.
-2. [Strategy](docs/STRATEGY.md) — who it's for, how it wins, how it makes money, the risks.
-3. [Functionality](docs/FUNCTIONALITY.md) — what the free and paid product actually do.
-4. [User journey](docs/USER_JOURNEY.md) — the step-by-step path from stranger to renewing customer.
+Fictional calculations are deterministic demonstrations using authored assumptions, not a UK tax or pension engine. They do not establish the correctness of personal planning. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md).
 
-## Where this came from
-This plan was stress-tested across four independent AI "expert panel" simulations (plus persona
-testing). They converged on: the customer (anxious, affluent, 45–70 UK DIY investors), the funnel
-(free personalised check-up → paid annual report), the #1 risk (one-and-done churn), and the one
-unproven assumption everything rests on — *will people pay, and renew, for an annual check-up?*
-That assumption is tested **first**, by hand, before significant engineering. See [Strategy](docs/STRATEGY.md).
+## Run and verify
 
-## Prototype deployment
-Netlify builds the static pages with `node scripts/build-prototype.mjs` and publishes `dist/`.
-Each deploy stamps a version into the pages and `version.json`. The installed web app checks
-on reopen, focus, reconnection, and once a minute while visible, then refreshes after a short
-idle period. A temporary snapshot preserves the main app's entries, holdings, scenarios and
-selected screen during that refresh; it stays in the same tab and is deleted after restoration.
-This does not provide permanent saving or offline support.
+No npm application dependencies or frontend framework are required.
 
-The manifest and icons support Home Screen installation and browser favicons. Validate update
-behaviour with `node --test tests/test_app_updates.cjs`; build locally with the command above.
+```sh
+node scripts/build-prototype.mjs
+node --test tests/test_state.mjs tests/test_app_updates.cjs
+python3 -m http.server 8000 --directory dist
+```
+
+Open `http://localhost:8000/`. Browser interaction checks require Playwright and a Chromium executable:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
+CHROME_EXECUTABLE_PATH=/absolute/path/to/chrome-headless-shell \
+node --test tests/test_browser.mjs
+```
+
+The browser suite runs its own local HTTP server. It checks intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
+
+## Deployment and installed app
+
+The existing GitHub → Netlify pipeline builds with `node scripts/build-prototype.mjs` and publishes `dist/`. Each build stamps its version into all HTML pages and `version.json`.
+
+The installed web app checks on reopen, focus, reconnection and once a minute while visible. A new deployment refreshes after a short idle period. A one-use snapshot preserves the current workspace and unfinished form edits in the same tab; it is removed after restoration. This is separate from optional persistent local saving. The manifest and existing bee icons support Home Screen installation. There is no offline service worker.
+
+## Product direction
+
+A future paid release must answer a real personal decision with verified accessible-money cash flow, declared tax/pension support, explainable assumptions and reproducible outputs. Price, access cadence, purchase and return behavior still require real-user evidence. Simulated persona reviews are critique, not interviews or observed demand; not everyone has a paid need.
+
+The static prototype is an experience experiment. The agreed production direction remains Python/FastAPI with server-rendered templates, as recorded in [project rules](CLAUDE.md). Older [vision](docs/VISION.md), [strategy](docs/STRATEGY.md), [functionality](docs/FUNCTIONALITY.md) and [journey](docs/USER_JOURNEY.md) documents describe aspirations; current build limits above take precedence for prototype claims.
+
+Steadybee is decision-support and educational software. It does not recommend securities, allocations or pension transfers.

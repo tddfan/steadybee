@@ -1,423 +1,59 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="application-name" content="Steadybee">
-<meta name="steadybee-version" content="development">
-<script defer src="app-updates.js"></script>
-<meta name="theme-color" content="#0d9488">
-<meta name="apple-mobile-web-app-title" content="Steadybee">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=2">
-<link rel="manifest" href="manifest.webmanifest?v=2">
-<title>Steadybee — your future</title>
-<link rel="stylesheet" href="styles.css?v=2">
-<style>
-.status{position:sticky;top:0;z-index:5;background:#0d9488;color:#fff;padding:12px 20px}
-.status .in{max-width:840px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.status b{font-family:"Inter",sans-serif;font-weight:400}
-.status .acc{background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer}
-.tabs2{display:flex;gap:8px;max-width:840px;margin:16px auto 0;padding:0 20px}
-.tabbtn{flex:1;text-align:center;padding:12px;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;font-size:15px;font-weight:500;transition:.15s}
-.tabbtn:hover{color:var(--ink)}
-.tabbtn.on{background:#fff;border:1px solid var(--line);color:var(--teal);font-weight:700;box-shadow:0 2px 10px rgba(22,33,48,.08)}
-.tab{display:none}.tab.on{display:block}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
-.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.tile .v{font-family:"Inter",sans-serif;font-size:24px;color:var(--teal)}.tile .v.red{color:var(--red)}.tile .l{font-size:12px;color:var(--muted)}
-.pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
-.psum{display:flex;justify-content:space-between;align-items:center}
-.pdet{margin-top:12px}.pdet .row{display:flex;justify-content:space-between;margin:7px 0;font-size:14px;color:var(--ink-soft)}
-.pdet input{width:120px;text-align:right}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.seg button{border:none;background:#fff;padding:8px 14px;cursor:pointer;font-size:14px}
-.seg button.on{background:var(--teal);color:#fff}
-.ctrl label{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between}input[type=range]{width:100%;accent-color:var(--teal)}
-.chartcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
-.lev{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0;font-size:15px;cursor:pointer;transition:.15s}
-.lev>span:first-child{flex:1}
-.lev:hover{border-color:#cbd5dd}
-.lev.on{background:#e9f6f4;border-color:var(--teal)}
-.lveff{color:#1f7a4d;font-weight:600;font-size:14px}
-.lev input[type=checkbox]{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:14px;background:#d7dee5;position:relative;cursor:pointer;transition:.2s;flex:none;margin:0}
-.lev input[type=checkbox]:checked{background:var(--teal)}
-.lev input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
-.lev input[type=checkbox]:checked::after{left:20px}
-.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.locked{position:relative;overflow:hidden}
-.locked .blur{filter:blur(4px);opacity:.5;pointer-events:none}
-.lockmsg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(251,250,247,.7);text-align:center;padding:10px}
-.lockmsg .btn{margin-top:6px}
-.minibar{height:8px;background:#eceae3;border-radius:5px;margin:6px 0}.minibar>div{height:100%;border-radius:5px}
-.accbar{height:8px;background:rgba(255,255,255,.25);border-radius:5px;width:120px}.accbar>div{height:100%;background:#e8a12c;border-radius:5px}
-@media(max-width:640px){.tiles{grid-template-columns:1fr 1fr}.sgrid{grid-template-columns:1fr}}
-.hm{display:grid;grid-template-columns:auto repeat(12,1fr);gap:3px;font-size:9px;color:var(--muted)}.hm .cell{aspect-ratio:1;border-radius:3px}.hm .yl{display:flex;align-items:center}
-.cor .cell{padding:7px 2px;text-align:center;border-radius:4px;font-weight:600;font-size:10px}.cor .lbl{color:var(--ink-soft);font-size:10px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px}.cor .top{color:var(--muted);text-align:center;font-size:9px}
-/* Feature 4 — data-entry friction + Sharpen juice */
-.status .acc{position:relative}
-.accbar>div{transition:width .5s cubic-bezier(.2,.8,.2,1)}
-.blur{transition:filter .6s ease,opacity .6s ease}
-.hold{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
-.tikwrap{position:relative}
-.tikin{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;box-sizing:border-box}
-.tikdrop{position:absolute;left:0;right:0;top:100%;z-index:10;background:#fff;border:1px solid var(--line);border-radius:9px;margin-top:4px;box-shadow:0 6px 24px rgba(0,0,0,.08);max-height:260px;overflow:auto}
-.tikrow{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer}
-.tikrow:hover,.tikrow.sel{background:#f3f7f6}
-.tikrow .tk{font-weight:600;color:var(--teal);width:56px}
-.tikrow .nm{flex:1;font-size:14px;color:var(--ink-soft)}.tikrow .fl{font-size:16px}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;min-height:4px}
-.chip{display:inline-flex;align-items:center;gap:8px;background:#eef5f4;border:1px solid #d3e4e1;border-radius:20px;padding:6px 8px 6px 12px;font-size:14px;animation:pop .18s ease}
-.chip b{color:var(--teal)}.chip .x{cursor:pointer;border:none;background:#dce8e6;border-radius:50%;width:20px;height:20px;line-height:1;font-size:14px}
-@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
-.pastebox{width:100%;min-height:64px;font-family:inherit;font-size:14px;padding:10px;border:1px dashed var(--line);border-radius:9px;resize:vertical;box-sizing:border-box}
-.spark{position:absolute;right:8px;top:0;font-family:"Inter",sans-serif;font-weight:600;color:#ffd98a;pointer-events:none;animation:floatup 1s ease forwards}
-@keyframes floatup{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-28px);opacity:0}}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#0d9488;color:#fff;padding:12px 18px;border-radius:24px;font-size:15px;opacity:0;transition:.3s;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-</style></head><body>
-<nav>
-  <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="#0d9488"/><polygon points="9.5,8 14.5,8 17,12 14.5,16 9.5,16 7,12" fill="#e8a12c"/></svg>Steadybee</div>
-  <div class="navlinks"><span class="badge">prototype</span></div>
-</nav>
-
-<div class="status"><div class="in">
-  <div>On track to <b id="s_age">—</b> · <span id="s_succ">—</span> chance of reaching 95</div>
-  <div class="acc" onclick="tab('portfolio')">accuracy <b id="s_acc">45%</b> · sharpen ▸<div class="accbar"><div id="s_accbar" style="width:45%"></div></div></div>
-</div></div>
-
-<div class="tabs2">
-  <div class="tabbtn on" id="tb_you" onclick="tab('you')">You</div>
-  <div class="tabbtn" id="tb_plan" onclick="tab('plan')">Plan</div>
-  <div class="tabbtn" id="tb_portfolio" onclick="tab('portfolio')">Portfolio</div>
-</div>
-
-<div class="wrap" style="max-width:840px">
-
-  <!-- ===== YOU ===== -->
-  <section class="tab on" id="tab-you">
-    <div class="note" style="margin-top:14px;background:#eef7f6;color:#15795a">👋 This is an <b>example</b> to show how it works — tap <b>edit</b> on each card to make it yours. We store nothing. <span class="evt">event: you_tab</span></div>
-    <div class="seg" style="margin-bottom:8px">
-      <button id="pt_solo" onclick="setPlan('solo')">Just me</button>
-      <button id="pt_couple" class="on" onclick="setPlan('couple')">Me + partner</button>
-    </div>
-
-    <div class="pcard" id="cardA">
-      <div class="psum"><b id="sumA">You · 60 · retire 65 · £300k</b><span class="toggle" onclick="ed('A')">edit ▸</span></div>
-      <div class="pdet hide" id="detA">
-        <div class="row"><span>Age</span><input type="number" id="A_age" value="60" oninput="recompute()"></div>
-        <div class="row"><span>Retire at</span><input type="number" id="A_ret" value="65" oninput="recompute()"></div>
-        <div class="row"><span>Pension/ISA pot £</span><input type="number" id="A_pot" value="300000" oninput="recompute()"></div>
-        <div class="row"><span>Pay in £/mo</span><input type="number" id="A_con" value="800" oninput="recompute()"></div>
-        <div class="row"><span>State pension £/yr</span><input type="number" id="A_sp" value="11500" oninput="recompute()"></div>
-        <div class="row"><span>DB (final-salary) pension £/yr</span><input type="number" id="A_db" value="0" oninput="recompute()"></div>
-      </div>
-    </div>
-
-    <div class="pcard" id="cardB">
-      <div class="psum"><b id="sumB">Partner · 58 · retire 66 · £150k</b><span class="toggle" onclick="ed('B')">edit ▸</span></div>
-      <div class="pdet hide" id="detB">
-        <div class="row"><span>Age</span><input type="number" id="B_age" value="58" oninput="recompute()"></div>
-        <div class="row"><span>Retire at</span><input type="number" id="B_ret" value="66" oninput="recompute()"></div>
-        <div class="row"><span>Pension/ISA pot £</span><input type="number" id="B_pot" value="150000" oninput="recompute()"></div>
-        <div class="row"><span>Pay in £/mo</span><input type="number" id="B_con" value="500" oninput="recompute()"></div>
-        <div class="row"><span>State pension £/yr</span><input type="number" id="B_sp" value="11000" oninput="recompute()"></div>
-        <div class="row"><span>DB pension £/yr</span><input type="number" id="B_db" value="7000" oninput="recompute()"></div>
-      </div>
-    </div>
-
-    <div class="pcard">
-      <div class="ctrl"><label>Household spending <b id="v_spend">£3,800/mo</b></label><input type="range" id="s_spend" min="2000" max="6000" step="50" value="3800" oninput="recompute()"></div>
-      <div class="ctrl" style="margin-top:8px"><label>Expected return <b id="v_r">2.9%</b></label><input type="range" id="s_r" min="10" max="70" value="29" oninput="recompute()"></div>
-      <div class="ctrl" style="margin-top:8px"><label>Inflation <b id="v_inf">2.5%</b></label><input type="range" id="s_inf" min="10" max="50" value="25" oninput="recompute()"></div>
-      <div class="row" style="display:flex;justify-content:space-between;margin-top:10px;font-size:14px;color:var(--ink-soft)"><span>Survivor scenario</span><select id="s_surv" onchange="recompute()"><option value="none">Both live</option><option value="A82">If You pass at 82</option><option value="B84">If Partner passes at 84</option></select></div>
-    </div>
-    <div class="center"><button class="btn btn-primary" onclick="tab('plan')">See my plan →</button></div>
-  </section>
-
-  <!-- ===== PLAN ===== -->
-  <section class="tab" id="tab-plan">
-    <div class="card" id="verdict" style="border-left:4px solid var(--teal)">
-      <div style="font-weight:700;font-size:17px;margin-bottom:4px" id="vd_head">—</div>
-      <div class="muted" id="vd_risk" style="font-size:14px;margin-bottom:6px">—</div>
-      <div style="font-size:14px"><b>Try first:</b> <span id="vd_action">—</span></div>
-    </div>
-    <div class="tiles">
-      <div class="tile"><div class="v" id="k_age">—</div><div class="l">money lasts to</div></div>
-      <div class="tile"><div class="v" id="k_succ">—</div><div class="l">chance of reaching 95</div></div>
-      <div class="tile"><div class="v" id="k_pot">—</div><div class="l">pot today</div></div>
-      <div class="tile"><div class="v" id="k_peak">—</div><div class="l">peak net worth</div></div>
-    </div>
-    <div class="chartcard"><h3>Your money over time</h3>
-      <svg id="main" viewBox="0 0 600 240" style="width:100%;height:auto"></svg>
-      <div class="muted">The line is your likely path · the shaded band = kinder or harsher markets · the dot = when the money runs out</div>
-    </div>
-    <div class="chartcard"><h3>Range of outcomes (Monte Carlo)</h3>
-      <svg id="mc" viewBox="0 0 600 180" style="width:100%;height:auto"></svg>
-      <div class="muted">Each faint line is one possible market future — most land in the middle. Updates as you change anything.</div>
-    </div>
-    <h3>Play with the levers</h3>
-    <p class="muted" style="margin-top:-4px">Flip a switch to see the effect on your plan.</p>
-    <label class="lev"><span>Both work 2 more years</span><span class="lveff" id="eff_work"></span><input type="checkbox" id="L_work" onchange="recompute()"></label>
-    <label class="lev"><span>Spend £300/month less</span><span class="lveff" id="eff_spend"></span><input type="checkbox" id="L_spend" onchange="recompute()"></label>
-    <label class="lev"><span>Each pay £300/month more</span><span class="lveff" id="eff_con"></span><input type="checkbox" id="L_con" onchange="recompute()"></label>
-    <label class="lev"><span>Lower fees 0.15%/yr</span><span class="lveff" id="eff_fee"></span><input type="checkbox" id="L_fee" onchange="recompute()"></label>
-    <div class="field" style="margin-top:6px"><label style="font-size:14px;color:var(--ink-soft)">Add a one-off event</label>
-      <select id="L_event" onchange="recompute()"><option value="none">None</option><option value="wind">Windfall: £40,000 inheritance at 70</option><option value="exp">Big expense: £60,000 care cost at 75</option></select></div>
-    <div class="chartcard"><h3>What moves your plan most</h3>
-      <p class="muted">Each lever on its own, ranked. Illustrative — you choose; we don't recommend.</p>
-      <div id="sens"></div>
-    </div>
-    <div class="chartcard"><h3>Compare scenarios</h3>
-      <div id="compare" class="muted">No saved scenarios yet.</div>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="saveScenario()">📸 Save this scenario</button>
-    </div>
-    <div class="center" style="margin:14px 0"><button class="btn btn-primary" onclick="toast('📄 Your report is ready (mock) — we would email a PDF you can keep and share')">📄 Save my report</button></div>
-  </section>
-
-  <!-- ===== PORTFOLIO ===== -->
-  <section class="tab" id="tab-portfolio">
-    <p class="muted" style="margin-top:14px">How much do you want to tell us? More detail = sharper insights. <span class="evt">event: portfolio_tab</span></p>
-    <div class="seg" id="lvlseg">
-      <button id="lv_tot" onclick="setLevel('tot')">Totals only</button>
-      <button id="lv_wrap" class="on" onclick="setLevel('wrap')">By account</button>
-      <button id="lv_hold" onclick="setLevel('hold')">Full holdings</button>
-    </div>
-    <div class="pcard" id="wrapcard">
-      <div class="sgrid">
-        <div class="row" style="display:flex;justify-content:space-between"><span>ISA £</span><input type="number" id="W_isa" value="120000" oninput="recompute()" style="width:120px;text-align:right"></div>
-        <div class="row" style="display:flex;justify-content:space-between"><span>SIPP/pension £</span><input type="number" id="W_sipp" value="250000" oninput="recompute()" style="width:120px;text-align:right"></div>
-        <div class="row" style="display:flex;justify-content:space-between"><span>GIA £</span><input type="number" id="W_gia" value="30000" oninput="recompute()" style="width:120px;text-align:right"></div>
-        <div class="row" style="display:flex;justify-content:space-between"><span>Cash £</span><input type="number" id="W_cash" value="50000" oninput="recompute()" style="width:120px;text-align:right"></div>
-      </div>
-      <div class="center" style="margin-top:8px"><span class="muted">Want the deep risk analysis? </span><a class="toggle" onclick="setLevel('hold')">add your holdings ▸</a></div>
-    </div>
-
-    <div class="hold" id="holdpanel" style="display:none">
-      <b>Your holdings</b>
-      <p class="muted" style="margin:4px 0 10px;font-size:14px">Type a ticker or fund — we fill in the rest. Each one you add sharpens your plan.</p>
-      <div class="tikwrap">
-        <input class="tikin" id="tik" autocomplete="off" placeholder="Search ticker or fund — e.g. VWRL, S&amp;P 500, gilts…" oninput="tikSearch(this.value)" onkeydown="tikKey(event)" onblur="setTimeout(function(){$('tikdrop').style.display='none';},150)">
-        <div class="tikdrop" id="tikdrop" style="display:none"></div>
-      </div>
-      <div class="chips" id="chips"></div>
-      <details style="margin-top:6px">
-        <summary class="muted" style="cursor:pointer;font-size:14px">📋 Paste from your broker instead</summary>
-        <textarea class="pastebox" id="paste" placeholder="Paste rows from your statement, e.g.&#10;VWRL   120   £12,400&#10;VUSA    80   £9,100"></textarea>
-        <div class="center" style="margin-top:6px"><button class="btn btn-ghost" onclick="parsePaste()">Find my holdings →</button></div>
-      </details>
-      <div class="note" style="margin-top:8px">We store nothing in free mode. Confirm your holdings before we calculate. Figures illustrative, not advice.</div>
-    </div>
-
-    <h3>At a glance</h3>
-    <div class="seg" style="margin-bottom:8px"><button class="on">Household</button><button>You</button><button>Partner</button></div>
-
-    <!-- FREE cards -->
-    <div class="pcard"><b>Tax-wrapper balance</b><br><span class="muted" id="x_wrap">—</span>
-      <div class="minibar"><div id="x_wrapbar" style="width:60%;background:var(--teal)"></div></div></div>
-    <div class="pcard"><b>Cash drag</b><br><span class="muted" id="x_cash">—</span></div>
-
-    <!-- LOCKED cards -->
-    <div id="lockwrap">
-    <div class="pcard locked" id="lk1"><div class="blur"><b>Concentration</b><br><span class="muted">62% in US technology</span><div class="minibar"><div style="width:62%;background:var(--red)"></div></div></div><div class="lockmsg">🔒 Add holdings to see your real concentration<a class="btn btn-primary" style="font-size:13px;padding:8px 14px" onclick="setLevel('hold')">Unlock</a></div></div>
-    <div class="pcard locked" id="lk2"><div class="blur"><b>US tech &amp; sector exposure</b><br><span class="muted">tech-heavy</span><div class="minibar"><div style="width:55%;background:var(--honey)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
-    <div class="pcard locked" id="lk3"><div class="blur"><b>Regional exposure</b><br><span class="muted">US / UK / world / EM</span><div class="minibar"><div style="width:70%;background:var(--teal)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
-    <div class="pcard locked" id="lk4"><div class="blur"><b>Correlation &amp; overlap</b><br><span class="muted">how much moves as one</span><div class="minibar"><div style="width:80%;background:var(--red)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
-    <div class="pcard locked" id="lk5"><div class="blur"><b>Currency (FX) risk</b><br><span class="muted">62% in US dollars</span><div class="minibar"><div style="width:62%;background:var(--honey)"></div></div></div><div class="lockmsg">🔒 Needs your holdings</div></div>
-    <div class="pcard locked" id="lk6"><div class="blur"><b>Risk metrics &amp; alpha</b><br><span class="muted">volatility · beta · Sharpe · drawdown</span></div><div class="lockmsg">🔒 Needs your holdings</div></div>
-    </div>
-    <div id="xrayfull" style="display:none">
-      <div class="chartcard" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-        <svg viewBox="0 0 200 110" width="180" height="100"><polyline id="xg_bg" fill="none" stroke="#e5ebf1" stroke-width="14" stroke-linecap="round"></polyline><polyline id="xg_val" fill="none" stroke="#e0922a" stroke-width="14" stroke-linecap="round"></polyline><text x="100" y="80" text-anchor="middle" font-size="28" font-weight="800" fill="#162130">62</text><text x="100" y="100" text-anchor="middle" font-size="11" fill="#8a99a8">health score</text></svg>
-        <div><div style="font-family:Montserrat;font-size:42px;font-weight:800;color:#e0922a;line-height:1">C</div><div class="muted" style="max-width:340px">Concentrated and tech-heavy — solid growth, but exposed in a downturn.</div></div>
-      </div>
-      <div class="tiles">
-        <div class="tile"><div class="v red">62%</div><div class="l">US tech</div></div>
-        <div class="tile"><div class="v red">62%</div><div class="l">USD exposure</div></div>
-        <div class="tile"><div class="v" style="color:#e0922a">14.2%</div><div class="l">volatility</div></div>
-        <div class="tile"><div class="v">0.61</div><div class="l">Sharpe</div></div>
-      </div>
-      <div class="sgrid">
-        <div class="chartcard"><b>Drawdown</b><svg viewBox="0 0 420 140" style="width:100%;height:auto;margin-top:8px"><line x1="10" y1="18" x2="410" y2="18" stroke="#eef2f6"/><path d="M10 18 L60 24 L100 64 L140 110 L175 56 L220 28 L260 36 L300 88 L340 46 L410 22 L410 18 Z" fill="#e0533d" opacity="0.12"/><path d="M10 18 L60 24 L100 64 L140 110 L175 56 L220 28 L260 36 L300 88 L340 46 L410 22" fill="none" stroke="#e0533d" stroke-width="2"/><text x="116" y="128" font-size="10" fill="#8a99a8">−46% (2008)</text></svg></div>
-        <div class="chartcard"><b>Monthly returns</b><div id="x_heat" class="hm" style="margin-top:8px"></div><div class="muted" style="margin-top:6px">Each square is a month — green = up, red = down.</div></div>
-      </div>
-      <div class="sgrid">
-        <div class="chartcard"><b>Correlation — moves together</b><div id="x_cor" class="cor" style="margin-top:8px"></div><div class="muted" style="margin-top:6px">Darker = these move together, so they fall together too (less protection).</div></div>
-        <div class="chartcard"><b>Top issues</b>
-          <div class="kpi"><span>Concentration (US tech)</span><span style="color:var(--red)">high</span></div>
-          <div class="kpi"><span>Currency risk (USD)</span><span style="color:var(--red)">high</span></div>
-          <div class="kpi"><span>Diversification (corr ~0.9)</span><span style="color:var(--red)">high</span></div>
-          <div class="kpi"><span>Fee drag 0.29%</span><span style="color:#e0922a">watch</span></div>
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="application-name" content="Steadybee" />
+    <meta name="steadybee-version" content="development" />
+    <meta name="theme-color" content="#14665f" />
+    <meta name="apple-mobile-web-app-title" content="Steadybee" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="manifest.webmanifest?v=2" />
+    <link rel="stylesheet" href="workspace.css" />
+    <title>Steadybee — your retirement workspace</title>
+    <script>
+      window.__steadybeeRestore = null;
+      window.restoreSteadybeePlan = function (s) {
+        window.__steadybeeRestore = s;
+      };
+    </script>
+    <script type="module" src="app.mjs"></script>
+    <script defer src="app-updates.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="index.html"
+          ><img src="favicon.svg" alt="" />steadybee<span
+            aria-hidden="true"
+            style="color: #b3934d"
+            >.</span
+          ></a
+        >
+        <div class="top-actions">
+          <span class="tag">Retirement workspace</span
+          ><a class="btn quiet" href="#review">Keep my work</a>
         </div>
+      </header>
+      <div class="layout">
+        <nav
+          class="sidebar"
+          aria-label="Planning workspace"
+          id="navigation"
+        ></nav>
+        <main id="main" tabindex="-1">
+          <div class="loading">Opening your workspace…</div>
+        </main>
       </div>
+      <footer class="footer">
+        A calm place to explore retirement choices. This prototype organises
+        your information and demonstrates fictional examples. Personal forecasts
+        and payments are not available.
+      </footer>
     </div>
-    <div class="note">Greyed panels are examples of what you'd unlock — not your data. Figures illustrative, not advice.</div>
-  </section>
-</div>
-<div class="toast" id="toast"></div>
-<footer>we sell nothing · we store nothing in free mode · illustration, not advice</footer>
-<script>
-function $(id){return document.getElementById(id);}
-function n(id){return +$(id).value;}
-function fmt(v){v=Math.round(v);if(Math.abs(v)>=1e6)return '£'+(v/1e6).toFixed(2)+'m';return '£'+Math.round(v/1000)+'k';}
-var planType='couple', dataLevel='wrap', scenarios=[];
-function tab(t){['you','plan','portfolio'].forEach(function(x){$('tab-'+x).classList.toggle('on',x===t);$('tb_'+x).classList.toggle('on',x===t);});window.scrollTo(0,0);}
-function ed(p){$('det'+p).classList.toggle('hide');}
-function setPlan(p){planType=p;$('pt_solo').classList.toggle('on',p==='solo');$('pt_couple').classList.toggle('on',p==='couple');$('cardB').style.display=p==='solo'?'none':'';$('s_surv').parentNode.style.display=p==='solo'?'none':'';recompute();}
-function setLevel(l){dataLevel=l;['tot','wrap','hold'].forEach(function(x){$('lv_'+x).classList.toggle('on',x===l);});$('wrapcard').style.display=l==='tot'?'none':'';$('holdpanel').style.display=l==='hold'?'':'none';
-  var unlocked=(l==='hold');$('lockwrap').style.display=unlocked?'none':'';$('xrayfull').style.display=unlocked?'':'none';if(unlocked)renderXray();
-  recompute();}
-function inp(){var couple=planType==='couple';return{
-  A:{age:n('A_age'),ret:n('A_ret'),pot:n('A_pot'),con:n('A_con')*12,sp:n('A_sp'),spA:67,db:n('A_db')},
-  B:couple?{age:n('B_age'),ret:n('B_ret'),pot:n('B_pot'),con:n('B_con')*12,sp:n('B_sp'),spA:67,db:n('B_db')}:{age:60,ret:60,pot:0,con:0,sp:0,spA:67,db:0},
-  spend:n('s_spend')*12,r:n('s_r')/1000,inf:n('s_inf')/1000,surv:couple?$('s_surv').value:'none',ev:($('L_event')?$('L_event').value:'none')};}
-function project(o){o=o||{};var c=inp();var rb=o.rb||0,sd=o.sd||0,cb=o.cb||0,radj=o.radj||0,fb=o.fb?0.0015:0;
-  var aRet=c.A.ret+rb,bRet=c.B.ret+rb;var firstRetI=Math.max(0,Math.min(aRet-c.A.age,c.B.pot>0?bRet-c.B.age:99));
-  var v=c.A.pot+c.B.pot,raw=[],r=c.r+radj+fb,sw=c.surv.charAt(0),sage=+c.surv.slice(1)||999;
-  for(var i=0;i<=42;i++){var aAge=c.A.age+i,bAge=c.B.age+i;
-    if(c.ev==='wind'&&aAge===70)v+=40000; if(c.ev==='exp'&&aAge===75)v-=60000;
-    var aDead=(sw==='A'&&aAge>=sage),bDead=(sw==='B'&&bAge>=sage),dead=aDead||bDead;
-    var contrib=((aAge<aRet&&!aDead)?c.A.con+cb:0)+((c.B.pot>0&&bAge<bRet&&!bDead)?c.B.con+cb:0);
-    var retired=(aAge>=aRet)||(c.B.pot>0&&bAge>=bRet);var income=0;
-    if(!aDead)income+=(aAge>=c.A.spA?c.A.sp:0)+(aAge>=aRet?c.A.db:0);
-    if(c.B.pot>0){if(!bDead)income+=(bAge>=c.B.spA?c.B.sp:0)+(bAge>=bRet?c.B.db:0);else income+=(bAge>=bRet?c.B.db*0.5:0);}
-    var mult=dead?0.65:1;
-    if(!retired)v=v*(1+r)+contrib; else{var spendY=(c.spend-sd)*Math.pow(1+c.inf,Math.max(0,i-firstRetI))*mult;v=v*(1+r)+contrib-(spendY-income);}
-    raw.push(v);}
-  var dep=102;for(i=0;i<raw.length;i++){if(raw[i]<=0){dep=c.A.age+i;break;}}
-  return{raw:raw,dep:dep,base:c.A.age};}
-function mapX(a,x0,w){return x0+(a-60)/40*w;}
-function recompute(){
-  var c=inp();
-  $('v_spend').textContent='£'+n('s_spend').toLocaleString()+'/mo';$('v_r').textContent=(n('s_r')/10).toFixed(1)+'%';$('v_inf').textContent=(n('s_inf')/10).toFixed(1)+'%';
-  $('sumA').textContent='You · '+c.A.age+' · retire '+c.A.ret+' · '+fmt(c.A.pot);
-  if(c.B.pot>0)$('sumB').textContent='Partner · '+c.B.age+' · retire '+c.B.ret+' · '+fmt(c.B.pot);
-  var lev={rb:$('L_work').checked?2:0,sd:$('L_spend').checked?3600:0,cb:$('L_con').checked?3600:0,fb:$('L_fee').checked};
-  ['L_work','L_spend','L_con','L_fee'].forEach(function(id){var cb=$(id);if(cb)cb.closest('.lev').classList.toggle('on',cb.checked);});
-  var mid=project(lev),hi=project(Object.assign({radj:0.015},lev)),lo=project(Object.assign({radj:-0.015},lev));
-  var max=Math.max.apply(null,hi.raw.concat([400000]));
-  var d=mid.dep;$('k_age').textContent=d>100?'100+':d;$('s_age').textContent=(d>100?'100+':'age '+d);
-  var p=Math.max(20,Math.min(99,Math.round(40+(Math.min(d,100)-80)*3.5)));$('k_succ').textContent=p+'%';$('s_succ').textContent=p+'%';
-  $('k_age').className='v'+(d>=95?'':' red');$('k_succ').className='v'+(d>=95?'':' red');
-  $('k_pot').textContent=fmt(c.A.pot+c.B.pot);$('k_peak').textContent=fmt(Math.max.apply(null,mid.raw));
-  // accuracy (rewards data completion; each holding sharpens the plan)
-  var acc=40+(dataLevel==='wrap'?20:dataLevel==='hold'?35:0)+(planType==='couple'?5:0)+(dataLevel==='hold'?Math.min(holdings.length*3,18):0);acc=Math.min(acc,98);
-  if(lastAcc>=0&&acc>lastAcc){pulseSharpen(acc-lastAcc);checkMilestone(lastAcc,acc);}
-  lastAcc=acc;
-  $('s_acc').textContent=acc+'%';$('s_accbar').style.width=acc+'%';
-  // chart
-  var x0=40,w=545,yb=200,yt=20,b0=c.A.age,plot=function(val){return yb-Math.max(val,0)/max*(yb-yt);};
-  var g='';[0,.5,1].forEach(function(f){var y=yb-f*(yb-yt);g+='<line x1="40" y1="'+y+'" x2="585" y2="'+y+'" stroke="#efece4"/><text x="4" y="'+(y+4)+'" font-size="10" fill="#8a9695">'+fmt(max*f)+'</text>';});
-  function pth(a){var s='';for(var i=0;i<a.length&&b0+i<=100;i++)s+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(a[i]).toFixed(1);return s;}
-  var band='';for(i=0;i<hi.raw.length&&b0+i<=100;i++)band+=(i?'L':'M')+mapX(b0+i,x0,w).toFixed(1)+' '+plot(hi.raw[i]).toFixed(1);for(var j=Math.min(lo.raw.length-1,100-b0);j>=0;j--)band+='L'+mapX(b0+j,x0,w).toFixed(1)+' '+plot(lo.raw[j]).toFixed(1);
-  var rx=mapX(c.A.ret,x0,w),dx=d<=100?mapX(d,x0,w):0;
-  $('main').innerHTML=g+'<path d="'+band+' Z" fill="#0d9488" opacity="0.12"/><path d="'+pth(mid.raw)+'" fill="none" stroke="#0d9488" stroke-width="2.5"/><line x1="'+rx+'" y1="20" x2="'+rx+'" y2="200" stroke="#b9b3a6" stroke-dasharray="4 4"/><text x="'+rx+'" y="16" font-size="9" fill="#8a9695" text-anchor="middle">retire</text>'+(d<=100?'<circle cx="'+dx+'" cy="200" r="4" fill="#b4452e"/>':'')+'<text x="40" y="225" font-size="10" fill="#8a9695">60</text><text x="580" y="225" font-size="10" fill="#8a9695">100</text>';
-  // sensitivity (independent of applied levers)
-  var base=Math.min(project().dep,102);
-  var L=[['Both work 2 more years',{rb:2}],['Spend £300/mo less',{sd:3600}],['Each pay £300/mo more',{cb:3600}],['Lower fees 0.15%',{fb:1}]];
-  var res=L.map(function(l){return{name:l[0],delta:Math.min(project(l[1]).dep,102)-base};}).sort(function(a,b){return b.delta-a.delta;});
-  var mx=Math.max.apply(null,res.map(function(r){return Math.abs(r.delta)}).concat([1]));
-  $('sens').innerHTML=res.map(function(r){var w=Math.round(Math.abs(r.delta)/mx*100);return '<div style="display:grid;grid-template-columns:150px 1fr 55px;gap:8px;align-items:center;margin:7px 0;font-size:14px"><span>'+r.name+'</span><div class="minibar" style="margin:0"><div style="width:'+w+'%;background:'+(r.delta<0?'#b4452e':'#0d9488')+'"></div></div><span style="text-align:right;color:'+(r.delta<0?'#b4452e':'#1f7a4d')+'">'+(r.delta>=0?'+':'')+(r.delta>=99?'99+':r.delta)+'y</span></div>';}).join('');
-  // portfolio free cards
-  if(dataLevel!=='tot'){var isa=n('W_isa'),sipp=n('W_sipp'),gia=n('W_gia'),cash=n('W_cash'),tot=isa+sipp+gia+cash;
-    $('x_wrap').textContent='ISA '+Math.round(isa/tot*100)+'% · SIPP '+Math.round(sipp/tot*100)+'% · GIA '+Math.round(gia/tot*100)+'% · cash '+Math.round(cash/tot*100)+'% — '+(gia/tot>0.15?'a lot held in a taxable account; using ISA allowance could help (illustrative)':'tax-efficiently wrapped');
-    $('x_wrapbar').style.width=Math.round((isa+sipp)/tot*100)+'%';
-    $('x_cash').textContent='£'+Math.round(cash/1000)+'k in cash ≈ £'+Math.round(cash*0.03)+'/yr of lost growth at a 3% gap (illustrative).';}
-  else{$('x_wrap').textContent='add account values to see this';$('x_cash').textContent='add account values to see this';}
-  // Monte Carlo spaghetti (interactive — recomputes with inputs)
-  var mh='';for(var k=0;k<10;k++){var mp=project(Object.assign({radj:(k-4.5)*0.006},lev)),s='';for(var ii=0;ii<mp.raw.length&&b0+ii<=100;ii++)s+=(ii?'L':'M')+(15+(b0+ii-60)/40*570).toFixed(1)+' '+(160-Math.max(mp.raw[ii],0)/max*150).toFixed(1);mh+='<path d="'+s+'" fill="none" stroke="#0d9488" stroke-width="'+(k===5?2:1)+'" opacity="'+(k===5?1:0.22)+'"/>';}
-  mh+='<line x1="15" y1="160" x2="585" y2="160" stroke="#eef2f6"/>';if($('mc'))$('mc').innerHTML=mh;
-  // verdict + biggest risk + next step (plain language)
-  if($('vd_head')){var tl=res[0];
-    $('vd_head').textContent = d>=95 ? "✅ You're on track — your money should last beyond your goal of 95." : "On track to age "+(d>100?'100+':d)+" — about "+(95-Math.min(d,95))+" years short of your goal of 95.";
-    $('vd_risk').textContent = (dataLevel==='hold') ? "Biggest risk we found: heavy concentration in US tech and the US dollar." : "Tip: add your holdings on the Portfolio tab to find your biggest risk.";
-    $('vd_action').textContent = tl ? tl.name+(tl.delta>=99?" (big boost)":(" (≈ +"+tl.delta+" years)")) : "—";
-  }
-  // per-lever impact, shown inline on each toggle
-  var bdep=Math.min(project().dep,102);
-  function setEff(id,o){var dd=Math.min(project(o).dep,102)-bdep,el=$(id);if(!el)return;el.textContent=dd>0?'+'+dd+'y':(dd<0?dd+'y':'');el.style.color=dd<0?'#b4452e':'#1f7a4d';}
-  setEff('eff_work',{rb:2});setEff('eff_spend',{sd:3600});setEff('eff_con',{cb:3600});setEff('eff_fee',{fb:1});
-}
-function saveScenario(){var d=$('k_age').textContent,s=$('k_succ').textContent;scenarios.push({label:'Scenario '+(scenarios.length+1),age:d,succ:s});
-  renderScenarios();}
-function renderScenarios(){
-  $('compare').innerHTML=scenarios.map(function(x){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)"><b>'+x.label+'</b><span>lasts to '+x.age+' · '+x.succ+'</span></div>';}).join('');}
-// ---- Feature 4: holdings entry + Sharpen juice ----
-var TICKERS=[
- {t:'VWRL',n:'Vanguard FTSE All-World',r:'Global',cur:'USD',f:'🌍'},
- {t:'VWRP',n:'Vanguard FTSE All-World (Acc)',r:'Global',cur:'USD',f:'🌍'},
- {t:'VUSA',n:'Vanguard S&P 500',r:'US',cur:'USD',f:'🇺🇸'},
- {t:'VUKE',n:'Vanguard FTSE 100',r:'UK',cur:'GBP',f:'🇬🇧'},
- {t:'VMID',n:'Vanguard FTSE 250',r:'UK',cur:'GBP',f:'🇬🇧'},
- {t:'VFEM',n:'Vanguard FTSE Emerging Markets',r:'EM',cur:'USD',f:'🌏'},
- {t:'VEVE',n:'Vanguard FTSE Developed World',r:'Global',cur:'USD',f:'🌍'},
- {t:'VGOV',n:'Vanguard UK Gilts',r:'UK',cur:'GBP',f:'🇬🇧'},
- {t:'VAGP',n:'Vanguard Global Bond (GBP Hedged)',r:'Global',cur:'GBP',f:'🌍'},
- {t:'SGLN',n:'iShares Physical Gold',r:'Global',cur:'USD',f:'🪙'},
- {t:'ISF',n:'iShares Core FTSE 100',r:'UK',cur:'GBP',f:'🇬🇧'},
- {t:'CSP1',n:'iShares Core S&P 500',r:'US',cur:'USD',f:'🇺🇸'},
- {t:'EQQQ',n:'Invesco Nasdaq-100',r:'US',cur:'USD',f:'🇺🇸'},
- {t:'AGGG',n:'iShares Core Global Aggregate Bond',r:'Global',cur:'USD',f:'🌍'},
- {t:'FCIT',n:'F&C Investment Trust',r:'Global',cur:'GBP',f:'🌍'}
-];
-var holdings=[], tikRes=[], tikSel=-1, lastAcc=-1;
-function tikSearch(q){q=(q||'').trim().toLowerCase();var dd=$('tikdrop');
-  if(!q){dd.style.display='none';tikRes=[];return;}
-  tikRes=TICKERS.filter(function(x){return x.t.toLowerCase().indexOf(q)>=0||x.n.toLowerCase().indexOf(q)>=0;})
-    .sort(function(a,b){return (a.t.toLowerCase().indexOf(q)===0?0:1)-(b.t.toLowerCase().indexOf(q)===0?0:1);})
-    .slice(0,6);
-  tikSel=-1;
-  if(!tikRes.length){dd.style.display='none';return;}
-  dd.innerHTML=tikRes.map(function(x,i){return '<div class="tikrow" onmousedown="tikPick('+i+')"><span class="tk">'+x.t+'</span><span class="nm">'+x.n+'</span><span class="fl">'+x.f+'</span></div>';}).join('');
-  dd.style.display='';}
-function tikKey(e){if(e.key==='ArrowDown'){tikSel=Math.min(tikSel+1,tikRes.length-1);hlRow();e.preventDefault();}
-  else if(e.key==='ArrowUp'){tikSel=Math.max(tikSel-1,0);hlRow();e.preventDefault();}
-  else if(e.key==='Enter'){if(tikSel>=0)tikPick(tikSel);else if(tikRes.length)tikPick(0);e.preventDefault();}
-  else if(e.key==='Escape'){$('tikdrop').style.display='none';}}
-function hlRow(){var rows=$('tikdrop').querySelectorAll('.tikrow');for(var i=0;i<rows.length;i++)rows[i].classList.toggle('sel',i===tikSel);}
-function tikPick(i){var x=tikRes[i];if(x)addHolding(x);$('tik').value='';$('tikdrop').style.display='none';tikRes=[];$('tik').focus();}
-function addHolding(x){if(holdings.some(function(h){return h.t===x.t;}))return;holdings.push(x);renderChips();recompute();}
-function delHolding(t){holdings=holdings.filter(function(h){return h.t!==t;});renderChips();recompute();}
-function renderChips(){$('chips').innerHTML=holdings.map(function(h){return '<span class="chip"><b>'+h.t+'</b> <span class="muted" style="font-size:12px">'+h.r+' · '+h.cur+'</span><button class="x" onclick="delHolding(\''+h.t+'\')">×</button></span>';}).join('');}
-function parsePaste(){var lines=$('paste').value.split(/\n+/),added=0;
-  lines.forEach(function(ln){var m=ln.trim().match(/^([A-Za-z]{2,6})\b/);if(!m)return;
-    var x=TICKERS.find(function(z){return z.t.toLowerCase()===m[1].toLowerCase();});
-    if(x&&!holdings.some(function(h){return h.t===x.t;})){holdings.push(x);added++;}});
-  if(added){renderChips();recompute();toast(added+' holding'+(added>1?'s':'')+' found — check and confirm');}
-  else toast("Couldn't read those — try a ticker like VWRL");
-  $('paste').value='';}
-function pulseSharpen(delta){var acEl=document.querySelector('.status .acc');if(acEl){var s=document.createElement('span');s.className='spark';s.textContent='+'+delta+'%';acEl.appendChild(s);setTimeout(function(){s.remove();},1000);}
-  if(navigator.vibrate)navigator.vibrate(8);}
-function checkMilestone(prev,now){[[60,'Concentration analysis'],[80,'Correlation & overlap'],[95,'Full risk metrics']].forEach(function(m){if(prev<m[0]&&now>=m[0])toast('🔓 '+m[1]+' unlocked');});}
-function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(function(){t.classList.remove('show');},2600);}
-function poly(d0,d1){var p=[];for(var d=d0;d>=d1;d-=3){var r=78,cx=100,cy=88;p.push((cx+r*Math.cos(d*Math.PI/180)).toFixed(1)+','+(cy-r*Math.sin(d*Math.PI/180)).toFixed(1));}return p.join(' ');}
-function renderXray(){
-  if(!$('xg_bg'))return;
-  $('xg_bg').setAttribute('points',poly(180,0));$('xg_val').setAttribute('points',poly(180,180-180*62/100));
-  var ys=['2024','2023','2022','2021','2020'],h='<div></div>';
-  for(var m=0;m<12;m++)h+='<div style="text-align:center">'+'JFMAMJJASOND'[m]+'</div>';
-  for(var y=0;y<ys.length;y++){h+='<div class="yl">'+ys[y]+'</div>';for(m=0;m<12;m++){var v=Math.sin(y*2.3+m*1.1)+Math.cos(m*0.7-y),it=Math.min(1,Math.abs(v)/2);h+='<div class="cell" style="background:'+(v>=0?'rgba(20,184,166,':'rgba(224,83,61,')+(0.18+it*0.7)+')"></div>';}}
-  $('x_heat').innerHTML=h;
-  var a=['US Tech','US','World','Bonds','Gold'],M=[[1,.92,.85,-.1,.05],[.92,1,.9,-.05,0],[.85,.9,1,.05,.1],[-.1,-.05,.05,1,.3],[.05,0,.1,.3,1]];
-  var c='<div style="display:grid;grid-template-columns:60px repeat(5,1fr);gap:3px"><div></div>';
-  a.forEach(function(x){c+='<div class="top">'+x+'</div>';});
-  for(var i=0;i<5;i++){c+='<div class="lbl">'+a[i]+'</div>';for(var j=0;j<5;j++){var val=M[i][j],t=Math.max(0,Math.min(1,(val+0.2)/1.2));var bg=val<0?'rgba(224,83,61,'+(0.1+Math.abs(val)*0.45)+')':'rgba(13,148,136,'+(0.08+t*0.85)+')';c+='<div class="cell" style="background:'+bg+';color:'+(t>0.5&&val>=0?'#fff':'#162130')+'">'+val.toFixed(2)+'</div>';}}
-  c+='</div>';$('x_cor').innerHTML=c;
-}
-// The updater preserves the active plan only for its automatic reload.
-window.snapshotSteadybeePlan=function(){return{
-  planType:planType,dataLevel:dataLevel,holdings:holdings.map(function(h){return h.t;}),
-  scenarios:scenarios,tab:document.querySelector('.tabs2 .tabbtn.on').id.replace('tb_',''),
-  expanded:['detA','detB'].filter(function(id){return !$(id).classList.contains('hide');})};};
-window.restoreSteadybeePlan=function(state){
-  if(!state||typeof state!=='object'){recompute();return;}
-  holdings=(Array.isArray(state.holdings)?state.holdings:[]).map(function(t){return TICKERS.find(function(h){return h.t===t;});}).filter(Boolean);
-  scenarios=(Array.isArray(state.scenarios)?state.scenarios:[]).filter(function(s){return s&&/^Scenario \d+$/.test(s.label)&&(/^\d+$/.test(String(s.age))||s.age==='100+')&&/^\d+%$/.test(s.succ);});
-  renderChips();setPlan(state.planType==='solo'?'solo':'couple');
-  setLevel(['tot','wrap','hold'].indexOf(state.dataLevel)>=0?state.dataLevel:'wrap');
-  renderScenarios();
-  if(!scenarios.length)$('compare').textContent='No saved scenarios yet.';
-  ['detA','detB'].forEach(function(id){$(id).classList.toggle('hide',!Array.isArray(state.expanded)||state.expanded.indexOf(id)<0);});
-  tab(['you','plan','portfolio'].indexOf(state.tab)>=0?state.tab:'you');};
-setLevel('wrap');recompute();
-</script>
-</body></html>
+    <div id="message" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

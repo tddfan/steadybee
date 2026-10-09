@@ -39,7 +39,9 @@ it looks like a personal recommendation — regardless of disclaimers.
 
 ## Required language
 - Diagnosis framing: "your assumptions **may be overly optimistic**" — NOT "your plan is lying to you".
-- Every projection: **"Illustration, not advice. Current rules, subject to change."**
+- Every projection: **"Illustration, not advice."** A rules-based model also states
+  **"Current rules, subject to change."** A fictional demonstration instead identifies
+  its authored assumptions and that it does not apply current UK tax/pension rules.
 - Independence, stated openly: "We sell no products, take no commissions, and never sell your data."
 
 ## Financial-promotion rules (Consumer Duty)

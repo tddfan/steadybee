@@ -4,9 +4,13 @@ Read this every session. It is the source of truth for how we build Steadybee.
 Detailed rules live in the docs linked below; the hard rules are inlined here.
 
 ## What Steadybee is
-An honest, affordable, once-a-year retirement check-up for UK self-directed investors (45–70,
-£150k+). Free personalised "portfolio check-up" → paid annual "Retirement MOT report." Its unique
-thread: it connects today's holdings to the future retirement outcome.
+A retirement decision workspace for UK self-directed planners. The current research prototype
+organises entered information and separately demonstrates named fictional examples. Personal
+forecasts and payments are not connected. A verified personal decision bundle is a future offer
+hypothesis; price, cadence and demand remain unproven.
+Current prototype scope and verification: [README](README.md) and
+[prototype loop plan](docs/2026-10-09-prototype-loop-plan.md). The static HTML/CSS/JavaScript
+prototype is an experience experiment; the production stack below remains the agreed direction.
 Full context: [Vision](docs/VISION.md) · [Strategy](docs/STRATEGY.md) ·
 [Functionality](docs/FUNCTIONALITY.md) · [User journey](docs/USER_JOURNEY.md).
 
@@ -26,7 +30,9 @@ Steadybee is **decision-support / educational software, NOT regulated financial 
 - **Alerts state facts only** ("concentration rose X%→Y%"), never "consider reducing".
 - **No outcome promises.** Sell process, not certainty. Copy: "your assumptions may be overly
   optimistic," never "your plan is lying to you."
-- **Every projection shows:** "Illustration, not advice. Current rules, subject to change."
+- **Every projection shows:** "Illustration, not advice." Fictional examples disclose their
+  authored assumptions and exclusions. A model that does not apply UK rules must not claim
+  to use current UK rules.
 - When in doubt, it's advice — don't ship it. Run new copy/features against the
   [compliance checklist](docs/COMPLIANCE.md#review-checklist).
 
@@ -35,6 +41,9 @@ Steadybee is **decision-support / educational software, NOT regulated financial 
 - This is financial data: **encrypt user data at rest, support full deletion, GDPR by design.**
 - Minimise data collected. Make consent + "delete anytime" explicit in UI.
 - Never log raw portfolio holdings or PII.
+- The research prototype has no account or server processing of inputs. Optional browser
+  saving is not encrypted or cross-device; disclose this before entry and support deletion.
+  Production storage/security requirements remain gates before any paid personal release.
 
 ## TRUST RULES (product integrity)
 - **All numbers are computed by deterministic, auditable code. AI explains — it NEVER invents a
