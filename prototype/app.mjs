@@ -10,6 +10,7 @@ import {
 } from "./state.mjs";
 import { examples, evaluateExample } from "./fixtures.mjs";
 import { landingChoices } from "./landing-choices.mjs";
+import { exampleInsights, exampleChoices } from "./example-insights.mjs";
 
 const $ = (s) => document.querySelector(s);
 const money = (v) =>
@@ -46,7 +47,11 @@ let workspace = {
 };
 let storageProblem = "",
   savedAvailable = null,
-  toastTimer;
+  toastTimer,
+  setupEdit = null,
+  activeAssetView = "savings",
+  displayedChart = null,
+  displayedFunding = null;
 const params = new URLSearchParams(location.search);
 const pendingRestore = window.__steadybeeRestore;
 const template = (title, sub, body) =>
@@ -82,7 +87,7 @@ const navViews = [
 function numericInput(id, label, f, help = "", max = null) {
   const fval = val(f),
     status = f?.status || "unknown";
-  return `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="number" inputmode="decimal" min="0" ${max ? `max="${max}"` : ""} step="any" value="${fval == null ? "" : esc(fval)}" placeholder="I don't know yet" aria-describedby="${id}-help"><span class="help" id="${id}-help">${help || "Leave blank if unknown. A deliberate zero is different from unknown."}</span><label class="sr-only" for="${id}-status">${label} information status</label><select id="${id}-status" class="state"><option value="provided" ${status === "provided" ? "selected" : ""}>Provided</option><option value="estimated" ${status === "estimated" ? "selected" : ""}>Estimate</option><option value="unknown" ${status === "unknown" ? "selected" : ""}>Unknown</option></select></div>`;
+  return `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="number" inputmode="decimal" min="0" ${max ? `max="${max}"` : ""} step="any" value="${fval == null ? "" : esc(fval)}" placeholder="I don't know yet" aria-describedby="${id}-help"><span class="help" id="${id}-help">${help || "Leave blank if unknown. A deliberate zero is different from unknown."}</span><label class="sr-only" for="${id}-status">${label} information status</label><select id="${id}-status" class="state"><option value="provided" ${status === "provided" ? "selected" : ""}>Known amount</option><option value="estimated" ${status === "estimated" ? "selected" : ""}>Estimate</option><option value="unknown" ${status === "unknown" ? "selected" : ""}>Unknown</option></select></div>`;
 }
 function readNumber(id) {
   const el = $("#" + id),
@@ -95,7 +100,7 @@ function readNumber(id) {
   );
 }
 function inputRows(p, route = "dc", prefix = "") {
-  return `<div class="grid">${numericInput(prefix + "age", "Your age", p.age, "Whole years.", 100)}${route === "retired" ? `<div class="field"><label for="${prefix}retirementStatus">Retirement status</label><select id="${prefix}retirementStatus"><option value="already-retired">Already retired</option><option value="working" ${p.retirementStatus === "working" ? "selected" : ""}>Still working</option></select><span class="help">If still working, add your intended retirement age in My information.</span></div>` : numericInput(prefix + "targetRetirementAge", "Intended retirement age", p.targetRetirementAge, "Separate from when you can access your pension.", 100)}${route === "dc" ? numericInput(prefix + "pensionTotal", "Invested pension pots (£)", p.pensionTotal, "DC / invested pensions only. Promised DB income goes in Income.") : numericInput(prefix + "annualPensionIncome", "Pension income (£ / year)", p.annualPensionIncome, "DB / State Pension / other pension income. You will confirm gross or net below.")}${numericInput(prefix + "nonPensionTotal", route === "dc" ? "Other savings & investments (£)" : "Accessible savings (£)", p.nonPensionTotal, "Exclude your home and pension pots. Access restrictions can be added later.")}${numericInput(prefix + "monthlySpending", "Retirement spending (£ / month)", p.monthlySpending, "In today’s pounds. Decide whether it includes housing/debt costs.")}</div>`;
+  return `<div class="grid">${numericInput(prefix + "age", "Your age", p.age, "Whole years.", 100)}${route === "retired" ? `<div class="field"><label for="${prefix}retirementStatus">Retirement status</label><select id="${prefix}retirementStatus"><option value="already-retired">Already retired</option><option value="working" ${p.retirementStatus === "working" ? "selected" : ""}>Still working</option></select><span class="help">If still working, add your intended retirement age in My information.</span></div>` : numericInput(prefix + "targetRetirementAge", "Intended retirement age", p.targetRetirementAge, "Separate from when you can access your pension.", 100)}${route === "dc" ? numericInput(prefix + "pensionTotal", "Invested pension pots (£)", p.pensionTotal, "Invested / defined contribution (DC) pensions. Promised regular pension income goes in Pension income.") : numericInput(prefix + "annualPensionIncome", "Pension income (£ / year)", p.annualPensionIncome, "Defined benefit (DB), State Pension or other pension income. Confirm before or after tax below.")}${numericInput(prefix + "nonPensionTotal", route === "dc" ? "Other savings & investments (£)" : "Accessible savings (£)", p.nonPensionTotal, "Exclude your home and pension pots. Access restrictions can be added later.")}${numericInput(prefix + "monthlySpending", "Retirement spending (£ / month)", p.monthlySpending, "In today’s pounds. Decide whether it includes housing/debt costs.")}</div>`;
 }
 function startView() {
   return template(
@@ -105,26 +110,32 @@ function startView() {
   );
 }
 function examplesView() {
+  const questions = {
+    "early-dc": "Stop work before pension access?",
+    "mixed-household": "Two retirement dates. One spending plan.",
+    "already-retired": "Income, savings and a one-off cost.",
+  };
   return template(
-    "A real decision. Fictional people.",
-    "Choose a story, then explore how its assumptions and choices affect the picture.",
+    "Which decision feels familiar?",
+    "Choose a fictional story. Compare a choice and see how spending is funded.",
     examples
-      .map(
-        (e) =>
-          `<section class="card"><div class="eyebrow">Fictional worked example</div><h2>${esc(e.name)}</h2><p>${esc(e.description)}</p>${btn("Explore this example", `example:${e.id}`)}</section>`,
-      )
+      .map((e) => {
+        const p = e.profile,
+          people = [p.primary, p.partner].filter(Boolean);
+        return `<section class="card"><div class="eyebrow">${esc(e.name)} · fictional</div><h2>${questions[e.id]}</h2><p>${esc(e.description)}</p><div class="spending-context"><span><b>${money(p.monthlySpending)}/month</b> ${p.partner ? "household" : "individual"} spending</span><span>${people.map((person) => `${esc(person.name)}, ${person.age}`).join(" · ")} · ${money(people.reduce((sum, person) => sum + person.savings, 0))} savings outside pensions</span></div>${buttons(btn("Explore this example", `example:${e.id}`))}</section>`;
+      })
       .join("") +
-      `<p class="small">All example numbers are generated deterministically from disclosed fictional assumptions. No personal tax calculation or pension-rule inference is included.</p>`,
+      `<p class="small">Illustration, not advice. Fictional amounts and access ages use simplified annual arithmetic, with no UK tax or pension-rule calculation. Personal drafts are separate.</p>`,
   );
 }
 function setupView() {
-  const p = draft() || createDraft();
-  if (!draft()) workspace.personal = p;
+  if (!draft()) workspace.personal = createDraft();
+  const p = setupEdit || draft();
   const route = p.route;
   return template(
     "A short start. Detail later.",
-    "The first picture is an information summary. No account required.",
-    `<div class="pill-tabs"><a href="#setup" data-route="dc" class="${route === "dc" ? "active" : ""}">Invested pension pots</a><a href="#setup" data-route="income" class="${route === "income" ? "active" : ""}">DB / income-led</a><a href="#setup" data-route="retired" class="${route === "retired" ? "active" : ""}">Already retired</a></div><form id="setup-form" novalidate><div id="form-error"></div><section class="card"><div class="field"><label for="scope">Who is this picture for?</label><select id="scope"><option value="individual">Just me</option><option value="household" ${p.planningScope === "household" ? "selected" : ""}>Me and a partner</option></select><span class="help">Start with your information. Add your partner progressively.</span></div>${inputRows(p.profile, route)}${route !== "dc" ? `<div class="field"><label for="incomeBasis">Is the pension income gross or net?</label><select id="incomeBasis"><option value="unknown">Not sure</option><option value="gross" ${p.profile.incomeBasis === "gross" ? "selected" : ""}>Gross · before tax</option><option value="net" ${p.profile.incomeBasis === "net" ? "selected" : ""}>Net · after tax</option></select></div>` : ""}<div class="field"><label for="spendingBasis">This spending figure covers</label><select id="spendingBasis"><option value="individual">Just me</option><option value="household" ${p.spendingBasis === "household" ? "selected" : ""}>Our household</option></select><span class="help">Include regular costs and travel in your target. Major one-off costs can be recorded separately. We will confirm housing/debt inclusion later.</span></div><button class="btn" type="submit">See my information picture →</button></section></form><p class="small">While this tab is open, your inputs stay in this browser. Device saving is optional; saved drafts are visible to anyone using the same browser profile. Your entries remain separate from fictional examples.</p>`,
+    "Keep your starting information when ready. Changes stay in this form until you submit it.",
+    `<div class="pill-tabs"><a href="#setup" data-route="dc" class="${route === "dc" ? "active" : ""}">Invested pension pots</a><a href="#setup" data-route="income" class="${route === "income" ? "active" : ""}">Pension income</a><a href="#setup" data-route="retired" class="${route === "retired" ? "active" : ""}">Already retired</a></div><form id="setup-form" novalidate><div id="form-error"></div><section class="card"><div class="field"><label for="scope">Who is this picture for?</label><select id="scope"><option value="individual">Just me</option><option value="household" ${p.planningScope === "household" ? "selected" : ""}>Me and a partner</option></select><span class="help">Start with your information. Add your partner progressively.</span></div>${inputRows(p.profile, route)}${route !== "dc" ? `<div class="field"><label for="incomeBasis">Is the pension income gross or net?</label><select id="incomeBasis"><option value="unknown">Not sure</option><option value="gross" ${p.profile.incomeBasis === "gross" ? "selected" : ""}>Gross · before tax</option><option value="net" ${p.profile.incomeBasis === "net" ? "selected" : ""}>Net · after tax</option></select></div>` : ""}<div class="field"><label for="spendingBasis">This spending figure covers</label><select id="spendingBasis"><option value="individual">Just me</option><option value="household" ${p.spendingBasis === "household" ? "selected" : ""}>Our household</option></select><span class="help">Include regular costs and travel in your target. Major one-off costs can be recorded separately. We will confirm housing/debt inclusion later.</span></div><button class="btn" type="submit">See my information picture →</button></section></form><p class="small">While this tab is open, your inputs stay in this browser. Device saving is optional; saved drafts are visible to anyone using the same browser profile. Your entries remain separate from fictional examples.</p>`,
   );
 }
 
@@ -505,49 +516,273 @@ function changesList(s) {
     )
     .join("");
 }
+function ageNames(result, row) {
+  return `${esc(result.profile.primary.name)} ${row.primaryAge}${result.profile.partner ? ` · ${esc(result.profile.partner.name)} ${row.partnerAge}` : ""}`;
+}
+function retirementFacts(result) {
+  return [result.profile.primary, result.profile.partner]
+    .filter(Boolean)
+    .map(
+      (p) =>
+        `<span><b>${esc(p.name)}</b> ${p.retirementAge < p.age ? "retired" : "retires"} in ${result.profile.startYear + p.retirementAge - p.age} · age ${p.retirementAge}</span>`,
+    )
+    .join("");
+}
+function partTimePeriod(result) {
+  const p = result.profile;
+  if (!p.partTimeAnnual) return "";
+  const start = Math.max(p.primary.age, p.primary.retirementAge),
+    end = p.partTimeEndAge - 1;
+  return `Part-time period: ${p.startYear + start - p.primary.age}–${p.startYear + end - p.primary.age} · ${esc(p.primary.name)} ages ${start}–${end}; ends at age ${p.partTimeEndAge}.`;
+}
+function firstGapExplanation(result) {
+  const f = exampleInsights(result),
+    r = f.firstGap;
+  if (!r)
+    return f.firstPensionWithdrawal
+      ? `Pension-pot withdrawals start in ${f.firstPensionWithdrawal.year} (age ${f.firstPensionWithdrawal.primaryAge}); savings outside pensions reaching zero does not mean spending is uncovered.`
+      : "Regular income and, where needed, savings outside pensions fund the spending shown in the yearly workings.";
+  const fromStart =
+    f.yearsFromStart === 0
+      ? "in the example’s starting year"
+      : `${f.yearsFromStart} years after the example starts`;
+  const fromRetirement =
+    f.yearsAfterRetirement === null
+      ? ""
+      : f.yearsAfterRetirement === 0
+        ? ", in the retirement year"
+        : `, ${f.yearsAfterRetirement} years after ${esc(result.profile.primary.name)} retires`;
+  const locked = [result.profile.primary, result.profile.partner]
+    .filter(Boolean)
+    .filter(
+      (p) => p.age + r.year - result.profile.startYear < p.pensionAccessAge,
+    );
+  const access = locked
+    .map(
+      (p) =>
+        `${esc(p.name)}’s assumed access at age ${p.pensionAccessAge} (${result.profile.startYear + p.pensionAccessAge - p.age})`,
+    )
+    .join("; ");
+  return `The first spending shortfall is ${fromStart}${fromRetirement}. ${r.closingLockedPension > 0 ? `${money(r.closingLockedPension)} remains in pension money that cannot yet be drawn: ${access}.` : "Available income and savings cannot cover all spending that year."}`;
+}
+function outcomeMarkup(result, compact = false) {
+  const f = exampleInsights(result),
+    gap = f.firstGap,
+    people = [result.profile.primary, result.profile.partner].filter(Boolean);
+  return `<div class="outcome-summary ${gap ? "has-shortfall" : "covered"}"><div class="outcome-number"><strong>${gap ? money(gap.annualGap) : money(result.summary.monthlySpending)}</strong><span>${gap ? `spending not covered in ${gap.year} · ${ageNames(result, gap)}` : `spending / month · ${money(result.summary.monthlySpending * 12)} / year`}</span></div><p>${firstGapExplanation(result)}</p>${compact ? "" : `<div class="spending-context">${gap ? `<span>Spending target: <b>${money(result.summary.monthlySpending)}/month · ${money(result.summary.monthlySpending * 12)}/year</b></span>` : ""}<div class="retirement-facts">${retirementFacts(result)}</div><span>Example starts ${result.profile.startYear}: ${esc(result.profile.primary.name)} ${result.profile.primary.age}${result.profile.partner ? ` · ${esc(result.profile.partner.name)} ${result.profile.partner.age}` : ""}</span><span>Opening savings outside pensions: <b>${money(people.reduce((sum, p) => sum + p.savings, 0))}</b> · opening pension pots: <b>${money(people.reduce((sum, p) => sum + p.pensionPot, 0))}</b></span></div>`}</div>`;
+}
+function gapPeriodsMarkup(result) {
+  const f = exampleInsights(result);
+  if (!f.gapPeriods.length) return "";
+  return `<div class="gap-periods">${f.gapPeriods.map((p) => `<div class="gap-period"><div><b>${p.start.year === p.end.year ? p.start.year : `${p.start.year}–${p.end.year}`}</b><span>${p.kind === "access" ? "Shortfall while pension money is locked" : "Spending shortfall after access"}</span></div><strong>${money(p.total)}</strong><p>${p.kind === "access" ? "Total spending not covered across these years." : `Starts at ${esc(result.profile.primary.name)} age ${p.start.primaryAge}. Total spending not covered across these years.`}${p.nextCovered ? ` Annual spending is covered again in ${p.nextCovered.year}; earlier shortfalls remain unpaid.` : ""}</p></div>`).join("")}</div><p class="small">These are totals of unpaid annual spending, not extra lump sums required today. A covered later year does not repay an earlier shortfall; no borrowing or automatic spending reduction is assumed.</p>`;
+}
 function chartMarkup(result, alt = null) {
-  const rows = result.rows,
-    a = alt?.rows;
-  const all = rows.concat(a || []);
-  const max = Math.max(...all.map((r) => r.closingTotal), 1);
+  displayedChart = { result, alt };
+  const pension = activeAssetView === "pensions";
+  const lastAge = pension
+    ? result.profile.horizonAge
+    : Math.min(result.profile.horizonAge, result.profile.primary.age + 12);
+  const rows = result.rows.filter((r) => r.primaryAge <= lastAge),
+    a = alt?.rows.filter((r) => r.primaryAge <= lastAge),
+    key = pension ? "closingPension" : "closingAccessible";
+  const maxValue = Math.max(...rows.concat(a || []).map((r) => r[key]), 1),
+    step = maxValue > 200000 ? 100000 : 20000,
+    max = Math.ceil(maxValue / step) * step;
+  const width = window.matchMedia("(max-width:650px)").matches
+      ? Math.max(242, innerWidth - 78)
+      : 760,
+    height = 240;
+  const left = 53,
+    right = width - 12,
+    top = 28,
+    bottom = 185;
+  const x = (age) =>
+      left +
+      ((age - rows[0].primaryAge) / (lastAge - rows[0].primaryAge || 1)) *
+        (right - left),
+    y = (v) => bottom - (v / max) * (bottom - top);
   const points = (rs) =>
-    rs
+    rs.map((r) => `${x(r.primaryAge)},${y(r[key])}`).join(" ");
+  const ticks = [0, max / 2, max],
+    ages = Array.from(
+      new Set([
+        rows[0].primaryAge,
+        Math.round((rows[0].primaryAge + lastAge) / 2),
+        lastAge,
+      ]),
+    );
+  const events = result.events.filter(
+    (e) =>
+      ["retirement", "pension-access"].includes(e.type) &&
+      e.primaryAge >= rows[0].primaryAge &&
+      e.primaryAge <= lastAge,
+  );
+  const markers = Array.from(new Set(events.map((e) => e.primaryAge)))
+    .map(
+      (age) =>
+        `<line x1="${x(age)}" y1="${top}" x2="${x(age)}" y2="${bottom}" stroke="#a9bbb2" stroke-dasharray="3 4"/>`,
+    )
+    .join("");
+  const label = pension ? "Pension pots" : "Savings outside pensions",
+    description = pension
+      ? "Pension pots at year-end, including money not yet available to draw. Inspect a year to see the available and locked amounts."
+      : "Savings outside pensions at year-end. This line excludes all pension pots, even after they become available to draw. Zero savings here does not itself mean spending is uncovered.";
+  return `<div class="asset-chart" id="asset-chart"><div class="chart-heading"><h3>${label}</h3><div class="asset-switch" role="group" aria-label="Choose which money to show"><button type="button" data-asset-view="savings" aria-pressed="${!pension}">Savings</button><button type="button" data-asset-view="pensions" aria-pressed="${pension}">Pension pots</button></div></div><p class="small">${description}</p><svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(label)}: ${esc(result.profile.primary.name)} ages ${rows[0].primaryAge} to ${lastAge}; year-end balances in today’s pounds."><title>${label} · fictional ${alt ? "comparison" : "baseline"}</title>${ticks.map((v) => `<line x1="${left}" y1="${y(v)}" x2="${right}" y2="${y(v)}" stroke="#e2e9e4"/><text x="${left - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" fill="#536568">${v ? "£" + Math.round(v / 1000) + "k" : "£0"}</text>`).join("")}${markers}<polyline points="${points(rows)}" stroke="#14665f" stroke-width="3" fill="none"/>${a ? `<polyline points="${points(a)}" stroke="#967339" stroke-width="3" fill="none" stroke-dasharray="7 4"/>` : ""}${ages.map((age) => `<text x="${x(age)}" y="209" font-size="14" text-anchor="${age === ages[0] ? "start" : age === lastAge ? "end" : "middle"}" fill="#536568">${age}</text><text x="${x(age)}" y="232" font-size="14" text-anchor="${age === ages[0] ? "start" : age === lastAge ? "end" : "middle"}" fill="#536568">${result.profile.startYear + age - result.profile.primary.age}</text>`).join("")}</svg><p class="small chart-axis-note">Age above · calendar year below</p><div class="legend"><span>Baseline</span>${alt ? '<span class="alt">Alternative · dashed</span>' : ""}</div><div class="chart-events">${events.map((e) => `<span>${esc(e.label.replace(" at the fictional age", " at age"))} · ${e.year}</span>`).join("")}</div><p class="small">Dashed vertical markers show work or access dates. Figures are at year-end; opening balances are in the example’s inputs. Illustration, not advice.</p></div>`;
+}
+function fundingYearMarkup(result, index) {
+  const r = result.rows[index],
+    required = r.spending + r.majorCost;
+  const amounts = [
+    {
+      label: "Income used for spending",
+      amount: Math.min(r.income, required),
+      className: "income",
+    },
+    {
+      label: "Savings used outside pensions",
+      amount: r.withdrawalsAccessible,
+      className: "savings",
+    },
+    {
+      label: "Pension-pot withdrawals",
+      amount: r.withdrawalsPension,
+      className: "pension",
+    },
+    {
+      label: "Spending not covered",
+      amount: r.annualGap,
+      className: "shortfall",
+    },
+  ];
+  const basis = r.majorCost
+    ? `${money(r.spending)} spending + ${money(r.majorCost)} one-off cost`
+    : `${money(r.spending)} annual spending`;
+  return `<div class="funding-year" id="funding-year" aria-live="polite"><h3>${r.year} · ${ageNames(result, r)}</h3><p><b>${basis}</b> · ${r.annualGap > 0 ? `${money(r.annualGap)} is not covered that year.` : "Covered by the income and withdrawals below."}</p><div class="funding-bar" role="img" aria-label="${esc(amounts.map((a) => `${a.label}: ${money(a.amount)}`).join("; "))}">${amounts
+    .filter((a) => a.amount > 0)
+    .map(
+      (a) =>
+        `<span class="${a.className}" style="width:${required ? (a.amount / required) * 100 : 0}%"></span>`,
+    )
+    .join(
+      "",
+    )}</div><div class="funding-sources">${amounts.map((a) => `<div class="row"><span class="source-label ${a.className}">${a.label}</span><b>${money(a.amount)}</b></div>`).join("")}</div><h3>Money left at year-end</h3><div class="balance-grid"><div><span>Savings outside pensions</span><strong>${money(r.closingAccessible)}</strong></div><div><span>Pension money available to draw</span><strong>${money(r.closingAvailablePension)}</strong></div><div><span>Pension money still locked</span><strong>${money(r.closingLockedPension)}</strong></div></div>${r.cumulativeGap ? `<div class="notice">Spending left unpaid so far: <b>${money(r.cumulativeGap)}</b>. Any covered later year leaves earlier shortfalls unpaid in this example.</div>` : ""}<details><summary>See the income behind this year</summary>${
+    Object.entries(r.incomeBreakdown)
+      .filter(([, v]) => v > 0)
       .map(
-        (r, i) =>
-          `${30 + (i / (rs.length - 1 || 1)) * 690},${220 - (r.closingTotal / max) * 188}`,
+        ([k, v]) =>
+          `<div class="row"><span>${{ employment: "Pay from work", db: "Promised pension income (DB)", state: "Fictional later pension income", other: "Other income", partTime: "Part-time income" }[k]}</span><b>${money(v)}/year</b></div>`,
       )
-      .join(" ");
-  return `<svg class="chart" viewBox="0 0 750 252" role="img" aria-label="Fictional total accessible and pension wealth over time. The detailed yearly table follows."><line x1="30" y1="220" x2="720" y2="220" stroke="#bacbc4"/><line x1="30" y1="120" x2="720" y2="120" stroke="#e2e9e4"/><polyline points="${points(rows)}" stroke="#14665f" stroke-width="3" fill="none"/>${a ? `<polyline points="${points(a)}" stroke="#967339" stroke-width="3" fill="none" stroke-dasharray="7 4"/>` : ""}<text x="30" y="245" font-size="13" fill="#536568">${rows[0]?.year}</text><text x="720" y="245" font-size="13" text-anchor="end" fill="#536568">${rows.at(-1)?.year}</text><text x="30" y="21" font-size="13" fill="#536568">Up to ${money(max)} · today’s pounds</text></svg><p class="small">Total wealth includes pension assets that may be inaccessible. The funding-gap table below shows whether spending is covered at each point.</p><div class="legend"><span>Baseline</span>${alt ? '<span class="alt">Alternative</span>' : ""}</div>`;
+      .join("") || '<p class="small">No regular income in this year.</p>'
+  }${r.income > required ? `<p class="small">Income above spending: ${money(r.income - required)}, added to savings outside pensions.</p>` : ""}</details></div>`;
+}
+function fundingExplorer(result, name = "Baseline") {
+  displayedFunding = result;
+  const f = exampleInsights(result);
+  const shortcuts = [
+    { label: "Starting year", index: 0 },
+    ...(f.firstGap
+      ? [{ label: "First shortfall", index: result.rows.indexOf(f.firstGap) }]
+      : []),
+    ...(f.firstPensionWithdrawal
+      ? [
+          {
+            label: "First pension withdrawal",
+            index: result.rows.indexOf(f.firstPensionWithdrawal),
+          },
+        ]
+      : []),
+  ];
+  return `<section class="card" id="funding-explorer"><div class="eyebrow">${esc(name)} · annual worked example</div><h2>How spending is paid</h2><p>Pick a year to see income, savings, pension withdrawals and any spending left uncovered.</p><div class="year-shortcuts">${shortcuts.map((s) => `<button type="button" class="btn secondary" data-inspect-year="${s.index}" aria-pressed="${s.index === f.focusIndex}">${s.label}</button>`).join("")}</div><label class="year-label" for="funding-year-select">Year and ages</label><select id="funding-year-select" class="year-select">${result.rows.map((r, i) => `<option value="${i}" ${i === f.focusIndex ? "selected" : ""}>${r.year} · ${ageNames(result, r)}</option>`).join("")}</select>${fundingYearMarkup(result, f.focusIndex)}<p class="small">Simplified annual periods in today’s pounds. Income and withdrawals are assumed net; no UK tax calculation. Illustration, not advice.</p></section>`;
+}
+function exampleChoiceButtons(exampleId) {
+  return (exampleChoices[exampleId] || [])
+    .map((c) =>
+      btn(
+        c.label,
+        c.id === "household" ? "preset-household" : `example-choice:${c.id}`,
+        "secondary",
+      ),
+    )
+    .join("");
+}
+function focusComparison() {
+  requestAnimationFrame(() => {
+    const h = $("#comparison-result h2");
+    h?.focus({ preventScroll: true });
+    h?.scrollIntoView({ block: "start" });
+  });
+}
+function inspectYear(index) {
+  if (
+    !displayedFunding ||
+    !Number.isInteger(index) ||
+    !displayedFunding.rows[index] ||
+    !$("#funding-year-select")
+  )
+    return;
+  $("#funding-year-select").value = String(index);
+  $("#funding-year").outerHTML = fundingYearMarkup(displayedFunding, index);
+  for (const b of document.querySelectorAll("[data-inspect-year]"))
+    b.setAttribute(
+      "aria-pressed",
+      String(Number(b.dataset.inspectYear) === index),
+    );
 }
 function cashTable(result) {
-  return `<div class="table-wrap"><table><caption class="sr-only">Fictional annual cash flow in today’s pounds. Income is assumed net.</caption><thead><tr><th>Year / ages</th><th>Net income</th><th>Spending + costs</th><th>Accessible closing</th><th>Pension closing</th><th>Unfunded gap</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}<br><span class="mini">Primary ${r.primaryAge}${r.partnerAge != null ? " · partner " + r.partnerAge : ""}</span></td><td>${money(r.income)}</td><td>${money(r.spending + r.majorCost)}</td><td>${money(r.closingAccessible)}</td><td>${money(r.closingPension)}</td><td>${money(r.annualGap)}</td></tr>`).join("")}</tbody></table></div><details><summary>Explain opening-to-closing balances</summary><p class="small">Opening assets + growth + pension contributions + saved income surplus − withdrawals = closing assets. Income is assumed net after supplied contributions. Gaps remain unpaid and do not create negative assets.</p><div class="table-wrap"><table><thead><tr><th>Year</th><th>Opening assets</th><th>Growth</th><th>Contributions</th><th>Saved income surplus</th><th>Withdrawals</th><th>Closing assets</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}</td><td>${money(r.openingAccessible + r.openingPension)}</td><td>${money(r.accessibleGrowth + r.pensionGrowth)}</td><td>${money(r.contributions)}</td><td>${money(Math.max(0, r.income - r.spending - r.majorCost))}</td><td>${money(r.withdrawalsAccessible + r.withdrawalsPension)}</td><td>${money(r.closingTotal)}</td></tr>`).join("")}</tbody></table></div></details>`;
+  return `<div class="table-wrap"><table><caption class="sr-only">Fictional annual cash flow in today’s pounds. Income is assumed net.</caption><thead><tr><th>Year / ages</th><th>Income / year</th><th>Spending + costs / year</th><th>Savings outside pensions<br>at year-end</th><th>Pension pots<br>at year-end</th><th>Spending not covered<br>that year</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}<br><span class="mini">${ageNames(result, r)}</span></td><td>${money(r.income)}</td><td>${money(r.spending + r.majorCost)}</td><td>${money(r.closingAccessible)}</td><td>${money(r.closingPension)}</td><td>${money(r.annualGap)}</td></tr>`).join("")}</tbody></table></div><details><summary>Explain opening-to-closing balances</summary><p class="small">Opening assets + growth + pension contributions + saved income surplus − withdrawals = closing assets. Income is assumed net after supplied contributions. Gaps remain unpaid and do not create negative assets.</p><div class="table-wrap"><table><thead><tr><th>Year</th><th>Opening assets</th><th>Growth</th><th>Contributions</th><th>Saved income surplus</th><th>Withdrawals</th><th>Closing assets</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}</td><td>${money(r.openingAccessible + r.openingPension)}</td><td>${money(r.accessibleGrowth + r.pensionGrowth)}</td><td>${money(r.contributions)}</td><td>${money(Math.max(0, r.income - r.spending - r.majorCost))}</td><td>${money(r.withdrawalsAccessible + r.withdrawalsPension)}</td><td>${money(r.closingTotal)}</td></tr>`).join("")}</tbody></table></div></details>`;
 }
 function assumptionsCard(result) {
   return `<section class="card"><h2>Assumptions behind this example</h2><p class="small">Fictional input values and simplified arithmetic demonstrate the experience. Income is assumed net; no UK tax engine, DB scheme calculation or entitlement check is included.</p><ul class="steps small">${result.assumptions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul><div class="notice">DB escalation, early-retirement reductions and survivor benefits are not evaluated. This example cannot establish a complete household retirement conclusion.</div><p class="small">Illustration, not advice. No current UK pension or tax rules are inferred by this demonstration.</p></section>`;
 }
 function eventsMarkup(result) {
-  return `<div class="timeline">${(result.events || []).map((e) => `<div class="milestone"><b>${esc(e.year || (e.age != null ? "Age " + e.age : ""))}</b><span>${esc(e.label || e.description || e.type)}${e.primaryAge != null ? " · primary age " + e.primaryAge : ""}${e.partnerAge != null ? " · partner age " + e.partnerAge : ""}</span></div>`).join("")}</div>`;
+  const grouped = new Map();
+  for (const e of result.events || [])
+    grouped.set(e.year, [...(grouped.get(e.year) || []), e]);
+  return `<div class="timeline">${Array.from(grouped, ([year, events]) => `<div class="milestone"><b>${esc(year)} · ${ageNames(result, events[0])}</b><span>${events.map((e) => esc(e.label.replace(" at the fictional age", " at age").replace("DB income", "promised pension income (DB)"))).join("<br>")}</span></div>`).join("")}</div>`;
 }
 function exampleHeadline(result) {
   return result.summary.firstGapYear
-    ? `A funding gap appears in ${result.summary.firstGapYear} under these assumptions.`
-    : "Spending is covered through the illustrated horizon under these assumptions.";
+    ? `Spending first falls short in ${result.summary.firstGapYear} (${esc(result.profile.primary.name)} age ${result.summary.firstGapAge}).`
+    : `Spending is covered through ${esc(result.profile.primary.name)}’s age ${result.summary.horizonAge} under these assumptions.`;
 }
 function exampleOverview() {
   const e = sample(),
-    r = evaluateExample(e.id);
+    r = evaluateExample(e.id),
+    title = {
+      "early-dc": "Can Alex stop before pension access?",
+      "mixed-household": "Can Morgan and Sam step back together?",
+      "already-retired": "How is Priya’s retirement spending paid?",
+    }[e.id];
   return template(
-    "See the years between the milestones.",
-    esc(e.description),
-    `<section class="card"><div class="eyebrow">${esc(e.name)} · fictional baseline</div><h2>${exampleHeadline(r)}</h2><div class="metrics"><div class="metric"><strong>${r.summary.retirementAge}</strong><span>Primary retirement age${r.summary.partnerRetirementAge != null ? " · partner " + r.summary.partnerRetirementAge : ""}</span></div><div class="metric"><strong>${money(r.summary.bridgeGapTotal)}</strong><span>Unfunded gap before pension access</span></div><div class="metric"><strong>Age ${r.summary.horizonAge}</strong><span>Illustrated primary horizon · not a life-expectancy claim</span></div></div>${chartMarkup(r)}${buttons(link("Explore a change", "scenarios", "") + link("Read the decision brief", "report"))}</section><div class="grid"><section class="card"><h2>When things change</h2>${eventsMarkup(r)}</section><section class="card tinted"><h2>What this helps you ask</h2><ul class="steps"><li>What funds spending before pensions can be accessed?</li><li>How do two different work and income dates fit together?</li><li>What changes if work, spending or a major cost changes?</li></ul><p class="small">Any gap is a conditional result for this named example. It does not say whether you can retire.</p></section></div><section class="card"><details><summary>Show the yearly cash-flow table</summary>${cashTable(r)}</details></section><details><summary>See assumptions and limitations</summary>${assumptionsCard(r)}</details>`,
+    title,
+    "A fictional decision, with the money and dates behind it.",
+    `<section class="card outcome-card"><div class="eyebrow">${esc(e.name)} · baseline</div><h2>${exampleHeadline(r)}</h2>${outcomeMarkup(r)}<div class="try-choice"><h3>Compare a different choice</h3><p class="small">Try a change in this example. These choices are fictional, not recommendations for you.</p>${buttons(exampleChoiceButtons(e.id))}${buttons(link("Make custom changes", "scenarios", "quiet") + link("Read the decision brief", "report"))}</div>${gapPeriodsMarkup(r)}</section><section class="card">${chartMarkup(r)}</section>${fundingExplorer(r)}<div class="grid"><section class="card"><h2>When things change</h2><p class="small">Access ages and pension incomes are assumed for this example, not checked against UK rules.</p>${eventsMarkup(r)}</section><section class="card tinted"><h2>What this helps you ask</h2><ul class="steps">${e.id === "already-retired" ? "<li>How much spending comes from income and how much from savings?</li><li>What changes after a major one-off cost?</li><li>What if monthly spending changes?</li>" : "<li>What funds spending before pension money can be drawn?</li><li>How do different work and pension dates fit together?</li><li>What changes if work, spending or a major cost changes?</li>"}</ul><p class="small">Any shortfall is conditional for this named example. It does not establish whether you can retire.</p></section></div><section class="card"><details><summary>Show the yearly cash-flow table</summary>${cashTable(r)}</details></section><details><summary>See assumptions and limitations</summary>${assumptionsCard(r)}</details>`,
   );
 }
 function scenarioForm() {
   const s = selected(),
     o = s?.overrides || {},
     is = isExample();
+  const baseline = is ? sample().profile : null,
+    labels = { ...overrideLabels };
+  if (is) {
+    labels.retirementAge = `${baseline.primary.name} retirement age`;
+    labels.partnerRetirementAge = `${baseline.partner?.name || "Partner"} retirement age`;
+    labels.monthlySpending = "Spending / month";
+    labels.monthlyContributions = `${baseline.primary.name} pension contributions / month`;
+    labels.partTimeEndAge = `Part-time income ends at ${baseline.primary.name} age`;
+    labels.majorCostAge = `Cost at ${baseline.primary.name} age`;
+  }
+  const baseValue = (k) =>
+    k === "retirementAge"
+      ? baseline.primary.retirementAge
+      : k === "partnerRetirementAge"
+        ? baseline.partner?.retirementAge
+        : k === "monthlyContributions"
+          ? baseline.primary.monthlyContributions
+          : baseline[k];
   return `<form id="scenario-form" novalidate><div id="form-error"></div><section class="card"><h2>${s ? "Edit this alternative" : "Name a choice to compare"}</h2><div class="field"><label for="scenario-name">Scenario name</label><input id="scenario-name" maxlength="80" value="${esc(s?.name || "")}" placeholder="For example: part-time before retirement" required></div><p class="small">Set only what changes. Blank fields keep the baseline. ${is ? "Changes apply only to this fictional example." : "Personal comparisons show entered changes only; they do not calculate outcomes."}</p><div class="grid">${Object.entries(
-    overrideLabels,
+    labels,
   )
     .filter(
       ([k]) =>
@@ -566,34 +801,54 @@ function scenarioForm() {
     )
     .map(
       ([k, label]) =>
-        `<div class="field"><label for="scenario-${k}">${label}${!k.includes("Age") ? " (£)" : ""}</label><input id="scenario-${k}" type="number" min="${k.includes("Age") ? 18 : 0}" max="${k.includes("Age") ? 100 : 10000000}" step="${k.includes("Age") ? 1 : "any"}" value="${o[k] ?? ""}" placeholder="Keep baseline"></div>`,
+        `<div class="field"><label for="scenario-${k}">${label}${!k.includes("Age") ? " (£)" : ""}</label><input id="scenario-${k}" type="number" min="${k.includes("Age") ? 18 : 0}" max="${k.includes("Age") ? 100 : 10000000}" step="${k.includes("Age") ? 1 : "any"}" value="${o[k] ?? ""}" placeholder="Keep baseline">${is ? `<span class="help">Baseline: ${k.includes("Age") ? baseValue(k) : money(baseValue(k))}${k === "partTimeAnnual" ? " / year · assumed after tax" : k === "monthlySpending" || k === "monthlyContributions" ? " / month" : ""}</span>` : ""}</div>`,
     )
     .join(
       "",
     )}</div>${buttons(`<button class="btn" type="submit">${s ? "Update" : "Keep"} alternative</button>` + btn("Clear changes", "reset-scenario", "secondary"))}<p class="small">Baseline plus two alternatives in this prototype. You can edit or remove an alternative.</p></section></form>`;
 }
 function comparisonMarkup(base, alt, s) {
-  return `<section class="card"><h2>Baseline and ${esc(s.name)}</h2><div class="grid"><div><div class="tag">Baseline</div><p style="margin-top:12px">${exampleHeadline(base)}</p><div class="row"><span>Bridge gap</span><b>${money(base.summary.bridgeGapTotal)}</b></div><div class="row"><span>Horizon closing total</span><b>${money(base.summary.finalTotal)}</b></div></div><div><div class="tag warn">${esc(s.name)}</div><p style="margin-top:12px">${exampleHeadline(alt)}</p><div class="row"><span>Bridge gap</span><b>${money(alt.summary.bridgeGapTotal)}</b></div><div class="row"><span>Horizon closing total</span><b>${money(alt.summary.finalTotal)}</b></div></div></div>${chartMarkup(base, alt)}<details><summary>Inspect the alternative's yearly table</summary>${cashTable(alt)}</details><p class="small">Amounts are conditional on fictional assumptions. Total wealth alone does not show whether money is accessible. No scenario is ranked as best.</p></section>`;
+  const facts = (result) => {
+    const f = exampleInsights(result),
+      later = f.gapPeriods.find((p) => p.kind === "later");
+    return `<div class="row"><span>Monthly spending</span><b>${money(result.summary.monthlySpending)}</b></div><div class="comparison-dates">${retirementFacts(result)}</div>${result.profile.partTimeAnnual ? `<div class="row"><span>Part-time income · assumed after tax</span><b>${money(result.profile.partTimeAnnual)}/year</b></div><p class="small">${partTimePeriod(result)}</p>` : ""}<div class="row"><span>Spending not covered while pension money is locked</span><b>${money(result.summary.bridgeGapTotal)}</b></div><div class="row"><span>First spending shortfall</span><b>${f.firstGap ? `${f.firstGap.year} · ${esc(result.profile.primary.name)} ${f.firstGap.primaryAge}` : `None through age ${result.summary.horizonAge}`}</b></div>${later ? `<p class="small">Shortfall after pension access: ${later.start.year}, ${esc(result.profile.primary.name)} age ${later.start.primaryAge}. A zero before-access shortfall does not mean all later years are covered.</p>` : ""}`;
+  };
+  return `<section class="card comparison-card" id="comparison-result"><div class="eyebrow">Fictional comparison · illustration, not advice</div><h2 tabindex="-1">Baseline and ${esc(s.name)}</h2><div class="grid comparison-columns"><div><div class="tag">Baseline</div>${facts(base)}</div><div><div class="tag warn">${esc(s.name)}</div>${facts(alt)}</div></div><h3>What happens in this alternative</h3>${outcomeMarkup(alt, true)}${gapPeriodsMarkup(alt)}<details><summary>See savings and pension balances for both choices</summary>${chartMarkup(base, alt)}</details><details><summary>Inspect the alternative’s yearly table</summary>${cashTable(alt)}</details><p class="small">No choice is ranked as best. Income, spending and returns are fictional assumptions; these are not personal outcomes.</p></section>${fundingExplorer(alt, s.name)}`;
 }
 function scenariosView() {
   const s = selected(),
     items = scenarios();
-  let content = template(
-    "One choice can change several things.",
-    "Keep the baseline. Compare your timing, work and spending changes together.",
-    `${isExample() && workspace.sampleId === "mixed-household" ? `<section class="card tinted"><h3>Try a household choice</h3><p class="small">Change both retirement dates, add a period of part-time income and change monthly spending together.</p>${btn("Load the combined example", "preset-household", "secondary")}</section>` : ""}<div class="pill-tabs"><button class="btn ${!s ? "" : "secondary"}" data-action="new-scenario">New alternative</button>${items.map((x) => `<button class="btn ${s?.id === x.id ? "" : "secondary"}" data-action="${esc("select-scenario:" + x.id)}">${esc(x.name)}${x.stale ? " · out of date" : ""}</button>`).join("")}</div>${s ? `<section class="card"><h3>What changes in ${esc(s.name)}</h3><ul class="diff">${changesList(s)}</ul>${s.stale ? '<div class="notice">Your baseline changed. Review these overrides and save the scenario again to rebase it.</div>' : ""}${btn("Remove this alternative", `delete-scenario:${s.id}`, "quiet")}</section>` : ""}${scenarioForm()}`,
+  const tabs = `<div class="pill-tabs"><button class="btn ${!s ? "" : "secondary"}" data-action="new-scenario">New alternative</button>${items.map((x) => `<button class="btn ${s?.id === x.id ? "" : "secondary"}" data-action="${esc("select-scenario:" + x.id)}">${esc(x.name)}${x.stale ? " · out of date" : ""}</button>`).join("")}</div>`;
+  let body = `${tabs}${isExample() ? `<section class="card tinted"><h3>Try a choice in this example</h3>${buttons(exampleChoiceButtons(workspace.sampleId))}<p class="small">Keep the baseline. These example choices show possible changes; none is a recommendation.</p></section>` : ""}`;
+  if (s && !s.stale && isExample())
+    body +=
+      comparisonMarkup(
+        evaluateExample(workspace.sampleId),
+        evaluateExample(workspace.sampleId, s.overrides),
+        s,
+      ) + buttons(link("Read this comparison in the brief", "report", ""));
+  if (s)
+    body += `<section class="card"><h3>What changes in ${esc(s.name)}</h3><ul class="diff">${
+      isExample()
+        ? evaluateExample(workspace.sampleId, s.overrides)
+            .changes.map(
+              (c) =>
+                `<li>${esc(c.label)}: <b>${c.key.includes("Age") ? c.from : money(c.from)} → ${c.key.includes("Age") ? c.to : money(c.to)}</b></li>`,
+            )
+            .join("")
+        : changesList(s)
+    }</ul>${s.stale ? '<div class="notice">Your baseline changed. Review these changes and save the alternative again to update its baseline.</div>' : ""}${btn("Remove this alternative", `delete-scenario:${s.id}`, "quiet")}</section>`;
+  if (s && !isExample())
+    body += `<div class="notice">This is an input comparison for your draft. Personal cash-flow outcomes are not yet calculated.</div>${buttons(link("Keep my input comparison", "report", ""))}`;
+  body += s
+    ? `<details class="scenario-editor"><summary>Edit the changes in ${esc(s.name)}</summary>${scenarioForm()}</details>`
+    : scenarioForm();
+  return template(
+    "Explore a work or spending choice.",
+    "Compare what changes, then inspect the money and dates behind it.",
+    body,
   );
-  if (s && !s.stale && isExample()) {
-    const b = evaluateExample(workspace.sampleId),
-      a = evaluateExample(workspace.sampleId, s.overrides);
-    content +=
-      comparisonMarkup(b, a, s) +
-      buttons(link("Keep the decision brief", "report", ""));
-  } else if (s && !isExample())
-    content += `<div class="notice">This is an input comparison for your draft. Personal cash-flow outcomes are not yet calculated.</div>${buttons(link("Keep my input comparison", "report", ""))}`;
-  return content;
 }
-
 function reportView() {
   const items = scenarios().filter((s) => !s.stale);
   if (isExample()) {
@@ -778,13 +1033,14 @@ function bindForms() {
     e.preventDefault();
     safeAction(() => {
       if (!draft()) workspace.personal = createDraft();
-      const d = draft(),
+      const d = setupEdit || draft(),
         p = collectProfile(d.profile, "", d.route);
       p.incomeBasis = $("#incomeBasis")?.value || p.incomeBasis;
       p.savingsAccessibility = d.route === "dc" ? "unknown" : "accessible";
       const scope = $("#scope").value,
         basis = $("#spendingBasis").value;
       commit({
+        route: d.route,
         profile: p,
         planningScope: scope,
         spendingBasis: basis,
@@ -921,6 +1177,7 @@ function bindForms() {
       saveWorkspace();
       render();
       toast("Alternative kept with all changed inputs.");
+      focusComparison();
     });
   });
   $("#device-save")?.addEventListener("change", (e) => {
@@ -1020,6 +1277,10 @@ function exportCSV() {
     "withdrawalsPension",
     "closingAccessible",
     "closingPension",
+    "closingAvailablePension",
+    "closingLockedPension",
+    "closingTotal",
+    "cumulativeGap",
     "annualGap",
     "bridgeGap",
   ];
@@ -1208,20 +1469,34 @@ function handleAction(a) {
     render();
     return;
   }
-  if (a === "preset-household") {
-    const context = copy(sample().draft);
-    context.scenarios = scenarios();
-    const s = createScenario(context, "Step back with part-time work", {
-      retirementAge: 59,
-      partnerRetirementAge: 59,
-      partTimeAnnual: 15000,
-      partTimeEndAge: 63,
-      monthlySpending: 3200,
-    });
-    workspace.sampleScenarios[workspace.sampleId] = [...scenarios(), s];
-    workspace.activeScenario = s.id;
+  if (a === "preset-household" || a.startsWith("example-choice:")) {
+    if (!isExample()) return;
+    const choiceId = a === "preset-household" ? "household" : a.slice(15),
+      choice = (exampleChoices[workspace.sampleId] || []).find(
+        (c) => c.id === choiceId,
+      );
+    if (!choice) return;
+    const existing = scenarios().find(
+      (s) =>
+        !s.stale &&
+        Object.keys(s.overrides).length ===
+          Object.keys(choice.overrides).length &&
+        Object.entries(choice.overrides).every(
+          ([k, v]) => s.overrides[k] === v,
+        ),
+    );
+    if (existing) workspace.activeScenario = existing.id;
+    else {
+      const context = copy(sample().draft);
+      context.scenarios = scenarios();
+      evaluateExample(workspace.sampleId, choice.overrides);
+      const s = createScenario(context, choice.name, choice.overrides);
+      workspace.sampleScenarios[workspace.sampleId] = [...scenarios(), s];
+      workspace.activeScenario = s.id;
+    }
     saveWorkspace();
-    render();
+    go("scenarios");
+    focusComparison();
     return;
   }
   if (a === "delete-work") {
@@ -1255,6 +1530,20 @@ document.addEventListener("click", (e) => {
     $("#main")?.focus();
     return;
   }
+  const asset = e.target.closest("[data-asset-view]");
+  if (asset && displayedChart) {
+    activeAssetView =
+      asset.dataset.assetView === "pensions" ? "pensions" : "savings";
+    const c = displayedChart;
+    $("#asset-chart").outerHTML = chartMarkup(c.result, c.alt);
+    $(`[data-asset-view="${activeAssetView}"]`)?.focus({ preventScroll: true });
+    return;
+  }
+  const year = e.target.closest("[data-inspect-year]");
+  if (year) {
+    inspectYear(Number(year.dataset.inspectYear));
+    return;
+  }
   const a = e.target.closest("[data-action]");
   if (a) {
     e.preventDefault();
@@ -1264,7 +1553,7 @@ document.addEventListener("click", (e) => {
   const r = e.target.closest("[data-route]");
   if (r) {
     e.preventDefault();
-    const current = draft() || createDraft();
+    const current = setupEdit || copy(draft() || createDraft());
     current.profile = collectProfile(current.profile, "", current.route);
     current.profile.incomeBasis =
       $("#incomeBasis")?.value || current.profile.incomeBasis;
@@ -1296,7 +1585,7 @@ document.addEventListener("click", (e) => {
       current.profile.targetRetirementAge = field();
     current.profile.savingsAccessibility =
       current.route === "dc" ? "unknown" : "accessible";
-    workspace.personal = current;
+    setupEdit = current;
     render();
   }
 });
@@ -1307,12 +1596,24 @@ document.addEventListener("input", (e) => {
   }
 });
 document.addEventListener("change", (e) => {
+  if (e.target.id === "funding-year-select")
+    inspectYear(Number(e.target.value));
   if (e.target.id?.endsWith("-status") && e.target.value === "unknown") {
     const input = $("#" + e.target.id.slice(0, -7));
     if (input) input.value = "";
   }
 });
+let chartResizeFrame;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(chartResizeFrame);
+  chartResizeFrame = requestAnimationFrame(() => {
+    if (!displayedChart || !$("#asset-chart")) return;
+    const c = displayedChart;
+    $("#asset-chart").outerHTML = chartMarkup(c.result, c.alt);
+  });
+});
 window.addEventListener("hashchange", () => {
+  setupEdit = null;
   render();
   $("#main h1")?.focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -1321,6 +1622,11 @@ window.addEventListener("hashchange", () => {
 window.snapshotSteadybeePlan = () => ({
   format: 2,
   ...copy(workspace),
+  setupEdit: setupEdit ? copy(setupEdit) : null,
+  assetView: activeAssetView,
+  openEditors: [
+    ...document.querySelectorAll("details.scenario-editor[open]"),
+  ].map((e) => e.className),
   editFields: [
     ...document.querySelectorAll("input[id],select[id],textarea[id]"),
   ]
@@ -1335,7 +1641,12 @@ window.restoreSteadybeePlan = (s) => {
       if (!parsed.ok) return;
     }
     workspace = { ...workspace, ...s };
+    const staged = s.setupEdit ? parseSaved(JSON.stringify(s.setupEdit)) : null;
+    setupEdit = staged?.ok && s.activeView === "setup" ? staged.draft : null;
+    activeAssetView = s.assetView === "pensions" ? "pensions" : "savings";
     render();
+    if (s.openEditors?.length)
+      $("details.scenario-editor")?.setAttribute("open", "");
     for (const f of s.editFields || []) {
       const el = document.getElementById(f.id);
       if (el) {
@@ -1343,6 +1654,8 @@ window.restoreSteadybeePlan = (s) => {
         el.checked = f.checked;
       }
     }
+    if ($("#funding-year-select"))
+      inspectYear(Number($("#funding-year-select").value));
   } catch {
     toast(
       "The temporary draft could not be restored. Use a saved backup if available.",
@@ -1425,18 +1738,31 @@ function compactExampleReport(items) {
     .filter((x) => x.type === "income-start")
     .map(
       (e) =>
-        `${esc(e.label)} · ${e.year} (${e.owner === "partner" ? "partner" : "primary"} age ${e.owner === "partner" ? e.partnerAge : e.primaryAge})`,
+        `${esc(e.label)} · ${e.year} (${esc(e.owner === "partner" ? base.profile.partner.name : base.profile.primary.name)} age ${e.owner === "partner" ? e.partnerAge : e.primaryAge})`,
     )
     .join("; ");
   return template(
     "A brief you can talk through.",
     "The decision on one page. Full workings when you want them.",
-    `<div class="print-provenance">Fictional example · ${esc(e.name)} · ${esc(base.provenance.fixtureVersion)} · not your plan</div><article class="card brief brief-core" id="decision-brief"><div class="brief-meta"><b>Steadybee · fictional decision brief</b><span>${esc(base.provenance.sourceDate)} · ${esc(base.provenance.fixtureVersion)}</span></div><div class="tag warn">Fictional example · ${esc(e.name)}</div><h2 style="margin-top:16px">${esc(e.name)}: retirement choices</h2><p class="statement">${exampleHeadline(base)}</p><div class="table-wrap"><table class="brief-table"><thead><tr><th>Choice</th>${results.map((r) => `<th>${esc(r.name)}</th>`).join("")}</tr></thead><tbody>${row("Primary retirement", (r) => `${r.summary.retirementYear} · age ${r.summary.retirementAge}`)}${base.summary.partnerRetirementAge != null ? row("Partner retirement", (r) => `${r.summary.partnerRetirementYear} · age ${r.summary.partnerRetirementAge}`) : ""}${row("Monthly spending", (r) => money(r.summary.monthlySpending))}${row("First unfunded year", (r) => r.summary.firstGapYear ?? "None in illustrated horizon")}${row("Unfunded bridge gap", (r) => money(r.summary.bridgeGapTotal))}${row("Bridge gap years", (r) => (r.summary.bridgeGapYears.length ? r.summary.bridgeGapYears.join(", ") : "None under these assumptions"))}</tbody></table></div>${
+    `<div class="print-provenance">Fictional example · ${esc(e.name)} · ${esc(base.provenance.fixtureVersion)} · not your plan</div><article class="card brief brief-core" id="decision-brief"><div class="brief-meta"><b>Steadybee · fictional decision brief</b><span>${esc(base.provenance.sourceDate)} · ${esc(base.provenance.fixtureVersion)}</span></div><div class="tag warn">Fictional example · ${esc(e.name)}</div><h2 style="margin-top:16px">${esc(e.name)}: retirement choices</h2><p class="statement">${exampleHeadline(base)}</p>${base.summary.firstGapYear ? `<p class="small">${firstGapExplanation(base)} Later covered years leave earlier gaps unpaid; these totals are not a required lump sum today.</p>` : ""}<div class="table-wrap"><table class="brief-table"><thead><tr><th>Choice</th>${results.map((r) => `<th>${esc(r.name)}</th>`).join("")}</tr></thead><tbody>${row(`${esc(base.profile.primary.name)} retirement`, (r) => `${r.summary.retirementYear} · age ${r.summary.retirementAge}`)}${base.summary.partnerRetirementAge != null ? row(`${esc(base.profile.partner.name)} retirement`, (r) => `${r.summary.partnerRetirementYear} · age ${r.summary.partnerRetirementAge}`) : ""}${row("Monthly spending", (r) => money(r.summary.monthlySpending))}${row("First spending shortfall", (r) => (r.summary.firstGapYear ? `${r.summary.firstGapYear} · age ${r.summary.firstGapAge}` : `None through age ${r.summary.horizonAge}`))}${results.some((x) => x.result.summary.firstGapYear) ? row("Not covered in that first year", (r) => (exampleInsights(r).firstGap ? money(exampleInsights(r).firstGap.annualGap) : "£0")) : ""}${row("Uncovered before access", (r) => `${money(r.summary.bridgeGapTotal)}${r.summary.bridgeGapYears.length ? `<br>${r.summary.bridgeGapYears.join(", ")}` : ""}`)}${
+      results.some((x) =>
+        exampleInsights(x.result).gapPeriods.some((p) => p.kind === "later"),
+      )
+        ? row("Spending shortfall after access", (r) => {
+            const p = exampleInsights(r).gapPeriods.find(
+              (p) => p.kind === "later",
+            );
+            return p
+              ? `${p.start.year} · age ${p.start.primaryAge}`
+              : `None through age ${r.summary.horizonAge}`;
+          })
+        : ""
+    }</tbody></table></div>${
       items.length
         ? `<h3>Changed inputs</h3>${items
             .map((s) => {
               const r = evaluateExample(e.id, s.overrides);
-              return `<p class="small"><b>${esc(s.name)}:</b> ${r.changes.map((c) => `${esc(c.label)} ${c.key.includes("Age") ? c.from : money(c.from)} → ${c.key.includes("Age") ? c.to : money(c.to)}`).join("; ")}.</p>`;
+              return `<p class="small"><b>${esc(s.name)}:</b> ${r.changes.map((c) => `${esc(c.label)} ${c.key.includes("Age") ? c.from : money(c.from)} → ${c.key.includes("Age") ? c.to : money(c.to)}`).join("; ")}. ${partTimePeriod(r)}</p>`;
             })
             .join("")}`
         : '<p class="small">Explore a change to add your chosen alternative to this brief.</p>'

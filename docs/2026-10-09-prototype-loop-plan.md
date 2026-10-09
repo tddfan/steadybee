@@ -55,3 +55,8 @@ Reviewed `prototype/app.mjs`, `workspace.css` and `index.html` after the first i
 | Personal brief omits access/split detail and some estimate statuses | Include recorded timeline/access facts and annotate income/cost estimates in the printed summary. |
 
 Also raise essential helper/status text from 13–15px to at least 16px, and link validation errors to their fields. Browser and print testing should verify these fixes rather than infer usability from the code.
+
+
+## Example-clarity revision
+
+The founder’s two-year-shortfall feedback triggered three further simulated review rounds. The [current validation record](2026-10-09-example-validation-loop.md) defines the delivered requirements for first-gap explanations, funding sources, all shortfall periods, named dates, comparison order, state restoration and faithful CSV outputs. Personal modelling and genuine purchase evidence remain separate gates.

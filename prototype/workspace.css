@@ -1009,3 +1009,323 @@ button:disabled {
     break-inside: auto;
   }
 }
+
+/* Retirement example components. Screen-only rules preserve the brief print layout. */
+@media screen {
+  .outcome-summary {
+    border-left: 3px solid var(--gold);
+    padding: 8px 0 8px 18px;
+    margin: 20px 0 24px;
+  }
+  .outcome-summary.covered,
+  .outcome-summary.has-shortfall {
+    border-color: var(--gold);
+  }
+  .outcome-number strong {
+    display: block;
+    font: 500 46px/1.2 Georgia, serif;
+    letter-spacing: -0.035em;
+    margin-bottom: 12px;
+    color: var(--ink);
+  }
+  .outcome-number span {
+    display: block;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .outcome-summary p {
+    font-size: 16px;
+    margin: 14px 0;
+  }
+  .spending-context,
+  .retirement-facts,
+  .comparison-dates,
+  .chart-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 16px;
+    color: var(--soft);
+  }
+  .spending-context {
+    margin-top: 16px;
+  }
+  .comparison-dates {
+    padding: 12px 0;
+  }
+  .chart-events {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    gap: 10px;
+  }
+  .gap-periods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 22px 0 14px;
+  }
+  .gap-period {
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: #f8f9f5;
+    padding: 16px;
+  }
+  .gap-period > div b,
+  .gap-period > div span {
+    display: block;
+  }
+  .gap-period > div b {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .gap-period > div span {
+    font-size: 16px;
+    color: var(--soft);
+  }
+  .gap-period > strong {
+    display: block;
+    font: 500 32px/1.25 Georgia, serif;
+    color: var(--ink);
+    margin: 12px 0 8px;
+  }
+  .gap-period p {
+    font-size: 16px;
+    margin-bottom: 0;
+  }
+  .try-choice {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+  .try-choice h3 {
+    font-size: 22px;
+  }
+  .try-choice p,
+  .outcome-card > .small,
+  .comparison-card .small,
+  .asset-chart .small {
+    font-size: 16px;
+  }
+  .chart-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-heading h3 {
+    margin: 0;
+  }
+  .asset-switch {
+    display: inline-flex;
+    flex-wrap: wrap;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper);
+  }
+  .asset-switch button {
+    border: 0;
+    border-radius: 7px;
+    padding: 8px 12px;
+    min-height: 44px;
+    font-size: 16px;
+    color: var(--soft);
+    background: transparent;
+  }
+  .asset-switch button[aria-pressed="true"] {
+    background: var(--tint);
+    color: var(--teal-dark);
+    font-weight: 650;
+  }
+  .chart-axis-note {
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  .comparison-columns {
+    margin: 18px 0 24px;
+  }
+  .comparison-columns > div {
+    padding: 16px;
+    background: #f5f8f4;
+    border-radius: 13px;
+    min-width: 0;
+  }
+  .comparison-columns .row {
+    font-size: 16px;
+    align-items: flex-start;
+  }
+  .comparison-columns .row b {
+    flex-shrink: 0;
+  }
+  .year-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .year-shortcuts .btn {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .year-shortcuts .btn[aria-pressed="true"] {
+    background: var(--tint);
+    border-color: #c6ddd0;
+    color: var(--teal-dark);
+  }
+  .year-label {
+    display: block;
+    font-size: 18px;
+    font-weight: 650;
+    margin: 16px 0 8px;
+  }
+  .year-select {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid #9caaa6;
+    border-radius: 9px;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  .funding-year {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .funding-year > p,
+  #funding-explorer > .small,
+  .funding-year details .small {
+    font-size: 16px;
+  }
+  .funding-bar {
+    display: flex;
+    width: 100%;
+    height: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #eff2ed;
+    margin: 20px 0 12px;
+  }
+  .funding-bar span {
+    display: block;
+    min-width: 0;
+  }
+  .funding-bar .income {
+    background: var(--teal);
+  }
+  .funding-bar .savings {
+    background: #87a48d;
+  }
+  .funding-bar .pension {
+    background: #bb9944;
+  }
+  .funding-bar .shortfall {
+    background: repeating-linear-gradient(135deg, #f2d6ad 0, #f2d6ad 5px, #a16a32 5px, #a16a32 7px);
+  }
+  .funding-sources {
+    margin-bottom: 24px;
+  }
+  .funding-sources .row {
+    font-size: 16px;
+    align-items: center;
+  }
+  .funding-sources .row b {
+    flex-shrink: 0;
+  }
+  .source-label {
+    position: relative;
+    padding-left: 20px;
+  }
+  .source-label::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--teal);
+  }
+  .source-label.savings::before {
+    background: #87a48d;
+  }
+  .source-label.pension::before {
+    background: #bb9944;
+  }
+  .source-label.shortfall::before {
+    background: #a16a32;
+  }
+  .balance-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0 24px;
+  }
+  .balance-grid > div {
+    padding: 16px;
+    border-radius: 12px;
+    background: #f5f8f4;
+    min-width: 0;
+  }
+  .balance-grid span {
+    display: block;
+    font-size: 16px;
+    color: var(--soft);
+    margin-bottom: 8px;
+  }
+  .balance-grid strong {
+    display: block;
+    font: 500 29px/1.25 Georgia, serif;
+    overflow-wrap: anywhere;
+  }
+  .scenario-editor {
+    margin-top: 24px;
+  }
+  .scenario-editor > summary {
+    padding: 16px 0;
+    font-size: 18px;
+  }
+}
+@media screen and (max-width: 650px) {
+  .outcome-summary {
+    padding-left: 16px;
+  }
+  .outcome-number strong {
+    font-size: 40px;
+  }
+  .gap-periods,
+  .comparison-columns,
+  .balance-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .year-shortcuts {
+    gap: 4px;
+  }
+  .balance-grid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .balance-grid span {
+    margin: 0;
+    flex: 1;
+  }
+  .balance-grid strong {
+    flex-shrink: 0;
+    font-size: 26px;
+    text-align: right;
+  }
+  .comparison-columns > div {
+    padding: 16px;
+  }
+}

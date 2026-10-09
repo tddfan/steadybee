@@ -104,6 +104,143 @@ async function fillStart(
 }
 const snapshot = (p) => p.evaluate(() => window.snapshotSteadybeePlan());
 
+test("the first access shortfall is distinct from total wealth and unpaid gaps survive later coverage", async () => {
+  const p = await page("app.html?example=early-dc#overview", true);
+  const text = await p.locator(".outcome-card").innerText();
+  assert.match(text, /£34,777[\s\S]*2031 · Alex 57/);
+  assert.match(text, /5 years after the example starts, 2 years after Alex retires/);
+  assert.match(text, /£473,849 remains in pension money that cannot yet be drawn/);
+  assert.match(text, /2031–2033[\s\S]*£106,777/);
+  assert.match(text, /2055–2064/);
+  await p.locator("#funding-year-select").selectOption("8");
+  const year = await p.locator("#funding-year").innerText();
+  assert.match(year, /2034 · Alex 60/);
+  assert.match(year, /Covered by the income and withdrawals/);
+  assert.match(year, /Spending left unpaid so far: £106,777/);
+  assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.ok(
+    await p.locator(".asset-chart svg text").first().evaluate((el) => {
+      const scale = el.ownerSVGElement.getBoundingClientRect().width / el.ownerSVGElement.viewBox.baseVal.width;
+      return parseFloat(getComputedStyle(el).fontSize) * scale >= 12;
+    }),
+    "Chart labels are readable without pinch zoom",
+  );
+  await p.close();
+});
+
+test("authored alternatives show results before editing, reuse saved choices and preserve later shortfalls and part-time dates", async () => {
+  const p = await page("app.html?example=early-dc#overview");
+  await p.locator('[data-action="example-choice:later"]').click();
+  await p.waitForURL("**#scenarios");
+  let state = await snapshot(p);
+  assert.equal(state.personal, null);
+  assert.equal(state.sampleScenarios["early-dc"][0].overrides.retirementAge, 58);
+  const comparison = await p.locator("#comparison-result").innerText();
+  assert.match(comparison, /£106,777/);
+  assert.match(comparison, /2057 · Alex 83/);
+  assert.match(comparison, /zero before-access shortfall does not mean all later years are covered/);
+  assert.equal(await p.locator("details.scenario-editor").getAttribute("open"), null);
+  assert.ok(await p.evaluate(() => !!(
+    document.querySelector("#comparison-result").compareDocumentPosition(document.querySelector("#scenario-form")) & Node.DOCUMENT_POSITION_FOLLOWING
+  )));
+  await p.locator('[data-action="example-choice:later"]').click();
+  assert.equal((await snapshot(p)).sampleScenarios["early-dc"].length, 1);
+  await p.locator('[data-action="example-choice:part-time"]').click();
+  state = await snapshot(p);
+  assert.equal(state.sampleScenarios["early-dc"].length, 2);
+  const selected = state.sampleScenarios["early-dc"].find((s) => s.id === state.activeScenario);
+  assert.deepEqual(selected.overrides, { retirementAge: 55, partTimeAnnual: 24000, partTimeEndAge: 60 });
+  await p.locator('[data-action="example-choice:part-time"]').click();
+  assert.equal((await snapshot(p)).sampleScenarios["early-dc"].length, 2);
+  await nav(p, "report");
+  const brief = await p.locator("#decision-brief").innerText();
+  assert.match(brief, /Not covered in that first year[\s\S]*£34,777/);
+  assert.match(brief, /2057 · age 83/);
+  assert.match(brief, /2029(?:–|-| to )2033/);
+  assert.match(brief, /55(?:–|-| to )59/);
+  assert.match(brief, /(?:ends|until|end)[^\n]{0,100}60/);
+  await p.close();
+});
+
+test("zero savings outside pensions in a retired year still permits funded pension withdrawals", async () => {
+  const p = await page("app.html?example=already-retired#overview");
+  await p.locator("#funding-year-select").selectOption("5");
+  const text = await p.locator("#funding-year").innerText();
+  assert.match(text, /2031 · Priya 71/);
+  assert.match(text, /Covered by the income and withdrawals/);
+  assert.match(text, /Pension-pot withdrawals\s+£3,153/);
+  assert.match(text, /Savings outside pensions\s+£0/);
+  assert.match(text, /Pension money available to draw\s+£222,080/);
+  assert.doesNotMatch(text, /Spending left unpaid/);
+  await p.close();
+});
+
+test("deployment restoration keeps the inspected year, displayed funding and asset view consistent", async () => {
+  const p = await page("app.html?example=early-dc#overview");
+  await p.locator("#funding-year-select").selectOption("8");
+  await p.locator('#asset-chart [data-asset-view="pensions"]').click();
+  await p.evaluate(() => sessionStorage.setItem(
+    "steadybee:update-state:/app.html",
+    JSON.stringify({ savedAt: Date.now(), fields: [], plan: window.snapshotSteadybeePlan() }),
+  ));
+  await p.reload();
+  await p.waitForFunction(() => document.querySelector("#funding-year-select")?.value === "8");
+  assert.equal(await p.locator("#funding-year-select option:checked").innerText(), "2034 · Alex 60");
+  assert.equal(await p.locator("#funding-year h3").first().innerText(), "2034 · Alex 60");
+  assert.match(await p.locator("#funding-year").innerText(), /Covered by the income and withdrawals/);
+  assert.match(await p.locator("#funding-year").innerText(), /Spending left unpaid so far: £106,777/);
+  assert.equal(await p.locator('#asset-chart [data-asset-view="pensions"]').getAttribute("aria-pressed"), "true");
+  await p.setViewportSize({ width: 375, height: 812 });
+  await p.waitForFunction(() => document.querySelector("#asset-chart svg").viewBox.baseVal.width < 400);
+  assert.ok(await p.locator(".asset-chart svg text").first().evaluate((el) => (
+    parseFloat(getComputedStyle(el).fontSize) * el.ownerSVGElement.getBoundingClientRect().width / el.ownerSVGElement.viewBox.baseVal.width >= 12
+  )));
+  assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.equal(await p.locator("#funding-year-select").inputValue(), "8");
+  assert.equal(await p.locator("#funding-year h3").first().innerText(), "2034 · Alex 60");
+  await p.close();
+});
+
+test("intake tab edits stay staged and only confirmed changes revise the baseline", async () => {
+  const p = await page();
+  await fillStart(p);
+  await nav(p, "scenarios");
+  await p.locator("#scenario-name").fill("My comparison");
+  await p.locator("#scenario-monthlySpending").fill("2500");
+  await p.locator("#scenario-form button[type=submit]").click();
+  await nav(p, "review");
+  await p.locator("#device-save").check();
+  const before = (await snapshot(p)).personal;
+  await nav(p, "details");
+  await p.locator('a[href="#setup"]').click();
+  await p.locator("#targetRetirementAge").fill("65");
+  await p.locator('[data-route="income"]').click();
+  assert.equal((await snapshot(p)).personal.profile.targetRetirementAge.value, 62);
+  assert.equal((await snapshot(p)).setupEdit.profile.targetRetirementAge.value, 65);
+  await nav(p, "overview");
+  let state = (await snapshot(p)).personal;
+  assert.equal(state.profile.targetRetirementAge.value, 62);
+  assert.equal(state.route, "dc");
+  assert.equal(state.revision, before.revision);
+  assert.equal(state.scenarios[0].stale, false);
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem("steadybee:workspace:v2")).personal.profile.targetRetirementAge.value), 62);
+  await nav(p, "details");
+  await p.locator('a[href="#setup"]').click();
+  await p.locator("#targetRetirementAge").fill("65");
+  await p.locator('[data-route="income"]').click();
+  await p.locator("#annualPensionIncome").fill("12000");
+  await p.locator("#setup-form button[type=submit]").click();
+  await p.waitForURL("**#overview");
+  await p.waitForFunction(() => window.snapshotSteadybeePlan()?.activeView === "overview");
+  state = (await snapshot(p)).personal;
+  assert.equal(state.profile.targetRetirementAge.value, 65);
+  assert.equal(state.route, "income");
+  assert.equal(state.revision, before.revision + 1);
+  assert.equal(state.scenarios[0].baseRevision, before.revision);
+  assert.equal(state.scenarios[0].stale, true);
+  await p.close();
+});
+
 test("personal start preserves unknown/zero and never consumes fictional values", async () => {
   const p = await page();
   await p.locator("#age").fill("52");
@@ -350,6 +487,7 @@ test("deployment restoration preserves personal work, example scenarios and unfi
   await p.locator('[data-action="example:mixed-household"]').click();
   await nav(p, "scenarios");
   await p.locator("[data-action=preset-household]").click();
+  await p.locator("details.scenario-editor > summary").click();
   await p.locator("#scenario-name").fill("Unfinished example revision");
   await p.locator("#scenario-majorCost").fill("22000");
   await p.evaluate(() =>
@@ -371,6 +509,7 @@ test("deployment restoration preserves personal work, example scenarios and unfi
   assert.equal(s.personal.scenarios[0].name, "My reduced spending");
   assert.equal(s.sampleScenarios["mixed-household"].length, 1);
   assert.equal(s.activeView, "scenarios");
+  assert.equal(await p.locator("details.scenario-editor").getAttribute("open"), "");
   assert.equal(
     await p.locator("#scenario-name").inputValue(),
     "Unfinished example revision",
@@ -421,6 +560,10 @@ test("mixed household scenario preserves all changes, printable dates and CSV pr
   const csv = await readFile(await file.path(), "utf8");
   assert.match(csv, /Fictional example/);
   assert.match(csv, /openingAccessible/);
+  assert.match(csv, /closingAvailablePension/);
+  assert.match(csv, /closingLockedPension/);
+  assert.match(csv, /closingTotal/);
+  assert.match(csv, /cumulativeGap/);
   assert.match(csv, /no UK tax engine/);
   await p.close();
 });

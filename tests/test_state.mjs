@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { exampleInsights } from "../prototype/example-insights.mjs";
 import {
   SCHEMA_VERSION,
   createDraft,
@@ -25,6 +26,85 @@ function filled(route = "dc", scope = "individual") {
   });
   return draft;
 }
+
+test("access shortfalls and later depletion remain separate, unrepaid periods", () => {
+  const r = evaluateExample("early-dc"),
+    facts = exampleInsights(r);
+  assert.equal(facts.firstGap.year, 2031);
+  assert.equal(facts.firstGap.primaryAge, 57);
+  assert.equal(facts.yearsFromStart, 5);
+  assert.equal(facts.yearsAfterRetirement, 2);
+  assert.equal(facts.firstGap.annualGap, 34777.19);
+  assert.equal(facts.firstGap.closingLockedPension, 473848.56);
+  assert.equal(facts.firstGap.closingAvailablePension, 0);
+  assert.deepEqual(
+    facts.gapPeriods.map((p) => [p.start.year, p.end.year]),
+    [
+      [2031, 2033],
+      [2055, 2064],
+    ],
+  );
+  assert.equal(facts.gapPeriods[0].total, 106777.19);
+  assert.equal(facts.gapPeriods[0].nextCovered.year, 2034);
+  assert.equal(facts.gapPeriods[0].nextCovered.cumulativeGap, 106777.19);
+  assert.match(r.summary.statement, /first/);
+  assert.doesNotMatch(r.summary.statement, /amount from/);
+});
+
+test("a covered pension-access period does not imply coverage for the whole illustration", () => {
+  const r = evaluateExample("early-dc", { retirementAge: 58 }),
+    facts = exampleInsights(r);
+  assert.equal(r.summary.bridgeGapTotal, 0);
+  assert.equal(facts.firstGap.primaryAge, 83);
+  assert.equal(facts.gapPeriods.length, 1);
+  assert.equal(facts.gapPeriods[0].kind, "later");
+  assert.ok(r.summary.totalGap > 0);
+});
+
+test("positive final assets do not erase an earlier access shortfall", () => {
+  const r = evaluateExample("early-dc", { monthlySpending: 2400 }),
+    facts = exampleInsights(r);
+  assert.equal(r.summary.finalTotal, 55381.04);
+  assert.equal(r.summary.bridgeGapTotal, 47987.51);
+  assert.equal(facts.firstGap.year, 2032);
+  assert.equal(facts.gapPeriods[0].end.year, 2033);
+});
+
+test("zero savings outside pensions does not mean pension money or spending coverage is exhausted", () => {
+  for (const id of ["already-retired", "mixed-household"]) {
+    const r = evaluateExample(id),
+      facts = exampleInsights(r);
+    const depletedSavings = r.rows.find((row) => row.closingAccessible === 0);
+    assert.ok(depletedSavings.closingAvailablePension > 0);
+    assert.equal(depletedSavings.annualGap, 0);
+    assert.equal(facts.firstGap, null);
+    assert.deepEqual(facts.gapPeriods, []);
+  }
+  assert.equal(
+    exampleInsights(evaluateExample("already-retired")).yearsAfterRetirement,
+    null,
+  );
+});
+
+test("pension accessibility splits reconcile with the pension total for every example year", () => {
+  for (const e of examples)
+    for (const row of evaluateExample(e.id).rows) {
+      assert.ok(
+        Math.abs(
+          row.closingAvailablePension +
+            row.closingLockedPension -
+            row.closingPension,
+        ) < 0.02,
+      );
+    }
+});
+
+test("an additional cost outside the illustrated years cannot silently disappear", () => {
+  assert.throws(
+    () => evaluateExample("early-dc", { majorCost: 500000, majorCostAge: 100 }),
+    /outside.*horizon/i,
+  );
+});
 
 function incomeStream(owner = "primary", amount = 20_000, startAge = 65) {
   return {

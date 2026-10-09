@@ -4,7 +4,7 @@
  */
 import { createDraft, field, normaliseOverrides } from "./state.mjs";
 
-export const FIXTURE_VERSION = "2026-10-09.1";
+export const FIXTURE_VERSION = "2026-10-09.2";
 const SOURCE_DATE = "2026-10-09";
 const round = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -299,6 +299,8 @@ export function evaluateExample(exampleId, overrides = {}) {
     );
   if (p.majorCost > 0 && p.majorCostAge < p.primary.age)
     throw new Error("A major cost cannot be placed before the example starts.");
+  if (p.majorCost > 0 && p.majorCostAge > p.horizonAge)
+    throw new Error("A major cost is outside this worked example’s horizon.");
   if (
     p.primary.retirementAge > p.horizonAge ||
     (p.partner &&
@@ -460,6 +462,8 @@ export function evaluateExample(exampleId, overrides = {}) {
       withdrawalsPension: round(withdrawalsPension),
       closingAccessible: round(accessible),
       closingPension: round(closingPension),
+      closingLockedPension: round(inaccessiblePension),
+      closingAvailablePension: round(closingPension - inaccessiblePension),
       closingTotal: round(accessible + closingPension),
       annualGap: round(annualGap),
       cumulativeGap: round(cumulativeGap),
@@ -476,17 +480,27 @@ export function evaluateExample(exampleId, overrides = {}) {
   const firstGap = rows.find((row) => row.annualGap > 0),
     bridgeYears = rows.filter((row) => row.bridgeGap > 0),
     final = rows.at(-1);
-  const changes = Object.entries(clean).map(([key, to]) => ({
-    key,
-    label:
-      key === "retirementAge"
-        ? `${p.primary.name} retirement age`
-        : key === "monthlySpending" && !p.partner
-          ? "Monthly spending"
-          : changeLabels[key],
-    from: baselineValue(original, key),
-    to,
-  }));
+  const changes = Object.entries(clean)
+    .filter(([key, to]) => to !== baselineValue(original, key))
+    .map(([key, to]) => ({
+      key,
+      label:
+        key === "retirementAge"
+          ? `${p.primary.name} retirement age`
+          : key === "partnerRetirementAge"
+            ? `${p.partner.name} retirement age`
+            : key === "monthlyContributions"
+              ? `${p.primary.name} pension contributions / month`
+              : key === "partTimeEndAge"
+                ? `Part-time income ends at ${p.primary.name} age`
+                : key === "majorCostAge"
+                  ? `One-off cost at ${p.primary.name} age`
+                  : key === "monthlySpending" && !p.partner
+                    ? "Monthly spending"
+                    : changeLabels[key],
+      from: baselineValue(original, key),
+      to,
+    }));
   const summary = {
     firstGapYear: firstGap?.year ?? null,
     firstGapAge: firstGap?.primaryAge ?? null,
@@ -507,7 +521,7 @@ export function evaluateExample(exampleId, overrides = {}) {
       : null,
     monthlySpending: p.monthlySpending,
     statement: firstGap
-      ? `This fictional illustration has an uncovered spending amount from ${firstGap.year} (primary age ${firstGap.primaryAge}).`
+      ? `This fictional illustration first has spending not covered in ${firstGap.year} (${p.primary.name} age ${firstGap.primaryAge}). Later years may be covered; earlier gaps remain unpaid.`
       : `The fictional inputs cover the stated spending through primary age ${p.horizonAge} under these fixed assumptions.`,
   };
   const assumptions = [

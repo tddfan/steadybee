@@ -17,6 +17,8 @@ A retirement decision workspace for people considering retirement, reduced work 
 
 Fictional calculations are deterministic demonstrations using authored assumptions, not a UK tax or pension engine. They do not establish the correctness of personal planning. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md).
 
+The latest [example validation loop](docs/2026-10-09-example-validation-loop.md) records the founder’s two-year-shortfall feedback, three simulated review rounds, annual funding/shortfall explanations, simpler comparisons and 49 checks. Customer willingness to pay remains unverified.
+
 ## Run and verify
 
 No npm application dependencies or frontend framework are required.

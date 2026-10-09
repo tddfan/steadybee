@@ -2,6 +2,8 @@
 
 9 October 2026 · Current implementation record. This and the prototype loop plan take precedence over older prototype/marketing claims.
 
+**Latest example revision:** see the [current validation record](2026-10-09-example-validation-loop.md). It supersedes earlier claims about example clarity and records the current 49 checks.
+
 ## Decision
 
 The research prototype now supports a complete personal information journey and separately named fictional comparisons. It is ready for observed prototype sessions. It is not a paid personal retirement planner: personal outcomes, accounts, server-side history and payments are not connected.
