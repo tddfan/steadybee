@@ -9,6 +9,7 @@ import {
   parseSaved,
 } from "./state.mjs";
 import { examples, evaluateExample } from "./fixtures.mjs";
+import { landingChoices } from "./landing-choices.mjs";
 
 const $ = (s) => document.querySelector(s);
 const money = (v) =>
@@ -1365,6 +1366,24 @@ if (
 ) {
   workspace.mode = "example";
   workspace.sampleId = params.get("example");
+}
+const landingChoice = landingChoices.find(
+  (choice) => choice.id === params.get("choice"),
+);
+if (
+  !pendingRestore &&
+  workspace.mode === "example" &&
+  workspace.sampleId === "early-dc" &&
+  landingChoice &&
+  landingChoice.id !== "baseline"
+) {
+  const scenario = createScenario(
+    copy(sample().draft),
+    landingChoice.name,
+    landingChoice.overrides,
+  );
+  workspace.sampleScenarios["early-dc"] = [scenario];
+  workspace.activeScenario = scenario.id;
 }
 if (pendingRestore) {
   window.restoreSteadybeePlan(pendingRestore);

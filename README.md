@@ -6,6 +6,7 @@ A retirement decision workspace for people considering retirement, reduced work 
 
 ## What you can try
 
+- An interactive landing preview with an accessible-savings chart, pension-access split, spending comparison and household dates. Selected fictional choices carry into the workspace.
 - A short DC or income-led start, with unknown, estimated and zero values kept distinct.
 - Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
 - Owner-aware summaries and calendar timelines. Account details reconcile against entered totals without being added twice.
