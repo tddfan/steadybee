@@ -14,6 +14,7 @@ const OVERRIDES = {
   partTimeEndAge: [18, 100, true],
   majorCost: [0, 100_000_000],
   majorCostAge: [18, 100, true],
+  horizonAge: [90, 100, true],
 };
 let sequence = 0;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -788,6 +789,8 @@ export function normaliseOverrides(overrides = {}) {
       (spec[2] && !Number.isInteger(value))
     )
       throw new Error(`Invalid value for ${key}.`);
+    if (key === "horizonAge" && ![90, 95, 100].includes(value))
+      throw new Error("Choose an illustrated horizon of age 90, 95 or 100.");
     result[key] = value;
   }
   if (

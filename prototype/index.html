@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#14665f" />
     <meta
       name="description"
-      content="Explore retirement timing, spending and the gap before pension access. Try an interactive fictional plan, or start your own retirement information draft."
+      content="Explore spending, income and remaining money across retirement and later life. Compare fictional plans through age 90, 95 or 100, or start your own information draft."
     />
     <meta name="apple-mobile-web-app-title" content="Steadybee" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -17,7 +17,7 @@
     <link rel="manifest" href="manifest.webmanifest?v=2" />
     <link rel="stylesheet" href="workspace.css" />
     <link rel="stylesheet" href="landing.css" />
-    <title>Steadybee — could you retire sooner?</title>
+    <title>Steadybee — your whole retirement picture</title>
     <script type="module" src="landing.mjs"></script>
     <script defer src="app-updates.js"></script>
   </head>
@@ -47,11 +47,11 @@
               at your pace
             </div>
             <h1 id="landing-title">
-              Could you retire<br /><span>sooner?</span>
+              Your whole<br /><span>retirement picture.</span>
             </h1>
             <p class="hero-lede">
-              Explore when to step back, what to spend and how to bridge the
-              years before pensions start.
+              See what funds each stage: stepping back from work, drawing your
+              pensions and paying for later life. Explore it for you or together.
             </p>
           </div>
           <section
@@ -67,8 +67,8 @@
             </div>
             <div class="dashboard-heading">
               <div>
-                <p>Alex, 52 · an early retirement question</p>
-                <h2 id="preview-title">A bridge to pension access.</h2>
+                <p>Alex, 52 · a fictional retirement picture</p>
+                <h2 id="preview-title">From today to later life.</h2>
               </div>
             </div>
             <div
@@ -99,36 +99,46 @@
                 ><strong id="preview-spend">£3,000</strong>
               </div>
               <div>
-                <span>Bridge years</span><strong id="preview-years">5</strong>
+                <label for="preview-horizon">Plan through age</label>
+                <select id="preview-horizon" aria-describedby="planning-note">
+                  <option value="90">90</option>
+                  <option value="95" selected>95</option>
+                  <option value="100">100</option>
+                </select>
               </div>
             </div>
-            <figure class="preview-figure" aria-describedby="chart-caption">
+            <div class="preview-chart-controls">
+              <div class="preview-view" role="group" aria-label="Choose the retirement chart">
+                <button type="button" data-view="funding" aria-pressed="true">Spending</button>
+                <button type="button" data-view="balances" aria-pressed="false">Money left</button>
+              </div>
+              <div class="preview-zoom" role="group" aria-label="Choose the timeline range">
+                <button type="button" data-zoom="full" aria-pressed="true">All years</button>
+                <button type="button" data-zoom="bridge" aria-pressed="false">Bridge</button>
+              </div>
+            </div>
+            <figure class="preview-figure" aria-describedby="chart-caption planning-note">
               <div class="chart-heading">
-                <strong>Savings outside pensions</strong
-                ><span>Year-end · today’s £</span>
+                <strong id="chart-heading">What covers spending</strong
+                ><span id="chart-unit">£ / year · today’s money</span>
               </div>
               <div id="bridge-chart" class="bridge-chart">
                 <p class="preview-loading">Loading the worked example…</p>
               </div>
               <figcaption id="chart-caption">
-                <span class="chart-legend"
-                  ><i class="legend-current" aria-hidden="true"></i
-                  ><span id="chart-choice-label">Retire at 55</span
-                  ><span id="baseline-legend" hidden
-                    ><i class="legend-baseline" aria-hidden="true"></i>Retire at
-                    55</span
-                  ></span
-                ><span>Alex’s age →</span>
+                <span id="preview-legend" class="chart-legend"></span>
+                <span id="chart-range">Alex’s age 52–95 →</span>
               </figcaption>
             </figure>
-            <div class="preview-result">
-              <div>
-                <span class="result-label">Unfunded bridge amount</span
-                ><strong id="preview-gap">See the example</strong>
+            <div id="preview-milestones" class="preview-milestones" aria-label="Alex’s retirement milestones"></div>
+            <div class="preview-shortfalls">
+              <div class="shortfall-card">
+                <span>Before pension access</span><strong id="preview-gap">See the example</strong>
+                <p id="preview-gap-years">Access assumed at 60</p>
               </div>
-              <div class="result-context">
-                <strong id="preview-gap-years">Before pension access</strong
-                ><span>Access assumed at age 60</span>
+              <div class="shortfall-card">
+                <span>Later spending shortfall</span><strong id="preview-later-age">See the example</strong>
+                <p id="preview-later-gap">Through the chosen planning age</p>
               </div>
             </div>
             <p
@@ -137,19 +147,26 @@
               role="status"
               aria-live="polite"
             >
-              Choose a scenario to explore the years before pension access.
+              Choose a scenario to explore the full retirement timeline.
             </p>
             <a
               class="preview-open"
               id="preview-open"
               href="app.html?example=early-dc#overview"
-              >Open this plan in the workspace
+              >Explore this full plan
               <span aria-hidden="true">↗</span></a
             >
             <p class="preview-limit">
-              Fictional figures, not your forecast. A smaller bridge gap does
-              not establish whole-plan affordability.
+              Fictional illustration, not advice. No personal forecast, UK tax,
+              changing market returns or survivor changes are modelled.
             </p>
+            <p class="planning-note" id="planning-note">The endpoint is a planning assumption. Test spending through age 100.</p>
+            <details class="preview-year-detail">
+              <summary>Inspect a year: income, withdrawals and money left</summary>
+              <label for="preview-year">Alex’s age</label>
+              <select id="preview-year"></select>
+              <div id="preview-year-facts" aria-live="polite"></div>
+            </details>
             <noscript
               ><p>
                 Open the worked example to see the tables. JavaScript is needed
@@ -176,9 +193,13 @@
             <div class="hero-nudge">
               <span class="nudge-icon" aria-hidden="true">↗</span>
               <div>
-                <strong>A pension total is only part of the picture.</strong
-                ><span>The years before you can access it matter too.</span>
+                <strong>Early retirement is one chapter.</strong
+                ><span>See the years before pensions start and the decades after.</span>
               </div>
+            </div>
+            <div class="hero-example-routes">
+              <a href="app.html?example=mixed-household#overview">Planning together? Try Morgan &amp; Sam →</a>
+              <a href="app.html?example=already-retired#overview">Already retired? Try Priya →</a>
             </div>
           </div>
         </section>

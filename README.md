@@ -6,7 +6,7 @@ A retirement decision workspace for people considering retirement, reduced work 
 
 ## What you can try
 
-- An interactive landing preview with an accessible-savings chart, pension-access split, spending comparison and household dates. Selected fictional choices carry into the workspace.
+- An interactive full-retirement landing preview: annual spending coverage, separate savings/pension balances, early and later shortfalls, and planning endpoints of 90/95/100. Selected fictional choices and endpoint carry into the workspace, brief and CSV.
 - A short DC or income-led start, with unknown, estimated and zero values kept distinct.
 - Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
 - Owner-aware summaries and calendar timelines. Account details reconcile against entered totals without being added twice.
@@ -17,7 +17,7 @@ A retirement decision workspace for people considering retirement, reduced work 
 
 Fictional calculations are deterministic demonstrations using authored assumptions, not a UK tax or pension engine. They do not establish the correctness of personal planning. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md).
 
-The latest [example validation loop](docs/2026-10-09-example-validation-loop.md) records the founder’s two-year-shortfall feedback, three simulated review rounds, annual funding/shortfall explanations, simpler comparisons and 49 checks. Customer willingness to pay remains unverified.
+The latest [full-retirement preview review](docs/2026-10-09-full-retirement-preview-review.md) records the founder’s complete-picture feedback, real endpoint recalculation and simulated review. The earlier [example validation loop](docs/2026-10-09-example-validation-loop.md) records the two-year-shortfall explanation. Customer willingness to pay remains unverified.
 
 ## Run and verify
 

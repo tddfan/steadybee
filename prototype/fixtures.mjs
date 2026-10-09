@@ -4,7 +4,7 @@
  */
 import { createDraft, field, normaliseOverrides } from "./state.mjs";
 
-export const FIXTURE_VERSION = "2026-10-09.2";
+export const FIXTURE_VERSION = "2026-10-09.3";
 const SOURCE_DATE = "2026-10-09";
 const round = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -240,6 +240,7 @@ const changeLabels = {
   partTimeEndAge: "Primary age when part-time income ends",
   majorCost: "One-off major cost",
   majorCostAge: "Primary age at the major cost",
+  horizonAge: "Illustrated horizon (primary age)",
 };
 
 function baselineValue(profile, key) {
@@ -271,6 +272,7 @@ export function evaluateExample(exampleId, overrides = {}) {
     "partTimeEndAge",
     "majorCost",
     "majorCostAge",
+    "horizonAge",
   ])
     if (clean[key] !== undefined) p[key] = clean[key];
   if (

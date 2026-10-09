@@ -8,7 +8,7 @@ import {
   serialise,
   parseSaved,
 } from "./state.mjs";
-import { examples, evaluateExample } from "./fixtures.mjs";
+import { examples, evaluateExample as evaluateFixture } from "./fixtures.mjs";
 import { landingChoices } from "./landing-choices.mjs";
 import { exampleInsights, exampleChoices } from "./example-insights.mjs";
 
@@ -40,6 +40,7 @@ let workspace = {
   personal: null,
   mode: "personal",
   sampleId: "mixed-household",
+  sampleHorizonAge: 90,
   sampleScenarios: {},
   activeScenario: null,
   activeView: "start",
@@ -54,6 +55,13 @@ let storageProblem = "",
   displayedFunding = null;
 const params = new URLSearchParams(location.search);
 const pendingRestore = window.__steadybeeRestore;
+const planningAge = (value) => [90, 95, 100].includes(Number(value)) ? Number(value) : 90;
+function evaluateExample(id, overrides = {}, horizon = workspace.sampleHorizonAge) {
+  const result = evaluateFixture(id, { ...overrides, horizonAge: planningAge(horizon) });
+  // The endpoint is shared by the baseline and every alternative in this workspace.
+  result.changes = result.changes.filter(change => change.key !== "horizonAge");
+  return result;
+}
 const template = (title, sub, body) =>
   `<div class="intro"><div class="eyebrow">Your retirement workspace</div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${body}`;
 const buttons = (content) => `<div class="actions">${content}</div>`;
@@ -71,9 +79,28 @@ const scenarios = () =>
     : draft()?.scenarios || [];
 const selected = () =>
   scenarios().find((s) => s.id === workspace.activeScenario) || null;
+function authoredChoices() {
+  return workspace.sampleId === "early-dc" ? landingChoices : exampleChoices[workspace.sampleId] || [];
+}
+function syncExampleURL() {
+  const url = new URL(location.href);
+  if (isExample()) {
+    url.searchParams.set("example", workspace.sampleId);
+    url.searchParams.set("horizon", workspace.sampleHorizonAge);
+    const overrides = selected()?.overrides || {};
+    const choice = authoredChoices().find(c =>
+      Object.keys(c.overrides).length === Object.keys(overrides).length &&
+      Object.entries(c.overrides).every(([key,value]) => overrides[key] === value));
+    if (choice) url.searchParams.set("choice", choice.id);
+    else url.searchParams.delete("choice");
+  } else {
+    for (const key of ["example", "horizon", "choice"]) url.searchParams.delete(key);
+  }
+  history.replaceState(null, "", url);
+}
 const modeBar = () =>
   isExample()
-    ? `<div class="mode example"><p><b>Fictional example · ${esc(sample().name)}</b><br>These outcomes belong to this named example. Your personal information is separate.</p>${btn(draft() ? "Return to my draft" : "Start my own draft", "personal", "secondary")}</div>`
+    ? `<div class="mode example"><p><b>Fictional example · ${esc(sample().name)}</b><br>These outcomes belong to this named example. Your personal information is separate.</p>${btn(draft() ? "Return to my draft" : "Start my own draft", "personal", "secondary")}</div><div class="example-horizon no-print"><label for="example-horizon">Plan through ${esc(sample().profile.primary.name)} age</label><select id="example-horizon" aria-describedby="example-horizon-note">${[90,95,100].map(age => `<option value="${age}" ${age === workspace.sampleHorizonAge ? "selected" : ""}>${age}</option>`).join("")}</select><span id="example-horizon-note">${sample().profile.partner ? `${esc(sample().profile.partner.name)} will be ${sample().profile.partner.age + workspace.sampleHorizonAge - sample().profile.primary.age}. ` : ""}Chosen planning endpoint; lifespan and survivor changes are not modelled. All comparisons use this age.</span></div>`
     : `<div class="mode"><p><b>Your information so far</b><br>${draft() ? "Personal retirement outcomes have not been calculated." : "Start with what you know. Add detail at your pace."}</p>${link("View an example", "examples", "quiet")}</div>`;
 const navViews = [
   ["start", "Start"],
@@ -190,6 +217,7 @@ function normalRoute() {
 function render() {
   const route = normalRoute();
   workspace.activeView = route;
+  syncExampleURL();
   $("#navigation").innerHTML =
     navViews
       .map(
@@ -1233,6 +1261,7 @@ function bindForms() {
     workspace.personal.consent.deviceSave = false;
     workspace.mode = "personal";
     workspace.activeScenario = null;
+    syncExampleURL();
     go("overview");
     toast("Draft restored in this tab. Device saving remains off.");
   });
@@ -1328,7 +1357,7 @@ function restoreWorkspace(raw) {
     clean[exampleId] = list.map((x) => {
       const sc = createScenario(context, x.name, x.overrides);
       sc.id = x.id;
-      evaluateExample(exampleId, sc.overrides);
+      evaluateExample(exampleId, sc.overrides, planningAge(s.sampleHorizonAge));
       context.scenarios.push(sc);
       return sc;
     });
@@ -1337,6 +1366,7 @@ function restoreWorkspace(raw) {
     personal: parsed.draft,
     mode: s.mode === "example" ? "example" : "personal",
     sampleId,
+    sampleHorizonAge: planningAge(s.sampleHorizonAge),
     sampleScenarios: clean,
     activeScenario: s.activeScenario || null,
     activeView: s.activeView || "overview",
@@ -1361,12 +1391,14 @@ function handleAction(a) {
     workspace.sampleId = a.slice(8);
     workspace.mode = "example";
     workspace.activeScenario = null;
+    syncExampleURL();
     go("overview");
     return;
   }
   if (a === "personal") {
     workspace.mode = "personal";
     workspace.activeScenario = null;
+    syncExampleURL();
     go(draft() ? "overview" : "setup");
     return;
   }
@@ -1456,6 +1488,7 @@ function handleAction(a) {
   }
   if (a.startsWith("select-scenario:")) {
     workspace.activeScenario = a.slice(16);
+    if (isExample()) syncExampleURL();
     render();
     return;
   }
@@ -1494,6 +1527,7 @@ function handleAction(a) {
       workspace.sampleScenarios[workspace.sampleId] = [...scenarios(), s];
       workspace.activeScenario = s.id;
     }
+    syncExampleURL();
     saveWorkspace();
     go("scenarios");
     focusComparison();
@@ -1596,6 +1630,13 @@ document.addEventListener("input", (e) => {
   }
 });
 document.addEventListener("change", (e) => {
+  if (e.target.id === "example-horizon") {
+    workspace.sampleHorizonAge = planningAge(e.target.value);
+    syncExampleURL();
+    render();
+    saveWorkspace();
+    $("#example-horizon")?.focus({ preventScroll: true });
+  }
   if (e.target.id === "funding-year-select")
     inspectYear(Number(e.target.value));
   if (e.target.id?.endsWith("-status") && e.target.value === "unknown") {
@@ -1640,7 +1681,7 @@ window.restoreSteadybeePlan = (s) => {
       const parsed = parseSaved(JSON.stringify(s.personal));
       if (!parsed.ok) return;
     }
-    workspace = { ...workspace, ...s };
+    workspace = { ...workspace, ...s, sampleHorizonAge: planningAge(s.sampleHorizonAge) };
     const staged = s.setupEdit ? parseSaved(JSON.stringify(s.setupEdit)) : null;
     setupEdit = staged?.ok && s.activeView === "setup" ? staged.draft : null;
     activeAssetView = s.assetView === "pensions" ? "pensions" : "savings";
@@ -1679,14 +1720,14 @@ if (
 ) {
   workspace.mode = "example";
   workspace.sampleId = params.get("example");
+  workspace.sampleHorizonAge = planningAge(params.get("horizon"));
 }
-const landingChoice = landingChoices.find(
+const landingChoice = authoredChoices().find(
   (choice) => choice.id === params.get("choice"),
 );
 if (
   !pendingRestore &&
   workspace.mode === "example" &&
-  workspace.sampleId === "early-dc" &&
   landingChoice &&
   landingChoice.id !== "baseline"
 ) {
@@ -1695,7 +1736,7 @@ if (
     landingChoice.name,
     landingChoice.overrides,
   );
-  workspace.sampleScenarios["early-dc"] = [scenario];
+  workspace.sampleScenarios[workspace.sampleId] = [scenario];
   workspace.activeScenario = scenario.id;
 }
 if (pendingRestore) {
