@@ -23,7 +23,7 @@ let result = baseline;
 function drawChart() {
   const element = $("#bridge-chart");
   const width = Math.max(element.clientWidth, 250),
-    height = 210;
+    height = window.matchMedia("(max-width: 650px)").matches ? 185 : 210;
   const margin = { left: 39, right: 13, top: 34, bottom: 25 };
   const plotWidth = width - margin.left - margin.right,
     plotHeight = height - margin.top - margin.bottom;

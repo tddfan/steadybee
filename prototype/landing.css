@@ -36,12 +36,18 @@
 .landing-hero {
   display: grid;
   grid-template-columns: 1fr 1.12fr;
-  gap: 56px;
-  align-items: center;
+  grid-template-areas: "copy preview" "next preview";
+  grid-template-rows: 1fr 1fr;
+  gap: 24px 56px;
+  align-items: start;
   padding: 62px 0 78px;
 }
 .landing-copy {
-  padding: 0 0 12px;
+  grid-area: copy;
+  align-self: end;
+}
+.landing-next-step {
+  grid-area: next;
 }
 .landing-eyebrow {
   display: flex;
@@ -144,6 +150,7 @@
   color: var(--soft);
 }
 .landing-dashboard {
+  grid-area: preview;
   background: #fff;
   padding: 26px 28px 20px;
   border: 1px solid #d6dfd7;
@@ -835,12 +842,19 @@
   }
   .landing-hero {
     grid-template-columns: 1fr;
+    grid-template-areas: "copy" "preview" "next";
+    grid-template-rows: auto;
     gap: 30px;
     padding: 45px 0 60px;
   }
   .landing-copy {
     max-width: 650px;
     margin: auto;
+    width: 100%;
+  }
+  .landing-next-step {
+    max-width: 650px;
+    margin: 0 auto;
     width: 100%;
   }
   .landing-copy h1 {
@@ -923,17 +937,17 @@
     margin-bottom: 17px;
   }
   .landing-hero {
-    padding: 32px 0 46px;
-    gap: 25px;
+    padding: 20px 0 46px;
+    gap: 18px;
   }
   .landing-copy h1 {
     font-size: clamp(37px, 10.8vw, 49px);
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
   .hero-lede {
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1.5;
-    margin-bottom: 22px;
+    margin-bottom: 0;
   }
   .hero-actions {
     display: grid;
@@ -992,6 +1006,10 @@
   }
   .chart-heading {
     font-size: 12px;
+  }
+  .bridge-chart,
+  .bridge-chart svg {
+    height: 185px;
   }
   .chart-heading > span {
     font-size: 11px;
