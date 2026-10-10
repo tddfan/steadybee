@@ -17,7 +17,7 @@ const sources = (row) => [
   { key: "income", label: "Income", amount: Math.min(row.income, row.spending + row.majorCost) },
   { key: "savings", label: "Savings used", amount: row.withdrawalsAccessible },
   { key: "pension", label: "Pension pot used", amount: row.withdrawalsPension },
-  { key: "gap", label: "Shortfall", amount: row.annualGap },
+  { key: "gap", label: "Spending not covered", amount: row.annualGap },
 ];
 
 function drawChart() {
@@ -52,9 +52,10 @@ function drawChart() {
       }).join("");
       return `<g><title>Alex age ${row.primaryAge}, ${row.year}: ${sources(row).map((s) => `${s.label} ${money(s.amount)}`).join("; ")}. Spending ${money(row.spending + row.majorCost)} per year.</title>${bars}</g>`;
     }).join("");
-    $("#chart-heading").textContent = "What covers spending";
+    $("#chart-heading").textContent = "Yearly spending and gaps";
     $("#chart-unit").textContent = "£ / year · today’s money";
     $("#preview-legend").innerHTML = sources(rows[0]).map((s) => `<span><i style="background:${colors[s.key]}" class="legend-${s.key}" aria-hidden="true"></i>${s.label}</span>`).join("");
+    $("#chart-reading").textContent = `Each bar is one year: ${money(result.summary.monthlySpending)}/month = ${money(result.summary.monthlySpending * 12)}/year. Stripes show spending with no funding.`;
   } else {
     const gaps = rows.filter((r) => r.annualGap > 0).map((r) => `<rect x="${x(r.primaryAge) - barWidth / 2}" y="${top}" width="${barWidth}" height="${plotHeight}" fill="#fbede5"/>`).join("");
     const lines = (items, dashed = false) => [
@@ -63,11 +64,12 @@ function drawChart() {
     plots = gaps + (choice.id === "baseline" ? "" : lines(baseRows, true)) + lines(rows);
     $("#chart-heading").textContent = "Money remaining at year-end";
     $("#chart-unit").textContent = "Balances · today’s money";
-    $("#preview-legend").innerHTML = '<span><i style="background:#14665f" aria-hidden="true"></i>Outside pensions</span><span><i style="background:#b18d36" aria-hidden="true"></i>Pension pots</span><span><i style="background:#fbede5;border:1px solid #b87055" aria-hidden="true"></i>Shortfall years</span>' + (choice.id === "baseline" ? "" : '<span>Dashed: retire at 55</span>');
+    $("#preview-legend").innerHTML = '<span><i style="background:#14665f" aria-hidden="true"></i>Savings outside pensions</span><span><i style="background:#b18d36" aria-hidden="true"></i>Pension pots</span><span><i style="background:#fbede5;border:1px solid #b87055" aria-hidden="true"></i>Spending gap years</span>' + (choice.id === "baseline" ? "" : '<span>Dashed: retire at 55</span>');
+    $("#chart-reading").textContent = `Lines show money left at year-end. Pension savings are locked until ${result.profile.primary.pensionAccessAge} in this example. Shading marks years with a spending gap.`;
   }
   const description = chartView === "funding"
     ? "Income used, savings withdrawals, pension withdrawals and uncovered spending add up to the spending target in each year. Income is assumed after tax; pension withdrawals have no tax applied."
-    : "Separate savings and pension balances. Some pension money is locked before age 60. Shaded shortfall years can coexist with a positive locked pension. Earlier unpaid spending is separate from assets.";
+    : "Separate savings and pension balances. Some pension money is locked before age 60. Shaded spending-gap years can coexist with a positive locked pension. Earlier spending gaps are separate from assets.";
   element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="retirement-chart-title retirement-chart-description"><title id="retirement-chart-title">${esc(choice.label)}: Alex ages 52 to ${endAge}, ${chartView === "funding" ? "annual spending coverage" : "year-end money remaining"}.</title><desc id="retirement-chart-description">Fictional illustration. ${esc(description)} Planning ends at age ${horizonAge}; this is not a lifespan prediction.</desc><defs><pattern id="uncovered" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#b87055"/><path d="M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5" stroke="#eac6b5" stroke-width="1"/></pattern></defs>${chartView === "funding" ? grid + plots : plots + grid}${ticks}</svg>`;
   $("#chart-range").textContent = `Alex’s age 52–${endAge} →`;
   $("#preview").dataset.chartEndAge = endAge;
@@ -77,7 +79,9 @@ function drawChart() {
 function renderYear() {
   const row = result.rows.find((r) => r.primaryAge === inspectedAge);
   if (!row) return;
-  $("#preview-year-facts").innerHTML = `<p><b>${row.year} · Alex ${row.primaryAge}</b> · ${row.annualGap ? "Spending partly uncovered" : "Spending covered this year"}</p><dl>${sources(row).map((s) => `<div><dt>${s.label}</dt><dd>${money(s.amount)}/year</dd></div>`).join("")}<div><dt>Spending target</dt><dd>${money(row.spending + row.majorCost)}/year</dd></div><div><dt>Savings outside pensions left</dt><dd>${money(row.closingAccessible)}</dd></div><div><dt>Pension available to draw</dt><dd>${money(row.closingAvailablePension)}</dd></div><div><dt>Pension still locked</dt><dd>${money(row.closingLockedPension)}</dd></div><div><dt>Earlier and current spending unpaid</dt><dd>${money(row.cumulativeGap)}</dd></div></dl><p>Money left is measured at year-end. Unpaid spending stays separate and is not repaid automatically.</p>`;
+  const incomeLabels = { employment: "pay from work", partTime: "part-time pay", state: "assumed regular pension income", db: "promised pension income", other: "other income" };
+  const income = Object.entries(row.incomeBreakdown).filter(([, amount]) => amount > 0).map(([key, amount]) => `${incomeLabels[key]} ${money(amount)}/year`).join("; ");
+  $("#preview-year-facts").innerHTML = `<p><b>${row.year} · Alex ${row.primaryAge}</b> · ${row.annualGap ? "Spending partly uncovered" : "Spending covered this year"}</p><p>Income this year: ${income || "none"}.</p><dl>${sources(row).map((s) => `<div><dt>${s.label}</dt><dd>${money(s.amount)}/year</dd></div>`).join("")}<div><dt>Spending target</dt><dd>${money(row.spending + row.majorCost)}/year</dd></div><div><dt>Savings outside pensions left</dt><dd>${money(row.closingAccessible)}</dd></div><div><dt>Pension available to draw</dt><dd>${money(row.closingAvailablePension)}</dd></div><div><dt>Pension still locked</dt><dd>${money(row.closingLockedPension)}</dd></div><div><dt>Earlier and current spending not covered</dt><dd>${money(row.cumulativeGap)}</dd></div></dl><p>Money left is measured at year-end. Earlier gaps stay unresolved; this example does not borrow money to meet them.</p>`;
 }
 
 function setChoice(next) {
@@ -92,16 +96,23 @@ function setChoice(next) {
   $("#preview-spend").textContent = money(result.summary.monthlySpending);
   $("#preview-gap").textContent = money(result.summary.bridgeGapTotal);
   const period = access[0];
-  $("#preview-gap-years").textContent = period ? `Ages ${period.start.primaryAge}–${period.end.primaryAge} · ${period.start.year}–${period.end.year}` : "No shortfall before age 60";
+  const accessAge = result.profile.primary.pensionAccessAge;
+  $("#preview-gap-label").textContent = `Spending gap before ${accessAge}`;
+  $("#preview-gap-years").textContent = period ? `Total across ${period.end.year - period.start.year + 1} years · Ages ${period.start.primaryAge}–${period.end.primaryAge} · ${period.start.year}–${period.end.year}` : `No spending gap before age ${accessAge}`;
   $("#preview-later-age").textContent = later ? `Age ${later.start.primaryAge}` : `None through ${horizonAge}`;
-  $("#preview-later-gap").textContent = later ? `${money(later.total)} unpaid · ${later.start.year}–${later.end.year}` : "Spending covered under these assumptions";
+  $("#preview-later-gap").textContent = later ? `${money(later.total)} total across ${later.end.year - later.start.year + 1} years · ${later.start.year}–${later.end.year}` : "Spending covered under these assumptions";
+  const workContext = choice.id === "part-time"
+    ? `Part-time: ${money(result.profile.partTimeAnnual / 12)}/month assumed take-home pay, ages ${result.summary.retirementAge}–${result.profile.partTimeEndAge - 1}.`
+    : `Alex stops work at ${result.summary.retirementAge}.`;
+  const gapContext = period ? `Spending gaps at ${period.start.primaryAge}–${period.end.primaryAge}${later ? ` and from ${later.start.primaryAge}` : ""}.` : `No spending gap before ${accessAge}${later ? `; a gap starts at ${later.start.primaryAge}` : ` or through ${horizonAge}`}.`;
+  $("#preview-choice-context").textContent = `${workContext} ${gapContext}`;
   const nextCovered = period?.nextCovered;
   const coverageEnd = nextCovered ? result.rows.find(r => r.primaryAge > nextCovered.primaryAge && r.annualGap > 0)?.primaryAge - 1 : null;
-  $("#preview-outcome").textContent = (choice.id === "part-time" ? `${result.profile.primary.name} earns ${money(result.profile.partTimeAnnual)}/year from ${result.summary.retirementAge} until ${result.profile.partTimeEndAge}. ` : "") + (nextCovered ? `Spending is covered again from age ${nextCovered.primaryAge} to ${Number.isFinite(coverageEnd) ? coverageEnd : horizonAge}; earlier gaps remain unpaid. ` : "Closing the early gap still leaves later shortfalls. ") + `${money(result.summary.finalTotal)} remains at ${horizonAge}. Shortfall amounts add up unpaid yearly spending; they are not a top-up required today.`;
+  $("#preview-outcome").textContent = (nextCovered ? `Spending is covered again from age ${nextCovered.primaryAge} to ${Number.isFinite(coverageEnd) ? coverageEnd : horizonAge}; the earlier spending gap stays unresolved. ` : "Closing the early gap still leaves later gaps. ") + `${money(result.summary.finalTotal)} remains at ${horizonAge} in savings and pension pots. Gap totals add up spending not covered across those years; they are not a top-up required today.`;
   const stages = [
-    ["Step back", result.summary.retirementAge],
-    ["Pension access", result.profile.primary.pensionAccessAge],
-    ["Later income", result.profile.incomeStreams.find(s => s.type === "state").startAge], ["Plan ends", horizonAge],
+    ["Stop full-time work", result.summary.retirementAge],
+    ["Pension pot access", accessAge],
+    ["Pension income starts", result.profile.incomeStreams.find(s => s.type === "state").startAge], ["Plan through", horizonAge],
   ];
   $("#preview-milestones").innerHTML = stages.map(([label, age]) => `<div><span>${label}</span><strong>${age}</strong><small>${result.profile.startYear + age - result.profile.primary.age}</small></div>`).join("");
   $("#preview-open").href = `app.html?example=early-dc&choice=${choice.id}&horizon=${horizonAge}${choice.id === "baseline" ? "#overview" : "#scenarios"}`;

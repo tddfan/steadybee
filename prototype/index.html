@@ -90,6 +90,7 @@
                 Work part-time
               </button>
             </div>
+            <p class="preview-choice-context" id="preview-choice-context" role="status" aria-live="polite"></p>
             <div class="preview-facts">
               <div>
                 <span>Step back at</span><strong id="preview-age">55</strong>
@@ -107,6 +108,7 @@
                 </select>
               </div>
             </div>
+            <p class="planning-note" id="planning-note">The planning age is an assumption, not a lifespan prediction.</p>
             <div class="preview-chart-controls">
               <div class="preview-view" role="group" aria-label="Choose the retirement chart">
                 <button type="button" data-view="funding" aria-pressed="true">Spending</button>
@@ -114,12 +116,12 @@
               </div>
               <div class="preview-zoom" role="group" aria-label="Choose the timeline range">
                 <button type="button" data-zoom="full" aria-pressed="true">All years</button>
-                <button type="button" data-zoom="bridge" aria-pressed="false">Bridge</button>
+                <button type="button" data-zoom="bridge" aria-pressed="false">Ages 52–62</button>
               </div>
             </div>
-            <figure class="preview-figure" aria-describedby="chart-caption planning-note">
+            <figure class="preview-figure" aria-describedby="chart-caption chart-reading planning-note">
               <div class="chart-heading">
-                <strong id="chart-heading">What covers spending</strong
+                <strong id="chart-heading">Yearly spending and gaps</strong
                 ><span id="chart-unit">£ / year · today’s money</span>
               </div>
               <div id="bridge-chart" class="bridge-chart">
@@ -129,15 +131,17 @@
                 <span id="preview-legend" class="chart-legend"></span>
                 <span id="chart-range">Alex’s age 52–95 →</span>
               </figcaption>
+              <p id="chart-reading" class="chart-reading"></p>
             </figure>
             <div id="preview-milestones" class="preview-milestones" aria-label="Alex’s retirement milestones"></div>
+            <p class="preview-milestone-note">Dates are Alex’s example assumptions. A pension pot is retirement savings to draw from; pension income means regular payments.</p>
             <div class="preview-shortfalls">
               <div class="shortfall-card">
-                <span>Before pension access</span><strong id="preview-gap">See the example</strong>
+                <span id="preview-gap-label">Spending gap before 60</span><strong id="preview-gap">See the example</strong>
                 <p id="preview-gap-years">Access assumed at 60</p>
               </div>
               <div class="shortfall-card">
-                <span>Later spending shortfall</span><strong id="preview-later-age">See the example</strong>
+                <span>Later spending gap starts</span><strong id="preview-later-age">See the example</strong>
                 <p id="preview-later-gap">Through the chosen planning age</p>
               </div>
             </div>
@@ -160,7 +164,6 @@
               Fictional illustration, not advice. No personal forecast, UK tax,
               changing market returns or survivor changes are modelled.
             </p>
-            <p class="planning-note" id="planning-note">The endpoint is a planning assumption. Test spending through age 100.</p>
             <details class="preview-year-detail">
               <summary>Inspect a year: income, withdrawals and money left</summary>
               <label for="preview-year">Alex’s age</label>

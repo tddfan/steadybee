@@ -127,17 +127,17 @@ test("the landing opens at a full age95 endpoint and every horizon updates gaps,
     assert.match(await p.locator("#retirement-chart-description").textContent(), new RegExp(`Planning ends at age ${age}`));
     assert.equal(await p.locator("#preview-gap").innerText(), pounds(result.summary.bridgeGapTotal));
     assert.equal(await p.locator("#preview-later-age").innerText(), "Age 81");
-    assert.equal(await p.locator("#preview-later-gap").innerText(), `${pounds(laterRows.reduce((sum, row) => sum + row.annualGap, 0))} unpaid · 2055–${2026 + age - 52}`);
+    assert.equal(await p.locator("#preview-later-gap").innerText(), `${pounds(laterRows.reduce((sum, row) => sum + row.annualGap, 0))} total across ${age - 81 + 1} years · 2055–${2026 + age - 52}`);
     assert.match(await p.locator("#preview-gap-years").innerText(), /Ages 57–59 · 2031–2033/);
     assert.equal(await p.locator("#bridge-chart svg g").count(), age - 52 + 1);
-    assert.match(await p.locator("#bridge-chart svg g").nth(5).locator("title").textContent(), /Alex age 57[\s\S]*Shortfall £34,777/);
-    assert.match(await p.locator("#bridge-chart svg g").nth(29).locator("title").textContent(), /Alex age 81[\s\S]*Shortfall £/);
+    assert.match(await p.locator("#bridge-chart svg g").nth(5).locator("title").textContent(), /Alex age 57[\s\S]*Spending not covered £34,777/);
+    assert.match(await p.locator("#bridge-chart svg g").nth(29).locator("title").textContent(), /Alex age 81[\s\S]*Spending not covered £/);
     assert.match(await p.locator("#preview-outcome").innerText(), new RegExp(`remains at ${age}`));
     const href = new URL(await p.locator("#preview-open").getAttribute("href"), p.url());
     assert.equal(href.searchParams.get("horizon"), String(age));
     await p.locator('[data-view="balances"]').click();
     assert.equal(await p.locator('[data-view="balances"]').getAttribute("aria-pressed"), "true");
-    assert.match(await p.locator("#retirement-chart-description").textContent(), /Earlier unpaid spending is separate from assets/);
+    assert.match(await p.locator("#retirement-chart-description").textContent(), /Earlier spending gaps are separate from assets/);
     const scale = await p.locator("#bridge-chart svg text").nth(2).textContent();
     const maximum = Math.max(...result.rows.flatMap((row) => [row.closingAccessible, row.closingPension]));
     assert.ok(Number(scale.replace(/[£k]/g, "")) * 1000 >= maximum, "Balance scale contains the largest displayed asset stock");
@@ -165,16 +165,16 @@ test("landing year inspection reconciles funding and keeps remaining money separ
       assert.equal(values.Income, Math.round(Math.min(row.income, row.spending + row.majorCost)));
       assert.equal(values["Savings used"], Math.round(row.withdrawalsAccessible));
       assert.equal(values["Pension pot used"], Math.round(row.withdrawalsPension));
-      assert.equal(values.Shortfall, Math.round(row.annualGap));
-      assert.ok(Math.abs(values.Income + values["Savings used"] + values["Pension pot used"] + values.Shortfall - values["Spending target"]) <= 2, `${choice.id}, age${age}: displayed funding adds to spending`);
+      assert.equal(values["Spending not covered"], Math.round(row.annualGap));
+      assert.ok(Math.abs(values.Income + values["Savings used"] + values["Pension pot used"] + values["Spending not covered"] - values["Spending target"]) <= 2, `${choice.id}, age${age}: displayed funding adds to spending`);
       assert.equal(values["Savings outside pensions left"], Math.round(row.closingAccessible));
       assert.equal(values["Pension available to draw"], Math.round(row.closingAvailablePension));
       assert.equal(values["Pension still locked"], Math.round(row.closingLockedPension));
-      assert.equal(values["Earlier and current spending unpaid"], Math.round(row.cumulativeGap));
+      assert.equal(values["Earlier and current spending not covered"], Math.round(row.cumulativeGap));
       assert.ok(Math.abs(values["Savings outside pensions left"] + values["Pension available to draw"] + values["Pension still locked"] - row.closingTotal) <= 1.5, "Closing assets contain only remaining savings and pensions");
       if (choice.id === "baseline" && age === 60) {
-        assert.equal(values.Shortfall, 0);
-        assert.equal(values["Earlier and current spending unpaid"], 106777);
+        assert.equal(values["Spending not covered"], 0);
+        assert.equal(values["Earlier and current spending not covered"], 106777);
       }
     }
   }
@@ -207,7 +207,8 @@ test("landing charts reflow at320,375 and1440 and choice plus horizon survive wo
     assert.equal(href.searchParams.get("choice"), choice.id);
     assert.equal(href.searchParams.get("horizon"), String(horizon));
     await p.locator("#preview-open").click();
-    await p.waitForFunction(() => window.snapshotSteadybeePlan()?.mode === "example");
+    await p.waitForURL(/\/app\.html\?/);
+    await p.waitForFunction(() => window.snapshotSteadybeePlan?.()?.mode === "example");
     assert.equal((await snapshot(p)).sampleHorizonAge, horizon);
     assert.equal(await p.locator("#example-horizon").inputValue(), String(horizon));
     await p.reload();
