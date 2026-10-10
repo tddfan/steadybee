@@ -115,8 +115,9 @@ test("the landing opens at a full age95 endpoint and every horizon updates gaps,
   const p = await page("index.html");
   await p.locator("#bridge-chart svg").waitFor();
   assert.equal(await p.locator("#preview-horizon").inputValue(), "95");
-  assert.equal(await p.locator('[data-zoom="full"]').getAttribute("aria-pressed"), "true");
+  assert.equal(await p.locator("[data-zoom]").count(), 0);
   assert.equal(await p.locator('[data-view="funding"]').getAttribute("aria-pressed"), "true");
+  await p.locator(".gap-workings summary").click();
   for (const age of [95, 90, 100]) {
     await p.locator("#preview-horizon").selectOption(String(age));
     const result = evaluateFixture("early-dc", { horizonAge: age });
@@ -137,15 +138,11 @@ test("the landing opens at a full age95 endpoint and every horizon updates gaps,
     assert.equal(href.searchParams.get("horizon"), String(age));
     await p.locator('[data-view="balances"]').click();
     assert.equal(await p.locator('[data-view="balances"]').getAttribute("aria-pressed"), "true");
-    assert.match(await p.locator("#retirement-chart-description").textContent(), /Earlier spending gaps are separate from assets/);
+    assert.match(await p.locator("#retirement-chart-description").textContent(), /Earlier gaps remain unpaid/);
     const scale = await p.locator("#bridge-chart svg text").nth(2).textContent();
     const maximum = Math.max(...result.rows.flatMap((row) => [row.closingAccessible, row.closingPension]));
     assert.ok(Number(scale.replace(/[£k]/g, "")) * 1000 >= maximum, "Balance scale contains the largest displayed asset stock");
-    await p.locator('[data-zoom="bridge"]').click();
-    assert.equal(await p.locator("#preview").getAttribute("data-chart-end-age"), "62");
-    assert.match(await p.locator("#retirement-chart-title").textContent(), /ages 52 to 62/);
-    assert.equal(await p.locator("#preview-later-age").innerText(), "Age 81", "Zoom preserves the later-life warning");
-    await p.locator('[data-zoom="full"]').click();
+    assert.equal(await p.locator("#preview").getAttribute("data-chart-end-age"), String(age));
     await p.locator('[data-view="funding"]').click();
   }
   await p.close();
@@ -882,5 +879,42 @@ test("default household brief with two long-named alternatives fits one A4 page;
   assert.ok(
     (appendix.toString("latin1").match(/\/Type \/Page\b/g) || []).length > 1,
   );
+  await p.close();
+});
+
+test("life decisions update the lifetime graph, survive handoff, and reject an unaffordable payoff", async () => {
+  const p = await page("index.html", true);
+  await p.locator(".life-decisions-panel summary").click();
+  const changes = {mortgageMonthly:600,mortgageEndAge:65,homeSaleAmount:700000,replacementHomeCost:450000,mortgageSettlement:100000,movingCosts:25000,downsizeAge:60,majorCost:20000,majorCostAge:70,statePensionAnnual:10000,statePensionAge:68};
+  for (const [key,value] of Object.entries(changes)) await p.locator(`[name="${key}"]`).fill(String(value));
+  await p.locator("#life-decisions button[type=submit]").click();
+  assert.match(await p.locator("#decision-error").innerText(), /Changes applied/);
+  assert.equal(await p.locator("#preview").getAttribute("data-chart-end-age"), "95");
+  await p.locator('[data-year="60"]').click();
+  assert.equal(await p.locator("#preview-year").inputValue(), "60");
+  assert.match(await p.locator("#preview-year-facts").innerText(), /Net cash released by moving home[\s\S]*£125,000/);
+  assert.equal(await p.locator("#preview-legend span").count(), 2);
+  const expected = evaluateFixture("early-dc", {...changes,horizonAge:95});
+  await p.locator('[name="mortgagePayoffAmount"]').fill("9999999");
+  await p.locator('[name="mortgagePayoffAge"]').fill("55");
+  await p.locator("#life-decisions button[type=submit]").click();
+  assert.match(await p.locator("#decision-error").innerText(), /Changes not applied/);
+  assert.equal(Number(await p.locator("#preview").getAttribute("data-bridge-gap")), expected.summary.bridgeGapTotal);
+  await p.locator("#preview-open").click();
+  await p.waitForURL(/\/app\.html\?/);
+  await p.waitForFunction(() => window.snapshotSteadybeePlan?.()?.mode === "example");
+  for (const reload of [false,true]) {
+    if (reload) {await p.reload();await p.waitForFunction(() => window.snapshotSteadybeePlan?.()?.mode === "example");}
+    const state = await snapshot(p);
+    assert.deepEqual(state.sampleScenarios["early-dc"].find(s => s.id === state.activeScenario).overrides,changes);
+    await p.locator("#funding-year-select").selectOption("8");
+    assert.match(await p.locator("#funding-year").innerText(), /125,000/);
+  }
+  await nav(p,"report");
+  const download = p.waitForEvent("download");
+  await p.locator('[data-action="export-csv"]').click();
+  const csv = await readFile(await (await download).path(), "utf8");
+  assert.match(csv,/"mortgagePayment","mortgagePayoff","homeCashReleased","statePensionIncome"/);
+  assert.match(csv,/125000/);
   await p.close();
 });

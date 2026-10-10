@@ -7,6 +7,7 @@ import {
   updateBaseline,
   serialise,
   parseSaved,
+  normaliseOverrides,
 } from "./state.mjs";
 import { examples, evaluateExample as evaluateFixture } from "./fixtures.mjs";
 import { landingChoices } from "./landing-choices.mjs";
@@ -53,6 +54,11 @@ let storageProblem = "",
   activeAssetView = "savings",
   displayedChart = null,
   displayedFunding = null;
+const decisionKeys = new Set([
+  "mortgageMonthly", "mortgageEndAge", "mortgagePayoffAmount", "mortgagePayoffAge",
+  "homeSaleAmount", "replacementHomeCost", "mortgageSettlement", "movingCosts",
+  "downsizeAge", "statePensionAnnual", "statePensionAge",
+]);
 const params = new URLSearchParams(location.search);
 const pendingRestore = window.__steadybeeRestore;
 const planningAge = (value) => [90, 95, 100].includes(Number(value)) ? Number(value) : 90;
@@ -88,13 +94,16 @@ function syncExampleURL() {
     url.searchParams.set("example", workspace.sampleId);
     url.searchParams.set("horizon", workspace.sampleHorizonAge);
     const overrides = selected()?.overrides || {};
+    const workOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => !decisionKeys.has(key) && !["majorCost", "majorCostAge"].includes(key)));
     const choice = authoredChoices().find(c =>
-      Object.keys(c.overrides).length === Object.keys(overrides).length &&
-      Object.entries(c.overrides).every(([key,value]) => overrides[key] === value));
+      Object.keys(c.overrides).length === Object.keys(workOverrides).length &&
+      Object.entries(c.overrides).every(([key,value]) => workOverrides[key] === value));
+    if (Object.keys(overrides).length) url.searchParams.set("decisions", JSON.stringify(overrides));
+    else url.searchParams.delete("decisions");
     if (choice) url.searchParams.set("choice", choice.id);
     else url.searchParams.delete("choice");
   } else {
-    for (const key of ["example", "horizon", "choice"]) url.searchParams.delete(key);
+    for (const key of ["example", "horizon", "choice", "decisions"]) url.searchParams.delete(key);
   }
   history.replaceState(null, "", url);
 }
@@ -535,6 +544,17 @@ const overrideLabels = {
   partTimeEndAge: "Part-time ends at primary age",
   majorCost: "One-off cost",
   majorCostAge: "Cost at primary age",
+  mortgageMonthly: "Mortgage payment within monthly spending",
+  mortgageEndAge: "Mortgage payments end at primary age",
+  mortgagePayoffAmount: "Cash mortgage payoff quote",
+  mortgagePayoffAge: "Cash mortgage payoff at primary age",
+  homeSaleAmount: "Home sale proceeds",
+  replacementHomeCost: "Replacement home purchase cost",
+  mortgageSettlement: "Mortgage settled from home sale",
+  movingCosts: "Moving and transaction costs supplied",
+  downsizeAge: "Home move at primary age",
+  statePensionAnnual: "Primary fictional State Pension / year",
+  statePensionAge: "Primary fictional State Pension start age",
 };
 function changesList(s) {
   return Object.entries(s?.overrides || {})
@@ -659,11 +679,12 @@ function chartMarkup(result, alt = null) {
 }
 function fundingYearMarkup(result, index) {
   const r = result.rows[index],
-    required = r.spending + r.majorCost;
+    normalRequired = r.spending + r.majorCost,
+    required = normalRequired + r.mortgagePayoff;
   const amounts = [
     {
       label: "Income used for spending",
-      amount: Math.min(r.income, required),
+      amount: Math.min(r.income, normalRequired),
       className: "income",
     },
     {
@@ -682,10 +703,11 @@ function fundingYearMarkup(result, index) {
       className: "shortfall",
     },
   ];
+  if (r.mortgagePayoff > 0) amounts.push({ label: "Cash mortgage payoff from savings", amount: r.mortgagePayoff, className: "savings" });
   const basis = r.majorCost
     ? `${money(r.spending)} spending + ${money(r.majorCost)} one-off cost`
     : `${money(r.spending)} annual spending`;
-  return `<div class="funding-year" id="funding-year" aria-live="polite"><h3>${r.year} · ${ageNames(result, r)}</h3><p><b>${basis}</b> · ${r.annualGap > 0 ? `${money(r.annualGap)} is not covered that year.` : "Covered by the income and withdrawals below."}</p><div class="funding-bar" role="img" aria-label="${esc(amounts.map((a) => `${a.label}: ${money(a.amount)}`).join("; "))}">${amounts
+  return `<div class="funding-year" id="funding-year" aria-live="polite"><h3>${r.year} · ${ageNames(result, r)}</h3><p><b>${basis}${r.mortgagePayoff ? ` + ${money(r.mortgagePayoff)} cash mortgage payoff` : ""}</b> · ${r.annualGap > 0 ? `${money(r.annualGap)} is not covered that year.` : "Covered by the income and withdrawals below."}</p><div class="funding-bar" role="img" aria-label="${esc(amounts.map((a) => `${a.label}: ${money(a.amount)}`).join("; "))}">${amounts
     .filter((a) => a.amount > 0)
     .map(
       (a) =>
@@ -693,15 +715,15 @@ function fundingYearMarkup(result, index) {
     )
     .join(
       "",
-    )}</div><div class="funding-sources">${amounts.map((a) => `<div class="row"><span class="source-label ${a.className}">${a.label}</span><b>${money(a.amount)}</b></div>`).join("")}</div><h3>Money left at year-end</h3><div class="balance-grid"><div><span>Savings outside pensions</span><strong>${money(r.closingAccessible)}</strong></div><div><span>Pension money available to draw</span><strong>${money(r.closingAvailablePension)}</strong></div><div><span>Pension money still locked</span><strong>${money(r.closingLockedPension)}</strong></div></div>${r.cumulativeGap ? `<div class="notice">Spending left unpaid so far: <b>${money(r.cumulativeGap)}</b>. Any covered later year leaves earlier shortfalls unpaid in this example.</div>` : ""}<details><summary>See the income behind this year</summary>${
+    )}</div><div class="funding-sources">${amounts.map((a) => `<div class="row"><span class="source-label ${a.className}">${a.label}</span><b>${money(a.amount)}</b></div>`).join("")}</div>${r.incomeBreakdown.state ? `<div class="row"><span>Fictional State Pension already within income</span><b>${money(r.incomeBreakdown.state)}/year</b></div>` : ""}<div class="row"><span>Mortgage payment already within spending</span><b>${money(r.mortgagePayment)}/year</b></div>${r.homeCashReleased ? `<div class="row"><span>Net home-sale cash added to savings</span><b>${money(r.homeCashReleased)}</b></div><p class="small">Net of the replacement home, mortgage settlement and supplied moving costs. This is an asset flow, not pension income.</p>` : ""}<h3>Money left at year-end</h3><div class="balance-grid"><div><span>Savings outside pensions</span><strong>${money(r.closingAccessible)}</strong></div><div><span>Pension money available to draw</span><strong>${money(r.closingAvailablePension)}</strong></div><div><span>Pension money still locked</span><strong>${money(r.closingLockedPension)}</strong></div></div>${r.cumulativeGap ? `<div class="notice">Spending left unpaid so far: <b>${money(r.cumulativeGap)}</b>. Any covered later year leaves earlier shortfalls unpaid in this example.</div>` : ""}<details><summary>See the income behind this year</summary>${
     Object.entries(r.incomeBreakdown)
       .filter(([, v]) => v > 0)
       .map(
         ([k, v]) =>
-          `<div class="row"><span>${{ employment: "Pay from work", db: "Promised pension income (DB)", state: "Fictional later pension income", other: "Other income", partTime: "Part-time income" }[k]}</span><b>${money(v)}/year</b></div>`,
+          `<div class="row"><span>${{ employment: "Pay from work", db: "Promised pension income (DB)", state: "Fictional State Pension income", other: "Other income", partTime: "Part-time income" }[k]}</span><b>${money(v)}/year</b></div>`,
       )
       .join("") || '<p class="small">No regular income in this year.</p>'
-  }${r.income > required ? `<p class="small">Income above spending: ${money(r.income - required)}, added to savings outside pensions.</p>` : ""}</details></div>`;
+  }${r.income > normalRequired ? `<p class="small">Income above spending: ${money(r.income - normalRequired)}, added to savings outside pensions.</p>` : ""}</details></div>`;
 }
 function fundingExplorer(result, name = "Baseline") {
   displayedFunding = result;
@@ -757,7 +779,7 @@ function inspectYear(index) {
     );
 }
 function cashTable(result) {
-  return `<div class="table-wrap"><table><caption class="sr-only">Fictional annual cash flow in today’s pounds. Income is assumed net.</caption><thead><tr><th>Year / ages</th><th>Income / year</th><th>Spending + costs / year</th><th>Savings outside pensions<br>at year-end</th><th>Pension pots<br>at year-end</th><th>Spending not covered<br>that year</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}<br><span class="mini">${ageNames(result, r)}</span></td><td>${money(r.income)}</td><td>${money(r.spending + r.majorCost)}</td><td>${money(r.closingAccessible)}</td><td>${money(r.closingPension)}</td><td>${money(r.annualGap)}</td></tr>`).join("")}</tbody></table></div><details><summary>Explain opening-to-closing balances</summary><p class="small">Opening assets + growth + pension contributions + saved income surplus − withdrawals = closing assets. Income is assumed net after supplied contributions. Gaps remain unpaid and do not create negative assets.</p><div class="table-wrap"><table><thead><tr><th>Year</th><th>Opening assets</th><th>Growth</th><th>Contributions</th><th>Saved income surplus</th><th>Withdrawals</th><th>Closing assets</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}</td><td>${money(r.openingAccessible + r.openingPension)}</td><td>${money(r.accessibleGrowth + r.pensionGrowth)}</td><td>${money(r.contributions)}</td><td>${money(Math.max(0, r.income - r.spending - r.majorCost))}</td><td>${money(r.withdrawalsAccessible + r.withdrawalsPension)}</td><td>${money(r.closingTotal)}</td></tr>`).join("")}</tbody></table></div></details>`;
+  return `<div class="table-wrap"><table><caption class="sr-only">Fictional annual cash flow in today’s pounds. Income is assumed net.</caption><thead><tr><th>Year / ages</th><th>Income / year</th><th>Spending + costs / year</th><th>Savings outside pensions<br>at year-end</th><th>Pension pots<br>at year-end</th><th>Spending not covered<br>that year</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}<br><span class="mini">${ageNames(result, r)}</span></td><td>${money(r.income)}</td><td>${money(r.spending + r.majorCost + r.mortgagePayoff)}${r.mortgagePayoff ? `<br><span class="mini">Includes ${money(r.mortgagePayoff)} cash mortgage payoff</span>` : ""}</td><td>${money(r.closingAccessible)}</td><td>${money(r.closingPension)}</td><td>${money(r.annualGap)}</td></tr>`).join("")}</tbody></table></div><details><summary>Explain opening-to-closing balances</summary><p class="small">Opening assets + growth + pension contributions + net home-sale cash + saved income surplus − cash mortgage payoff − withdrawals = closing assets. Income is assumed net after supplied contributions. Gaps remain unpaid and do not create negative assets.</p><div class="table-wrap"><table><thead><tr><th>Year</th><th>Opening assets</th><th>Growth</th><th>Contributions</th><th>Net home-sale cash</th><th>Cash mortgage payoff</th><th>Saved income surplus</th><th>Withdrawals</th><th>Closing assets</th></tr></thead><tbody>${result.rows.map((r) => `<tr><td>${r.year}</td><td>${money(r.openingAccessible + r.openingPension)}</td><td>${money(r.accessibleGrowth + r.pensionGrowth)}</td><td>${money(r.contributions)}</td><td>${money(r.homeCashReleased)}</td><td>${money(r.mortgagePayoff)}</td><td>${money(Math.max(0, r.income - r.spending - r.majorCost))}</td><td>${money(r.withdrawalsAccessible + r.withdrawalsPension)}</td><td>${money(r.closingTotal)}</td></tr>`).join("")}</tbody></table></div></details>`;
 }
 function assumptionsCard(result) {
   return `<section class="card"><h2>Assumptions behind this example</h2><p class="small">Fictional input values and simplified arithmetic demonstrate the experience. Income is assumed net; no UK tax engine, DB scheme calculation or entitlement check is included.</p><ul class="steps small">${result.assumptions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul><div class="notice">DB escalation, early-retirement reductions and survivor benefits are not evaluated. This example cannot establish a complete household retirement conclusion.</div><p class="small">Illustration, not advice. No current UK pension or tax rules are inferred by this demonstration.</p></section>`;
@@ -791,7 +813,7 @@ function scenarioForm() {
   const s = selected(),
     o = s?.overrides || {},
     is = isExample();
-  const baseline = is ? sample().profile : null,
+  const baseline = is ? evaluateExample(workspace.sampleId).profile : null,
     labels = { ...overrideLabels };
   if (is) {
     labels.retirementAge = `${baseline.primary.name} retirement age`;
@@ -814,6 +836,7 @@ function scenarioForm() {
   )
     .filter(
       ([k]) =>
+        (is || !decisionKeys.has(k)) &&
         (k !== "partnerRetirementAge" ||
           (is ? workspace.sampleId === "mixed-household" : draft()?.partner)) &&
         (!(
@@ -833,7 +856,7 @@ function scenarioForm() {
     )
     .join(
       "",
-    )}</div>${buttons(`<button class="btn" type="submit">${s ? "Update" : "Keep"} alternative</button>` + btn("Clear changes", "reset-scenario", "secondary"))}<p class="small">Baseline plus two alternatives in this prototype. You can edit or remove an alternative.</p></section></form>`;
+    )}</div>${is ? `<p class="small">Mortgage payment is already part of monthly spending; it stops once at the selected end, cash payoff or home settlement age. Cash payoff uses accessible savings before annual income/spending and must be affordable. Home sale releases only sale proceeds less replacement home, mortgage settlement and supplied costs. Use either cash payoff or home-sale mortgage settlement. No loan amortisation, tax, Stamp Duty or eligibility calculation. State Pension is a fictional spendable income assumption already included from its start age.</p>` : ""}${buttons(`<button class="btn" type="submit">${s ? "Update" : "Keep"} alternative</button>` + btn("Clear changes", "reset-scenario", "secondary"))}<p class="small">Baseline plus two alternatives in this prototype. You can edit or remove an alternative.</p></section></form>`;
 }
 function comparisonMarkup(base, alt, s) {
   const facts = (result) => {
@@ -1312,6 +1335,10 @@ function exportCSV() {
     "cumulativeGap",
     "annualGap",
     "bridgeGap",
+    "mortgagePayment",
+    "mortgagePayoff",
+    "homeCashReleased",
+    "statePensionIncome",
   ];
   const lines = [
     ["Fictional example", sample().name],
@@ -1725,19 +1752,28 @@ if (
 const landingChoice = authoredChoices().find(
   (choice) => choice.id === params.get("choice"),
 );
-if (
-  !pendingRestore &&
-  workspace.mode === "example" &&
-  landingChoice &&
-  landingChoice.id !== "baseline"
-) {
-  const scenario = createScenario(
-    copy(sample().draft),
-    landingChoice.name,
-    landingChoice.overrides,
-  );
-  workspace.sampleScenarios[workspace.sampleId] = [scenario];
-  workspace.activeScenario = scenario.id;
+if (!pendingRestore && workspace.mode === "example") {
+  try {
+    let urlOverrides = {};
+    if (params.has("decisions")) {
+      const raw = params.get("decisions");
+      if (raw.length > 4000) throw Error("Example decisions link is too large.");
+      urlOverrides = normaliseOverrides(JSON.parse(raw));
+      if (Object.keys(urlOverrides).some((key) => !(key in overrideLabels)))
+        throw Error("Unsupported linked example decision.");
+    }
+    const overrides = { ...(landingChoice?.overrides || {}), ...urlOverrides };
+    if (Object.keys(overrides).length) {
+      evaluateExample(workspace.sampleId, overrides);
+      const scenario = createScenario(copy(sample().draft), landingChoice && !params.has("decisions") ? landingChoice.name : "Choices from the example", overrides);
+      workspace.sampleScenarios[workspace.sampleId] = [scenario];
+      workspace.activeScenario = scenario.id;
+    }
+  } catch (error) {
+    workspace.sampleScenarios[workspace.sampleId] = [];
+    workspace.activeScenario = null;
+    storageProblem = "Could not apply linked example choices. " + error.message;
+  }
 }
 if (pendingRestore) {
   window.restoreSteadybeePlan(pendingRestore);

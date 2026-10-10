@@ -10,85 +10,67 @@ let baseline = evaluateExample("early-dc", { horizonAge });
 let choice = landingChoices[0];
 let result = baseline;
 let chartView = "funding";
-let zoom = "full";
+let decisions = {};
 let inspectedAge = 67;
 const colors = { income: "#14665f", savings: "#94bfad", pension: "#d3af57", gap: "#b87055" };
 const sources = (row) => [
   { key: "income", label: "Income", amount: Math.min(row.income, row.spending + row.majorCost) },
   { key: "savings", label: "Savings used", amount: row.withdrawalsAccessible },
   { key: "pension", label: "Pension pot used", amount: row.withdrawalsPension },
+  { key: "payoff", label: "Mortgage payoff from savings", amount: row.mortgagePayoff },
   { key: "gap", label: "Spending not covered", amount: row.annualGap },
 ];
 
 function drawChart() {
-  const element = $("#bridge-chart");
-  const width = Math.max(element.clientWidth, 220);
-  const height = window.matchMedia("(max-width:650px)").matches ? 190 : 220;
-  const left = 48, right = width - 9, top = 16, bottom = height - 34;
-  const endAge = zoom === "bridge" ? 62 : horizonAge;
-  const rows = result.rows.filter((row) => row.primaryAge <= endAge);
-  const baseRows = baseline.rows.filter((row) => row.primaryAge <= endAge);
-  const plotWidth = right - left, plotHeight = bottom - top;
-  const barWidth = plotWidth / rows.length;
-  const x = (age) => left + barWidth / 2 + (age - rows[0].primaryAge) / (rows.length - 1) * (plotWidth - barWidth);
-  const maximum = chartView === "funding"
-    ? Math.max(...rows.map((row) => row.spending + row.majorCost), 1)
-    : Math.max(...rows.concat(baseRows).flatMap((row) => [row.closingAccessible, row.closingPension]), 1);
+  const element = $("#bridge-chart"), width = Math.max(element.clientWidth, 220), height = 240;
+  const left = 46, right = width - 8, top = 20, bottom = height - 42;
+  const rows = result.rows, stepWidth = (right - left) / rows.length;
+  const x = (age) => left + (age - rows[0].primaryAge + .5) * stepWidth;
+  const need = (r) => r.spending + r.majorCost + r.mortgagePayoff;
+  const maximum = chartView === "funding" ? Math.max(...rows.map(need), 1) : Math.max(...rows.flatMap(r => [r.closingAccessible, r.closingPension]), 1);
   const step = maximum > 200000 ? 100000 : maximum > 80000 ? 20000 : 10000;
-  const max = Math.ceil(maximum / step) * step;
-  const y = (value) => bottom - value / max * plotHeight;
-  const path = (items, key) => items.map((row, index) => `${index ? "L" : "M"}${x(row.primaryAge).toFixed(2)},${y(row[key]).toFixed(2)}`).join(" ");
-  const grid = [0, max / 2, max].map((value) => `<line x1="${left}" y1="${y(value)}" x2="${right}" y2="${y(value)}" stroke="#e3e9e2"/><text x="${left - 7}" y="${y(value) + 4}" text-anchor="end" font-size="13" fill="#536568">${value ? "£" + value / 1000 + "k" : "£0"}</text>`).join("");
-  const ages = zoom === "bridge" ? [52, 55, 60, 62] : [52, 60, 70, 80, endAge];
-  const ticks = ages.map((age, index) => `<text x="${x(age)}" y="${height - 9}" font-size="13" text-anchor="${index === 0 ? "start" : index === ages.length - 1 ? "end" : "middle"}" fill="#536568">${age}</text>`).join("");
+  const max = Math.ceil(maximum / step) * step, y = v => bottom - v / max * (bottom - top);
+  const grid = [0, max / 2, max].map(v => `<line x1="${left}" y1="${y(v)}" x2="${right}" y2="${y(v)}" stroke="#e3e9e2"/><text x="${left - 6}" y="${y(v)+4}" text-anchor="end" font-size="13" fill="#536568">${v ? "£"+v/1000+"k" : "£0"}</text>`).join("");
+  const stepped = fn => rows.flatMap(r => [`${x(r.primaryAge)-stepWidth/2},${y(fn(r))}`, `${x(r.primaryAge)+stepWidth/2},${y(fn(r))}`]);
+  const target = stepped(need), covered = stepped(r => need(r)-r.annualGap);
   let plots;
   if (chartView === "funding") {
-    plots = rows.map((row) => {
-      let used = 0;
-      const bars = sources(row).map((source) => {
-        const from = used;
-        used += source.amount;
-        return source.amount > 0 ? `<rect x="${x(row.primaryAge) - barWidth / 2 + .5}" y="${y(used)}" width="${Math.max(.8, barWidth - 1)}" height="${y(from) - y(used)}" fill="${source.key === "gap" ? "url(#uncovered)" : colors[source.key]}"/>` : "";
-      }).join("");
-      return `<g><title>Alex age ${row.primaryAge}, ${row.year}: ${sources(row).map((s) => `${s.label} ${money(s.amount)}`).join("; ")}. Spending ${money(row.spending + row.majorCost)} per year.</title>${bars}</g>`;
-    }).join("");
-    $("#chart-heading").textContent = "Yearly spending and gaps";
-    $("#chart-unit").textContent = "£ / year · today’s money";
-    $("#preview-legend").innerHTML = sources(rows[0]).map((s) => `<span><i style="background:${colors[s.key]}" class="legend-${s.key}" aria-hidden="true"></i>${s.label}</span>`).join("");
-    $("#chart-reading").textContent = `Each bar is one year: ${money(result.summary.monthlySpending)}/month = ${money(result.summary.monthlySpending * 12)}/year. Stripes show spending with no funding.`;
+    plots = `<polygon points="${left},${bottom} ${covered.join(" ")} ${right},${bottom}" fill="#87baaa"/><polygon points="${target.join(" ")} ${[...covered].reverse().join(" ")}" fill="#df8e78"/><polyline points="${target.join(" ")}" fill="none" stroke="#314d4a" stroke-width="1.5"/>`;
+    $("#chart-heading").textContent = "Will the money cover spending?";
+    $("#chart-unit").textContent = `${money(result.profile.monthlySpending * 12)}/year before changes`;
+    $("#preview-legend").innerHTML = '<span><i style="background:#87baaa"></i>Covered</span><span><i style="background:#df8e78"></i>Needs more money</span>';
+    $("#chart-reading").textContent = "Green covers spending. Coral shows what’s missing. Tap any year for the figures.";
   } else {
-    const gaps = rows.filter((r) => r.annualGap > 0).map((r) => `<rect x="${x(r.primaryAge) - barWidth / 2}" y="${top}" width="${barWidth}" height="${plotHeight}" fill="#fbede5"/>`).join("");
-    const lines = (items, dashed = false) => [
-      ["closingAccessible", "#14665f"], ["closingPension", "#b18d36"],
-    ].map(([key, color]) => `<path d="${path(items, key)}" fill="none" stroke="${color}" stroke-width="${dashed ? 1.7 : 3}" ${dashed ? 'stroke-dasharray="5 4" opacity=".6"' : ""}/>`).join("");
-    plots = gaps + (choice.id === "baseline" ? "" : lines(baseRows, true)) + lines(rows);
+    plots = [ ["closingAccessible", "#14665f"], ["closingPension", "#b18d36"] ].map(([key,color]) => `<path d="${rows.map((r,i) => `${i ? "L" : "M"}${x(r.primaryAge)},${y(r[key])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="3"/>`).join("");
     $("#chart-heading").textContent = "Money remaining at year-end";
-    $("#chart-unit").textContent = "Balances · today’s money";
-    $("#preview-legend").innerHTML = '<span><i style="background:#14665f" aria-hidden="true"></i>Savings outside pensions</span><span><i style="background:#b18d36" aria-hidden="true"></i>Pension pots</span><span><i style="background:#fbede5;border:1px solid #b87055" aria-hidden="true"></i>Spending gap years</span>' + (choice.id === "baseline" ? "" : '<span>Dashed: retire at 55</span>');
-    $("#chart-reading").textContent = `Lines show money left at year-end. Pension savings are locked until ${result.profile.primary.pensionAccessAge} in this example. Shading marks years with a spending gap.`;
+    $("#chart-unit").textContent = "Today’s pounds";
+    $("#preview-legend").innerHTML = '<span><i style="background:#14665f"></i>Savings outside pensions</span><span><i style="background:#b18d36"></i>Pension pots</span>';
+    $("#chart-reading").textContent = "Pension pots include money locked before 60. Tap a year to see what is available.";
   }
-  const description = chartView === "funding"
-    ? "Income used, savings withdrawals, pension withdrawals and uncovered spending add up to the spending target in each year. Income is assumed after tax; pension withdrawals have no tax applied."
-    : "Separate savings and pension balances. Some pension money is locked before age 60. Shaded spending-gap years can coexist with a positive locked pension. Earlier spending gaps are separate from assets.";
-  element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="retirement-chart-title retirement-chart-description"><title id="retirement-chart-title">${esc(choice.label)}: Alex ages 52 to ${endAge}, ${chartView === "funding" ? "annual spending coverage" : "year-end money remaining"}.</title><desc id="retirement-chart-description">Fictional illustration. ${esc(description)} Planning ends at age ${horizonAge}; this is not a lifespan prediction.</desc><defs><pattern id="uncovered" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#b87055"/><path d="M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5" stroke="#eac6b5" stroke-width="1"/></pattern></defs>${chartView === "funding" ? grid + plots : plots + grid}${ticks}</svg>`;
-  $("#chart-range").textContent = `Alex’s age 52–${endAge} →`;
-  $("#preview").dataset.chartEndAge = endAge;
+  const strips = rows.map(r => `<rect x="${x(r.primaryAge)-stepWidth/2}" y="${bottom+6}" width="${stepWidth+.1}" height="5" fill="${r.annualGap ? "#df8e78" : "#87baaa"}"/>`).join("");
+  const hits = rows.map(r => `<g><title>Alex age ${r.primaryAge}, ${r.year}: ${sources(r).map(v => `${v.label} ${money(v.amount)}`).join("; ")}. Spending ${money(need(r))} per year.</title><rect data-year="${r.primaryAge}" x="${x(r.primaryAge)-stepWidth/2}" y="${top}" width="${stepWidth}" height="${bottom-top+12}" fill="transparent" style="cursor:pointer"/></g>`).join("");
+  const ticks = [52,60,70,80,horizonAge].map((age,i) => `<text x="${x(age)}" y="${height-8}" font-size="13" text-anchor="${i===0 ? "start" : i===4 ? "end" : "middle"}" fill="#536568">${age}</text>`).join("");
+  element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="retirement-chart-title retirement-chart-description"><title id="retirement-chart-title">${esc(choice.label)}: Alex ages 52 to ${horizonAge}, ${chartView === "funding" ? "annual spending coverage" : "year-end money remaining"}.</title><desc id="retirement-chart-description">Fictional illustration. Spending includes one-off expenses and any cash mortgage payoff in their actual year. Earlier gaps remain unpaid. Planning ends at age ${horizonAge}, not a lifespan prediction.</desc>${grid}${plots}${strips}${rows.filter(r => r.majorCost || r.mortgagePayoff || r.homeCashReleased).map(r => `<circle cx="${x(r.primaryAge)}" cy="${y(chartView === "funding" ? need(r) : r.closingAccessible)}" r="3" fill="#314d4a"><title>Age ${r.primaryAge}: ${r.majorCost ? "one-off expense" : r.mortgagePayoff ? "mortgage payoff" : "home move"}. Tap this year for figures.</title></circle>`).join("")}${hits}${ticks}</svg>`;
+  $("#chart-range").textContent = `Alex’s age 52–${horizonAge} →`;
+  $("#preview").dataset.chartEndAge = horizonAge;
   $("#preview").dataset.chartView = chartView;
 }
 
 function renderYear() {
   const row = result.rows.find((r) => r.primaryAge === inspectedAge);
   if (!row) return;
-  const incomeLabels = { employment: "pay from work", partTime: "part-time pay", state: "assumed regular pension income", db: "promised pension income", other: "other income" };
+  const incomeLabels = { employment: "pay from work", partTime: "part-time pay", state: "fictional State Pension", db: "promised pension income", other: "other income" };
   const income = Object.entries(row.incomeBreakdown).filter(([, amount]) => amount > 0).map(([key, amount]) => `${incomeLabels[key]} ${money(amount)}/year`).join("; ");
-  $("#preview-year-facts").innerHTML = `<p><b>${row.year} · Alex ${row.primaryAge}</b> · ${row.annualGap ? "Spending partly uncovered" : "Spending covered this year"}</p><p>Income this year: ${income || "none"}.</p><dl>${sources(row).map((s) => `<div><dt>${s.label}</dt><dd>${money(s.amount)}/year</dd></div>`).join("")}<div><dt>Spending target</dt><dd>${money(row.spending + row.majorCost)}/year</dd></div><div><dt>Savings outside pensions left</dt><dd>${money(row.closingAccessible)}</dd></div><div><dt>Pension available to draw</dt><dd>${money(row.closingAvailablePension)}</dd></div><div><dt>Pension still locked</dt><dd>${money(row.closingLockedPension)}</dd></div><div><dt>Earlier and current spending not covered</dt><dd>${money(row.cumulativeGap)}</dd></div></dl><p>Money left is measured at year-end. Earlier gaps stay unresolved; this example does not borrow money to meet them.</p>`;
+  $("#preview-year-facts").innerHTML = `<p><b>${row.year} · Alex ${row.primaryAge}</b> · ${row.annualGap ? "Spending partly uncovered" : "Spending covered this year"}</p><p>Income this year: ${income || "none"}.</p><dl>${sources(row).map((s) => `<div><dt>${s.label}</dt><dd>${money(s.amount)}/year</dd></div>`).join("")}<div><dt>Spending target</dt><dd>${money(row.spending + row.majorCost + row.mortgagePayoff)}/year</dd></div><div><dt>Net cash released by moving home</dt><dd>${money(row.homeCashReleased)}</dd></div><div><dt>Mortgage within yearly spending</dt><dd>${money(row.mortgagePayment)}</dd></div><div><dt>Savings outside pensions left</dt><dd>${money(row.closingAccessible)}</dd></div><div><dt>Pension available to draw</dt><dd>${money(row.closingAvailablePension)}</dd></div><div><dt>Pension still locked</dt><dd>${money(row.closingLockedPension)}</dd></div><div><dt>Earlier and current spending not covered</dt><dd>${money(row.cumulativeGap)}</dd></div></dl><p>Money left is measured at year-end. Earlier gaps stay unresolved; this example does not borrow money to meet them.</p>`;
 }
 
 function setChoice(next) {
+  const evaluated = evaluateExample("early-dc", { ...next.overrides, ...decisions, horizonAge });
   choice = next;
   baseline = evaluateExample("early-dc", { horizonAge });
-  result = evaluateExample("early-dc", { ...choice.overrides, horizonAge });
+  result = evaluated;
   const facts = exampleInsights(result);
+  $("#preview-early-range").textContent = facts.gapPeriods.length ? facts.gapPeriods.map(p => p.start.primaryAge === p.end.primaryAge ? `Age ${p.start.primaryAge}` : `Ages ${p.start.primaryAge}–${p.end.primaryAge}`).join(" · ") : `None through age ${horizonAge}`;
   const access = facts.gapPeriods.filter((p) => p.kind === "access");
   const later = facts.gapPeriods.find((p) => p.kind === "later");
   for (const button of document.querySelectorAll("[data-preview]")) button.setAttribute("aria-pressed", String(button.dataset.preview === choice.id));
@@ -105,17 +87,17 @@ function setChoice(next) {
     ? `Part-time: ${money(result.profile.partTimeAnnual / 12)}/month assumed take-home pay, ages ${result.summary.retirementAge}–${result.profile.partTimeEndAge - 1}.`
     : `Alex stops work at ${result.summary.retirementAge}.`;
   const gapContext = period ? `Spending gaps at ${period.start.primaryAge}–${period.end.primaryAge}${later ? ` and from ${later.start.primaryAge}` : ""}.` : `No spending gap before ${accessAge}${later ? `; a gap starts at ${later.start.primaryAge}` : ` or through ${horizonAge}`}.`;
-  $("#preview-choice-context").textContent = `${workContext} ${gapContext}`;
+  $("#preview-choice-context").textContent = workContext;
   const nextCovered = period?.nextCovered;
   const coverageEnd = nextCovered ? result.rows.find(r => r.primaryAge > nextCovered.primaryAge && r.annualGap > 0)?.primaryAge - 1 : null;
   $("#preview-outcome").textContent = (nextCovered ? `Spending is covered again from age ${nextCovered.primaryAge} to ${Number.isFinite(coverageEnd) ? coverageEnd : horizonAge}; the earlier spending gap stays unresolved. ` : "Closing the early gap still leaves later gaps. ") + `${money(result.summary.finalTotal)} remains at ${horizonAge} in savings and pension pots. Gap totals add up spending not covered across those years; they are not a top-up required today.`;
   const stages = [
     ["Stop full-time work", result.summary.retirementAge],
     ["Pension pot access", accessAge],
-    ["Pension income starts", result.profile.incomeStreams.find(s => s.type === "state").startAge], ["Plan through", horizonAge],
+    [result.profile.statePensionAnnual ? "State Pension starts" : "State Pension excluded", result.profile.statePensionAnnual ? result.profile.statePensionAge : null], ["Plan through", horizonAge],
   ];
-  $("#preview-milestones").innerHTML = stages.map(([label, age]) => `<div><span>${label}</span><strong>${age}</strong><small>${result.profile.startYear + age - result.profile.primary.age}</small></div>`).join("");
-  $("#preview-open").href = `app.html?example=early-dc&choice=${choice.id}&horizon=${horizonAge}${choice.id === "baseline" ? "#overview" : "#scenarios"}`;
+  $("#preview-milestones").innerHTML = stages.map(([label, age]) => `<div><span>${label}</span><strong>${age ?? "—"}</strong><small>${age == null ? "No income included" : result.profile.startYear + age - result.profile.primary.age}</small></div>`).join("");
+  $("#preview-open").href = `app.html?example=early-dc&choice=${choice.id}&horizon=${horizonAge}${Object.keys(decisions).length ? `&decisions=${encodeURIComponent(JSON.stringify(decisions))}` : ""}${choice.id === "baseline" && !Object.keys(decisions).length ? "#overview" : "#scenarios"}`;
   for (const link of document.querySelectorAll('a[href*="example="]')) {
     const url = new URL(link.href);
     url.searchParams.set("horizon", horizonAge);
@@ -199,7 +181,7 @@ function renderInsights() {
 }
 
 for (const button of document.querySelectorAll("[data-preview]")) {
-  button.addEventListener("click", () => setChoice(landingChoices.find((c) => c.id === button.dataset.preview)));
+  button.addEventListener("click", () => { try { setChoice(landingChoices.find((c) => c.id === button.dataset.preview)); } catch(error) { $(".life-decisions-panel").open = true; $("#decision-error").textContent = `Changes not applied: ${error.message}`; } });
 }
 for (const button of document.querySelectorAll("[data-view]")) {
   button.addEventListener("click", () => {
@@ -208,16 +190,10 @@ for (const button of document.querySelectorAll("[data-view]")) {
     drawChart();
   });
 }
-for (const button of document.querySelectorAll("[data-zoom]")) {
-  button.addEventListener("click", () => {
-    zoom = button.dataset.zoom;
-    for (const b of document.querySelectorAll("[data-zoom]")) b.setAttribute("aria-pressed", String(b === button));
-    drawChart();
-  });
-}
 $("#preview-horizon").addEventListener("change", (e) => {
+  const previous = horizonAge;
   horizonAge = Number(e.target.value);
-  setChoice(choice);
+  try { setChoice(choice); } catch(error) { horizonAge = previous; e.target.value = previous; $(".life-decisions-panel").open = true; $("#decision-error").textContent = `Changes not applied: ${error.message}`; }
 });
 $("#preview-year").addEventListener("change", (e) => {
   inspectedAge = Number(e.target.value);
@@ -226,3 +202,42 @@ $("#preview-year").addEventListener("change", (e) => {
 renderInsights();
 setChoice(choice);
 if (typeof ResizeObserver !== "undefined") new ResizeObserver(drawChart).observe($("#bridge-chart"));
+
+$("#bridge-chart").addEventListener("click", e => {
+  const age = e.target.dataset.year;
+  if (!age) return;
+  inspectedAge = Number(age);
+  $("#preview-year").value = age;
+  $(".preview-year-detail").open = true;
+  renderYear();
+  $(".preview-year-detail").scrollIntoView({block:"nearest", behavior:"smooth"});
+});
+$("#life-decisions").addEventListener("submit", e => {
+  e.preventDefault();
+  const candidate = {};
+  for (const input of e.target.querySelectorAll("[name]")) if (input.value !== "") candidate[input.name] = Number(input.value);
+  try {
+    evaluateExample("early-dc", {...choice.overrides, ...candidate, horizonAge});
+    decisions = candidate;
+    setChoice(choice);
+    $("#decision-error").textContent = "Changes applied to Alex’s fictional plan.";
+  } catch (error) { $("#decision-error").textContent = `Changes not applied: ${error.message}`; }
+});
+
+for (const button of document.querySelectorAll("[data-life]")) button.addEventListener("click", () => {
+  const presets = {
+    mortgage: {mortgageMonthly:600,mortgageEndAge:65},
+    downsize: {mortgageMonthly:600,mortgageEndAge:65,homeSaleAmount:700000,replacementHomeCost:450000,mortgageSettlement:100000,movingCosts:25000,downsizeAge:60},
+    expense: {majorCost:20000,majorCostAge:70},
+    state: {statePensionAnnual:0},
+    reset: {},
+  };
+  const candidate = button.dataset.life === "reset" ? {} : {...decisions,...presets[button.dataset.life]};
+  try {
+    evaluateExample("early-dc", {...choice.overrides,...candidate,horizonAge});
+    decisions = candidate;
+    for(const input of $("#life-decisions").querySelectorAll("[name]")) input.value = decisions[input.name] ?? "";
+    setChoice(choice);
+    $("#decision-error").textContent = button.dataset.life === "reset" ? "Original life assumptions restored." : "Fictional choice applied. Review the inputs below.";
+  } catch(error) { $("#decision-error").textContent = `Changes not applied: ${error.message}`; }
+});

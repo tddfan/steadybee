@@ -162,7 +162,7 @@ test("horizon selection preserves source fixtures and records version, assumptio
   assert.equal(JSON.stringify(examples), before);
   assert.equal(examples.find((e) => e.id === "early-dc").profile.horizonAge, 90);
   assert.equal(result.profile.horizonAge, 100);
-  assert.equal(result.provenance.fixtureVersion, "2026-10-09.3");
+  assert.equal(result.provenance.fixtureVersion, "2026-10-10.1");
   assert.equal(result.provenance.overrides.horizonAge, 100);
   assert.deepEqual(result.changes.find((c) => c.key === "horizonAge"), { key: "horizonAge", label: "Illustrated horizon (primary age)", from: 90, to: 100 });
   assert.ok(result.assumptions.some((a) => a.includes("end of primary age 100")));
@@ -581,5 +581,92 @@ test("every fixture annual ledger reconciles without negative assets or hidden c
       );
       assert.ok(row.closingAccessible >= 0 && row.closingPension >= 0);
     }
+  }
+});
+
+
+test("mortgage is inside stated spending and stops at the beginning of its end age", () => {
+  const result = evaluateExample("early-dc", { mortgageMonthly: 900, mortgageEndAge: 60 });
+  assert.equal(result.rows.find((r) => r.primaryAge === 59).spending, 36000);
+  assert.equal(result.rows.find((r) => r.primaryAge === 59).mortgagePayment, 10800);
+  assert.equal(result.rows.find((r) => r.primaryAge === 60).spending, 25200);
+  assert.equal(result.rows.find((r) => r.primaryAge === 60).mortgagePayment, 0);
+  assert.equal(result.events.filter((e) => e.type === "mortgage-end").length, 1);
+  assert.throws(() => evaluateExample("early-dc", { mortgageMonthly: 3001 }), /cannot exceed/);
+});
+
+test("cash mortgage payoff debits accessible money once and removes monthly payments once", () => {
+  const result = evaluateExample("early-dc", { mortgageMonthly: 1000, mortgageEndAge: 65, mortgagePayoffAmount: 30000, mortgagePayoffAge: 53 });
+  const row = result.rows.find((r) => r.primaryAge === 53);
+  assert.equal(row.mortgagePayoff, 30000);
+  assert.equal(row.spending, 24000);
+  assert.equal(row.mortgagePayment, 0);
+  assert.equal(result.rows.reduce((sum, r) => sum + r.mortgagePayoff, 0), 30000);
+  assert.equal(row.closingAccessible, 53407);
+  assert.equal(result.rows.find((r) => r.primaryAge === 65).spending, 24000);
+  assert.throws(() => evaluateExample("early-dc", { mortgagePayoffAmount: 80000, mortgagePayoffAge: 52 }), /exceeds accessible/);
+});
+
+test("home move releases only net cash and settlement stops payments without double counting home equity", () => {
+  const result = evaluateExample("early-dc", { homeSaleAmount: 400000, replacementHomeCost: 250000, mortgageSettlement: 100000, movingCosts: 10000, downsizeAge: 55, mortgageMonthly: 800, mortgageEndAge: 65 });
+  const row = result.rows.find((r) => r.primaryAge === 55);
+  assert.equal(result.rows[0].openingAccessible, 70000);
+  assert.equal(row.homeCashReleased, 40000);
+  assert.equal(row.spending, 26400);
+  assert.equal(row.mortgagePayment, 0);
+  assert.equal(result.rows.reduce((sum, r) => sum + r.homeCashReleased, 0), 40000);
+  assert.equal(result.rows.find((r) => r.primaryAge === 65).spending, 26400);
+  const noSettlement = evaluateExample("early-dc", { homeSaleAmount: 300000, replacementHomeCost: 250000, downsizeAge: 55, mortgageMonthly: 800, mortgageEndAge: 65 });
+  assert.equal(noSettlement.rows.find((r) => r.primaryAge === 55).spending, 36000);
+  assert.throws(() => evaluateExample("early-dc", { homeSaleAmount: 100000, replacementHomeCost: 110000, downsizeAge: 55 }), /Home sale must cover/);
+  assert.throws(() => evaluateExample("early-dc", { homeSaleAmount: 300000, mortgageSettlement: 20000, mortgagePayoffAmount: 20000, mortgagePayoffAge: 55, downsizeAge: 55 }), /not both/);
+});
+
+test("State Pension override changes only primary dated income and never adds to pension assets", () => {
+  const base = evaluateExample("mixed-household");
+  const result = evaluateExample("mixed-household", { statePensionAnnual: 14000, statePensionAge: 67 });
+  assert.equal(result.rows.find((r) => r.primaryAge === 66).statePensionIncome, 0);
+  assert.equal(result.rows.find((r) => r.primaryAge === 67).statePensionIncome, 14000);
+  assert.equal(result.rows.find((r) => r.primaryAge === 67).incomeBreakdown.state, 14000);
+  assert.equal(result.rows.find((r) => r.primaryAge === 70).incomeBreakdown.state, 24000);
+  assert.equal(result.profile.incomeStreams.find((s) => s.owner === "partner" && s.type === "state").annualNet, 10000);
+  assert.deepEqual(result.rows.filter((r) => r.primaryAge < 67), base.rows.filter((r) => r.primaryAge < 67));
+  assert.equal(result.changes.find((c) => c.key === "statePensionAnnual").from, 10000);
+  assert.ok(result.events.some((e) => e.type === "income-start" && e.owner === "primary" && e.label.includes("State Pension") && e.primaryAge === 67));
+  const zero = evaluateExample("early-dc", { statePensionAnnual: 0 });
+  assert.ok(zero.rows.every((r) => r.statePensionIncome === 0));
+  assert.ok(!zero.events.some((e) => e.label.includes("State Pension")));
+});
+
+test("active decisions reject invalid timing but zero amounts create no fake events", () => {
+  for (const change of [
+    { mortgageMonthly: 900, mortgageEndAge: 51 },
+    { mortgagePayoffAmount: 100, mortgagePayoffAge: 91 },
+    { homeSaleAmount: 100, downsizeAge: 91 },
+    { statePensionAnnual: 100, statePensionAge: 91 },
+  ]) assert.throws(() => evaluateExample("early-dc", change), /within/);
+  assert.equal(evaluateExample("early-dc", { horizonAge: 95, homeSaleAmount: 100, downsizeAge: 91 }).rows.find((r) => r.primaryAge === 91).homeCashReleased, 100);
+  const inactive = evaluateExample("early-dc", { mortgagePayoffAmount: 0, mortgagePayoffAge: 18, homeSaleAmount: 0, downsizeAge: 18, mortgageMonthly: 0, mortgageEndAge: 18 });
+  const base = evaluateExample("early-dc");
+  assert.deepEqual(inactive.rows, base.rows);
+  assert.deepEqual(inactive.events, base.events);
+  for (const [key, value] of [["mortgagePayoffAmount", -1], ["homeSaleAmount", Infinity], ["downsizeAge", 55.5], ["statePensionAge", 101]])
+    assert.throws(() => normaliseOverrides({ [key]: value }), /Invalid/);
+});
+
+test("combined home release cash payoff major expense and mortgage reduction reconcile annually", () => {
+  const result = evaluateExample("early-dc", { homeSaleAmount: 400000, replacementHomeCost: 200000, movingCosts: 10000, downsizeAge: 55, mortgagePayoffAmount: 30000, mortgagePayoffAge: 55, mortgageMonthly: 500, mortgageEndAge: 60, majorCost: 15000, majorCostAge: 55, statePensionAnnual: 11000, statePensionAge: 66, horizonAge: 95 });
+  const event = result.rows.find((r) => r.primaryAge === 55);
+  assert.equal(event.homeCashReleased, 190000);
+  assert.equal(event.mortgagePayoff, 30000);
+  assert.equal(event.majorCost, 15000);
+  assert.equal(event.spending, 30000);
+  for (const r of result.rows) {
+    const accessible = r.openingAccessible + r.accessibleGrowth + r.homeCashReleased - r.mortgagePayoff + Math.max(0, r.income - r.spending - r.majorCost) - r.withdrawalsAccessible;
+    const pension = r.openingPension + r.pensionGrowth + r.contributions - r.withdrawalsPension;
+    assert.ok(Math.abs(r.closingAccessible - accessible) < 0.03);
+    assert.ok(Math.abs(r.closingPension - pension) < 0.03);
+    assert.ok(Math.abs(r.income + r.withdrawalsAccessible + r.withdrawalsPension + r.annualGap - Math.max(r.income, r.spending + r.majorCost)) < 0.03);
+    assert.ok(r.closingAccessible >= 0 && r.closingPension >= 0);
   }
 });

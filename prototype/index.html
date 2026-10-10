@@ -114,10 +114,6 @@
                 <button type="button" data-view="funding" aria-pressed="true">Spending</button>
                 <button type="button" data-view="balances" aria-pressed="false">Money left</button>
               </div>
-              <div class="preview-zoom" role="group" aria-label="Choose the timeline range">
-                <button type="button" data-zoom="full" aria-pressed="true">All years</button>
-                <button type="button" data-zoom="bridge" aria-pressed="false">Ages 52–62</button>
-              </div>
             </div>
             <figure class="preview-figure" aria-describedby="chart-caption chart-reading planning-note">
               <div class="chart-heading">
@@ -133,19 +129,10 @@
               </figcaption>
               <p id="chart-reading" class="chart-reading"></p>
             </figure>
+            <div class="coverage-answer"><span>Needs more money</span><strong id="preview-early-range"></strong></div>
             <div id="preview-milestones" class="preview-milestones" aria-label="Alex’s retirement milestones"></div>
             <p class="preview-milestone-note">Dates are Alex’s example assumptions. A pension pot is retirement savings to draw from; pension income means regular payments.</p>
-            <div class="preview-shortfalls">
-              <div class="shortfall-card">
-                <span id="preview-gap-label">Spending gap before 60</span><strong id="preview-gap">See the example</strong>
-                <p id="preview-gap-years">Access assumed at 60</p>
-              </div>
-              <div class="shortfall-card">
-                <span>Later spending gap starts</span><strong id="preview-later-age">See the example</strong>
-                <p id="preview-later-gap">Through the chosen planning age</p>
-              </div>
-            </div>
-            <p
+            <details class="gap-workings"><summary>See shortfall amounts and workings</summary>            <p
               class="preview-outcome"
               id="preview-outcome"
               role="status"
@@ -153,6 +140,18 @@
             >
               Choose a scenario to explore the full retirement timeline.
             </p>
+<div class="preview-shortfalls"><div class="shortfall-card"><span id="preview-gap-label"></span><strong id="preview-gap"></strong><p id="preview-gap-years"></p></div><div class="shortfall-card"><span>Later shortfall</span><strong id="preview-later-age"></strong><p id="preview-later-gap"></p></div></div></details>
+            <details class="life-decisions-panel"><summary>What if the mortgage, home or pension changes?</summary>
+              <div class="life-presets" role="group" aria-label="Try fictional life decisions"><button type="button" data-life="mortgage">Mortgage ends at 65</button><button type="button" data-life="downsize">Downsize at 60</button><button type="button" data-life="expense">£20k expense at 70</button><button type="button" data-life="state">Without State Pension</button><button type="button" data-life="reset">Reset life decisions</button></div>
+              <form id="life-decisions">
+                <p>Change Alex’s fictional inputs. Blank fields keep the original plan. Amounts are today’s pounds.</p>
+                <fieldset><legend>Mortgage</legend><label>Payment within the £3,000 monthly budget<input name="mortgageMonthly" type="number" min="0" placeholder="0"></label><label>Payments end at age<input name="mortgageEndAge" type="number" placeholder="90"></label><label>Optional cash payoff quote<input name="mortgagePayoffAmount" type="number" min="0" placeholder="0"></label><label>Payoff at age<input name="mortgagePayoffAge" type="number" placeholder="90"></label><p>Payments stop once. A payoff uses savings in that year; loan interest is not calculated.</p></fieldset>
+                <fieldset><legend>Downsize or move home</legend><label>Sale proceeds<input name="homeSaleAmount" type="number" min="0" placeholder="0"></label><label>Replacement home<input name="replacementHomeCost" type="number" min="0" placeholder="0"></label><label>Mortgage settled from sale<input name="mortgageSettlement" type="number" min="0" placeholder="0"></label><label>All moving costs and taxes<input name="movingCosts" type="number" min="0" placeholder="0"></label><label>Move at age<input name="downsizeAge" type="number" placeholder="90"></label><p>Only sale minus new home, mortgage and costs becomes savings. Enter supplied costs; taxes are not calculated.</p></fieldset>
+                <fieldset><legend>Big expense</legend><label>One-off amount<input name="majorCost" type="number" min="0" placeholder="0"></label><label>At age<input name="majorCostAge" type="number" placeholder="70"></label></fieldset>
+                <fieldset><legend>State Pension — already included</legend><label>Alex’s fictional income per year<input name="statePensionAnnual" type="number" min="0" placeholder="12000"></label><label>Starts at age<input name="statePensionAge" type="number" placeholder="67"></label><p>£12,000/year from 67 is already in this example. Changing it replaces that income. Use 0 to test without it. This is not a checked entitlement or rate.</p><a href="https://www.gov.uk/check-state-pension" target="_blank" rel="noopener">Check your own State Pension forecast ↗</a></fieldset>
+                <button type="submit" class="btn">Update the example</button><p id="decision-error" role="status" aria-live="polite"></p>
+              </form>
+            </details>
             <a
               class="preview-open"
               id="preview-open"

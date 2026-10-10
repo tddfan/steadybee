@@ -15,6 +15,17 @@ const OVERRIDES = {
   majorCost: [0, 100_000_000],
   majorCostAge: [18, 100, true],
   horizonAge: [90, 100, true],
+  mortgageMonthly: [0, 1_000_000],
+  mortgageEndAge: [18, 100, true],
+  mortgagePayoffAmount: [0, 100_000_000],
+  mortgagePayoffAge: [18, 100, true],
+  homeSaleAmount: [0, 100_000_000],
+  replacementHomeCost: [0, 100_000_000],
+  mortgageSettlement: [0, 100_000_000],
+  movingCosts: [0, 100_000_000],
+  downsizeAge: [18, 100, true],
+  statePensionAnnual: [0, 10_000_000],
+  statePensionAge: [18, 100, true],
 };
 let sequence = 0;
 const clone = (value) => JSON.parse(JSON.stringify(value));

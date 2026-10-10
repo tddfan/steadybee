@@ -4,8 +4,8 @@
  */
 import { createDraft, field, normaliseOverrides } from "./state.mjs";
 
-export const FIXTURE_VERSION = "2026-10-09.3";
-const SOURCE_DATE = "2026-10-09";
+export const FIXTURE_VERSION = "2026-10-10.1";
+const SOURCE_DATE = "2026-10-10";
 const round = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -36,7 +36,7 @@ const source = [
         {
           owner: "primary",
           type: "state",
-          label: "Alex’s fictional later pension income",
+          label: "Alex’s fictional State Pension income",
           annualNet: 12_000,
           startAge: 67,
           endAge: null,
@@ -99,7 +99,7 @@ const source = [
         {
           owner: "primary",
           type: "state",
-          label: "Morgan’s fictional later pension income",
+          label: "Morgan’s fictional State Pension income",
           annualNet: 10_000,
           startAge: 68,
           endAge: null,
@@ -107,7 +107,7 @@ const source = [
         {
           owner: "partner",
           type: "state",
-          label: "Sam’s fictional later pension income",
+          label: "Sam’s fictional State Pension income",
           annualNet: 10_000,
           startAge: 68,
           endAge: null,
@@ -153,7 +153,7 @@ const source = [
         {
           owner: "primary",
           type: "state",
-          label: "Priya’s fictional later pension income",
+          label: "Priya’s fictional State Pension income",
           annualNet: 11_000,
           startAge: 68,
           endAge: null,
@@ -241,6 +241,17 @@ const changeLabels = {
   majorCost: "One-off major cost",
   majorCostAge: "Primary age at the major cost",
   horizonAge: "Illustrated horizon (primary age)",
+  mortgageMonthly: "Mortgage payment already within monthly spending",
+  mortgageEndAge: "Primary age when mortgage payments end",
+  mortgagePayoffAmount: "Cash mortgage payoff quote",
+  mortgagePayoffAge: "Primary age at cash mortgage payoff",
+  homeSaleAmount: "Fictional home sale proceeds",
+  replacementHomeCost: "Replacement home purchase cost",
+  mortgageSettlement: "Mortgage settled from home sale",
+  movingCosts: "Supplied moving and transaction costs",
+  downsizeAge: "Primary age at home move",
+  statePensionAnnual: "Primary fictional State Pension / year (spendable assumption)",
+  statePensionAge: "Primary fictional State Pension start age",
 };
 
 function baselineValue(profile, key) {
@@ -249,6 +260,16 @@ function baselineValue(profile, key) {
     return profile.partner?.retirementAge ?? null;
   if (key === "monthlyContributions")
     return profile.primary.monthlyContributions;
+  if (key === "statePensionAnnual")
+    return profile.incomeStreams.find(
+      (stream) => stream.owner === "primary" && stream.type === "state",
+    )?.annualNet ?? 0;
+  if (key === "statePensionAge")
+    return profile.incomeStreams.find(
+      (stream) => stream.owner === "primary" && stream.type === "state",
+    )?.startAge ?? profile.primary.age;
+  if (["mortgageMonthly", "mortgagePayoffAmount", "homeSaleAmount", "replacementHomeCost", "mortgageSettlement", "movingCosts"].includes(key)) return profile[key] ?? 0;
+  if (["mortgageEndAge", "mortgagePayoffAge", "downsizeAge"].includes(key)) return profile[key] ?? profile.horizonAge;
   return profile[key];
 }
 
@@ -258,6 +279,20 @@ export function evaluateExample(exampleId, overrides = {}) {
   const clean = normaliseOverrides(overrides),
     p = clone(example.profile),
     original = example.profile;
+  for (const key of [
+    "mortgageMonthly", "mortgageEndAge", "mortgagePayoffAmount",
+    "mortgagePayoffAge", "homeSaleAmount", "replacementHomeCost",
+    "mortgageSettlement", "movingCosts", "downsizeAge",
+    "statePensionAnnual", "statePensionAge",
+  ])
+    p[key] = clean[key] ?? baselineValue(original, key);
+  const primaryState = p.incomeStreams.find(
+    (stream) => stream.owner === "primary" && stream.type === "state",
+  );
+  if (primaryState) {
+    primaryState.annualNet = p.statePensionAnnual;
+    primaryState.startAge = p.statePensionAge;
+  }
   if (clean.retirementAge !== undefined)
     p.primary.retirementAge = clean.retirementAge;
   if (clean.partnerRetirementAge !== undefined) {
@@ -310,6 +345,25 @@ export function evaluateExample(exampleId, overrides = {}) {
   )
     throw new Error("Retirement is outside this worked example’s horizon.");
 
+  const requireEventAge = (age, label) => {
+    if (age < p.primary.age || age > p.horizonAge)
+      throw new Error(`${label} must be within this example’s current age and horizon.`);
+  };
+  if (p.mortgageMonthly > p.monthlySpending)
+    throw new Error("The mortgage payment is part of monthly spending and cannot exceed it.");
+  if (p.mortgageMonthly > 0) requireEventAge(p.mortgageEndAge, "Mortgage end age");
+  if (p.mortgagePayoffAmount > 0) requireEventAge(p.mortgagePayoffAge, "Mortgage payoff age");
+  const hasHomeEvent = [p.homeSaleAmount, p.replacementHomeCost, p.mortgageSettlement, p.movingCosts].some((amount) => amount > 0);
+  const netHomeCash = p.homeSaleAmount - p.replacementHomeCost - p.mortgageSettlement - p.movingCosts;
+  if (hasHomeEvent) {
+    requireEventAge(p.downsizeAge, "Home move age");
+    if (netHomeCash < 0) throw new Error("Home sale must cover the replacement home, mortgage settlement and supplied moving costs; additional home borrowing is not modelled.");
+  }
+  if (p.mortgageSettlement > 0 && p.mortgagePayoffAmount > 0)
+    throw new Error("Use either a mortgage settlement from the home sale or a separate cash payoff, not both.");
+  if (p.statePensionAnnual > 0 && (clean.statePensionAge !== undefined || clean.statePensionAnnual !== undefined))
+    requireEventAge(p.statePensionAge, "State Pension start age");
+
   const people = [
     { owner: "primary", ...p.primary },
     ...(p.partner ? [{ owner: "partner", ...p.partner }] : []),
@@ -347,7 +401,7 @@ export function evaluateExample(exampleId, overrides = {}) {
       person.pensionAccessAge,
     );
   }
-  for (const stream of p.incomeStreams)
+  for (const stream of p.incomeStreams.filter((stream) => stream.annualNet > 0))
     event(
       "income-start",
       `${stream.label} starts at ${stream.startAge}`,
@@ -376,6 +430,15 @@ export function evaluateExample(exampleId, overrides = {}) {
       p.majorCostAge,
     );
 
+  const mortgageStopAge = Math.min(
+    p.mortgageEndAge,
+    p.mortgagePayoffAmount > 0 ? p.mortgagePayoffAge : Infinity,
+    p.mortgageSettlement > 0 ? p.downsizeAge : Infinity,
+  );
+  if (p.mortgageMonthly > 0) event("mortgage-end", `Mortgage payments stop at ${mortgageStopAge}`, "primary", mortgageStopAge);
+  if (p.mortgagePayoffAmount > 0) event("mortgage-payoff", `Cash mortgage payoff of £${p.mortgagePayoffAmount.toLocaleString("en-GB")}`, "primary", p.mortgagePayoffAge);
+  if (hasHomeEvent) event("home-move", `Home move releases £${netHomeCash.toLocaleString("en-GB")} after replacement home, settlement and supplied costs`, "primary", p.downsizeAge);
+
   for (let offset = 0; offset <= p.horizonAge - p.primary.age; offset++) {
     const primaryAge = p.primary.age + offset,
       partnerAge = p.partner ? p.partner.age + offset : null;
@@ -386,6 +449,12 @@ export function evaluateExample(exampleId, overrides = {}) {
       );
     const accessibleGrowth = accessible * p.realAccessibleReturn;
     accessible += accessibleGrowth;
+    const homeCashReleased = hasHomeEvent && primaryAge === p.downsizeAge ? netHomeCash : 0;
+    accessible += homeCashReleased;
+    const mortgagePayoff = p.mortgagePayoffAmount > 0 && primaryAge === p.mortgagePayoffAge ? p.mortgagePayoffAmount : 0;
+    if (mortgagePayoff > accessible)
+      throw new Error(`The cash mortgage payoff at age ${primaryAge} exceeds accessible savings before that year’s income and spending. No borrowing or pension-funded payoff is modelled.`);
+    accessible -= mortgagePayoff;
     let pensionGrowth = 0,
       contributions = 0;
     const incomeBreakdown = {
@@ -421,7 +490,8 @@ export function evaluateExample(exampleId, overrides = {}) {
       (sum, amount) => sum + amount,
       0,
     );
-    const spending = p.monthlySpending * 12,
+    const mortgagePayment = primaryAge < mortgageStopAge ? p.mortgageMonthly * 12 : 0;
+    const spending = (p.monthlySpending - p.mortgageMonthly) * 12 + mortgagePayment,
       majorCost = primaryAge === p.majorCostAge ? p.majorCost : 0;
     let need = Math.max(0, spending + majorCost - income);
     if (income > spending + majorCost)
@@ -460,6 +530,10 @@ export function evaluateExample(exampleId, overrides = {}) {
       incomeBreakdown,
       spending: round(spending),
       majorCost: round(majorCost),
+      mortgagePayment: round(mortgagePayment),
+      mortgagePayoff: round(mortgagePayoff),
+      homeCashReleased: round(homeCashReleased),
+      statePensionIncome: round(primaryAge >= p.statePensionAge ? p.statePensionAnnual : 0),
       withdrawalsAccessible: round(withdrawalsAccessible),
       withdrawalsPension: round(withdrawalsPension),
       closingAccessible: round(accessible),
@@ -530,9 +604,11 @@ export function evaluateExample(exampleId, overrides = {}) {
     "Fictional worked example only. Illustration, not advice. No personal retirement calculation is connected.",
     "All wages and pension streams are fictional net-assumed amounts; no UK tax engine is used. Pot withdrawals are assumed spendable pound for pound, with no tax deductions.",
     `All amounts are in today’s pounds. Accessible savings have a fixed ${(p.realAccessibleReturn * 100).toFixed(0)}% annual real return; invested pension pots have a fixed ${(p.realPensionReturn * 100).toFixed(0)}% annual real return, both after an assumed fee allowance. These are chosen illustrative assumptions, not market estimates.`,
-    "Each year: opening assets grow, working contributions are added, income meets spending, then accessible savings are used before eligible pension pots. Growth uses opening balances. Income above spending is saved to accessible money.",
+    "Each year: opening assets grow, net home-sale cash is added and any affordable cash mortgage payoff is deducted before income and spending. Working contributions are added; income meets spending, then accessible savings are used before eligible pension pots. Growth uses opening balances only. Income above spending is saved to accessible money.",
     "Net employment income is assumed after the supplied pension contributions; those contributions include the employer and stop at each person’s chosen retirement age.",
-    "Promised DB and later pension income start at the fixed fictional ages shown. Changing retirement dates does not alter DB income or infer scheme terms. Pension access ages are supplied fictional facts, not current eligibility rules.",
+    "Promised DB and fictional State Pension income start at the supplied ages shown. State Pension is already included in annual income once from its start age, not added to pension assets. These spendable amounts are assumptions, not full UK entitlements. Changing retirement dates does not alter DB income or infer scheme terms. Pension access ages are supplied fictional facts, not current eligibility rules.",
+    "Mortgage payments are a specified portion of existing monthly spending, not additional spending. Payments stop once at the beginning of the supplied end, cash payoff or mortgage-settling home-move age, whichever comes first. No loan interest or amortisation is calculated; payoff and settlement amounts must be supplied quotes.",
+    "Home equity is not an opening financial asset. A home move adds only sale proceeds less replacement home cost, mortgage settlement and supplied transaction/moving costs. No new borrowing, tax or Stamp Duty calculation is included. Cash payoff uses accessible savings after growth and any home proceeds, before income/spending; insufficient cash rejects the scenario.",
     "Monthly spending includes housing and debt payments in these examples. A scenario’s major cost is additional, one time only, at the primary person’s selected age. Spending and income stay constant in real pounds.",
     `The horizon is the end of primary age ${p.horizonAge}. This does not infer lifespan. Income ending at a stated age stops at the beginning of that year.`,
     "Uncovered spending is reported as an annual gap and accumulated unpaid amount. Assets never become negative. No borrowing, deficit interest or automatic spending reduction is assumed.",
