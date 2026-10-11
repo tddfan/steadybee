@@ -153,19 +153,24 @@ if (root) {
       : selectedScenario === 'income-stops'
         ? 'Alex permanently stops work now at 57: employment income and pension contributions end immediately.'
         : selectedScenario === 'spend-less'
-          ? 'Lower monthly spending reduces the amount that income and savings need to cover each year.'
+          ? `Monthly spending falls from ${money(model.baseline.profile.monthlySpending)} to ${money(p.monthlySpending)}: ${money(model.baseline.profile.monthlySpending - p.monthlySpending)} less each month.`
           : p.primary.retirementAge !== model.baseline.profile.primary.retirementAge || p.partner.retirementAge !== model.baseline.profile.partner.retirementAge
-            ? 'Changing a retirement date changes when employment income and pension contributions stop.'
+            ? `Alex stops work at ${p.primary.retirementAge}; Jemma at ${p.partner.retirementAge}, compared with ${model.baseline.profile.primary.retirementAge} and ${model.baseline.profile.partner.retirementAge} originally. Employment income and contributions end at those dates.`
             : 'Explore a change to compare with the starting example.';
     put('scenario-context', selectedScenario || p.partTimeAnnual ? effect : 'DB and State Pension start ages stay fixed.');
     put('result-value',model.firstGap ? `Age ${model.firstGap.primaryAge}` : `Through age ${p.horizonAge}`);
     put('result-label',model.firstGap ? 'First spending gap' : 'Spending covered');
     put('result-context', model.firstGap ? `First gap in ${model.firstGap.year}; earlier gaps remain unpaid.` : 'No spending gap under these example assumptions.');
     const diff = model.finalMoney-model.baseline.summary.finalTotal;
-    put('comparison-copy', `${diff === 0 ? 'Same money as the original' : `${money(Math.abs(diff))} ${diff<0?'less':'more'} than the original`} at age ${p.horizonAge}.`);
+    put('scenario-impact', `${Object.keys(overrides).length ? effect + ' ' : ''}${model.firstGap ? `Spending first falls short at Alex age ${model.firstGap.primaryAge} (${model.firstGap.year}): ${money(model.firstGap.annualGap)} unpaid that year. Earlier gaps remain unpaid.` : `Spending is covered through Alex age ${p.horizonAge} under these assumptions.`}`);
+    put('comparison-copy', `${diff === 0 ? 'Same money as the original' : `${money(Math.abs(diff))} ${diff<0?'less':'more'} than the original`} at age ${p.horizonAge}. ${money(model.finalMoney)} remaining${model.firstGap ? '; this does not erase unpaid spending' : ''}.`);
     const pensionTotal = p.primary.pensionPot + p.partner.pensionPot;
     const savingsTotal = p.primary.savings + p.partner.savings;
     const openingTotal = pensionTotal + savingsTotal;
+    const base = model.baseline.profile;
+    put('household-story', `Alex (${base.primary.age}) and Jemma (${base.partner.age}) are exploring retirement at ${base.primary.retirementAge} and ${base.partner.retirementAge}, with ${money(base.monthlySpending)} monthly household spending.`);
+    put('pension-breakdown', `${money(pensionTotal)} · ${Math.round(pensionTotal / openingTotal * 100)}%`);
+    put('savings-breakdown', `${money(savingsTotal)} · ${Math.round(savingsTotal / openingTotal * 100)}%`);
     put('current-total',money(openingTotal));put('current-pension',money(pensionTotal));put('current-savings',money(savingsTotal));
     const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#14665f 0% ${percent}%, #b5cfc2 ${percent}% 100%)`;donut.setAttribute('aria-label',`Opening financial assets ${money(openingTotal)}: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
     put('current-caption','Pensions and savings only; other values aren’t entered.');
@@ -173,7 +178,24 @@ if (root) {
     put('input-summary',inputDetails);
     root.querySelectorAll('[data-scenario]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.scenario===selectedScenario)));
     const incomeText = p.incomeStreams.map(stream => `${displayNames(stream.label)}: ${money(stream.annualNet)} annual net-assumed income, starts at ${stream.owner === 'primary' ? 'Alex' : 'Jemma'} age ${stream.startAge}${stream.endAge === null ? ', no end age supplied' : `, ends at age ${stream.endAge}`}.`).join(' ');
-    put('assumption-inputs', `${inputDetails} ${incomeText} Pension access: Alex ${p.primary.pensionAccessAge}, Jemma ${p.partner.pensionAccessAge}. Fixed annual real returns: accessible savings ${p.realAccessibleReturn * 100}%, pension pots ${p.realPensionReturn * 100}%. Horizon: Alex age ${p.horizonAge}.`);
+    const assumptionRows = [
+      ['Work and spending', inputsText()],
+      ['Opening pension pots', `Alex ${money(p.primary.pensionPot)}; Jemma ${money(p.partner.pensionPot)}.`],
+      ['Opening accessible savings', `Alex ${money(p.primary.savings)}; Jemma ${money(p.partner.savings)}.`],
+      ['Employment income', `Annual net-assumed income: Alex ${money(p.primary.employmentAnnualNet)}; Jemma ${money(p.partner.employmentAnnualNet)}. Ends at each person’s work-end age.`],
+      ['Pension contributions', `Monthly while working: Alex ${money(p.primary.monthlyContributions)}; Jemma ${money(p.partner.monthlyContributions)}.`],
+      ['Pension access', `Alex age ${p.primary.pensionAccessAge}; Jemma age ${p.partner.pensionAccessAge}. Authored example dates.`],
+      ['Fixed real growth', `Savings ${p.realAccessibleReturn * 100}% a year; pension pots ${p.realPensionReturn * 100}% a year. Authored assumptions, not forecasts.`],
+      ['DB and State Pension income', incomeText],
+      ['Purchasing power and tax', 'Today’s pounds. Income is assumed spendable; UK tax is not calculated.'],
+      ['Planning horizon', `Alex age ${p.horizonAge}. A modelling endpoint, not a lifespan or guarantee.`],
+    ];
+    const assumptions = $('assumption-inputs');
+    if (assumptions) {
+      const dl = document.createElement('dl'); dl.className = 'assumptions-table';
+      for (const [label, value] of assumptionRows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = label; dd.textContent = value; dl.append(dt, dd); }
+      assumptions.replaceChildren(dl);
+    }
     put('fixture-source',`Source: existing mixed-household fictional ledger, version ${model.current.provenance.fixtureVersion}, source date ${model.current.provenance.sourceDate}. Alex (57) is Morgan and Jemma (55) is Sam in the underlying fixture. Display aliases only; no household inputs or rules were changed.`);
     const list=$('assumption-list'); if(list) { list.replaceChildren(...model.assumptions.map(text=>{const li=document.createElement('li');li.textContent=text;return li;})); }
     const select=$('year-select'); if(select) { const value=select.value; select.replaceChildren(...model.current.rows.map(row=>{const option=document.createElement('option');option.value=row.year;option.textContent=`${row.year} — Alex ${row.primaryAge}, Jemma ${row.partnerAge}`;return option;})); if(value) select.value=value; if(!select.value) select.selectedIndex=0; }

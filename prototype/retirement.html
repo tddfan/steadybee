@@ -47,6 +47,7 @@
           <div class="slide-body">
             <div class="slide-heading"><h3 id="stage-heading" tabindex="-1">Your money, together.</h3><span class="example-label">Alex &amp; Jemma · fictional example</span></div>
             <div data-panel="situation" id="panel-situation">
+              <p id="household-story" class="household-story"></p>
               <div class="wealth-scene">
                 <div class="source-stack">
                   <div class="money-source pension"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-pension" /></svg></span><span>Pensions</span></div>
@@ -60,6 +61,8 @@
                   <div class="money-source spending"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-spending" /></svg></span><span>Income &amp; spending</span></div>
                 </div>
               </div>
+              <dl class="asset-breakdown"><div><dt><span class="asset-dot pension-dot" aria-hidden="true"></span>Pension pots</dt><dd id="pension-breakdown">—</dd></div><div><dt><span class="asset-dot savings-dot" aria-hidden="true"></span>Accessible savings</dt><dd id="savings-breakdown">—</dd></div></dl>
+              <p class="small asset-note">Home, mortgage and separate investments aren’t entered in this example.</p>
             </div>
             <div id="demo-workspace" class="demo-workspace" role="region" aria-labelledby="stage-heading">
               <div class="scenario-menu">
@@ -73,9 +76,11 @@
               </div>
               <div class="chart-column">
                 <div class="outlook-head"><span id="result-label">Spending covered</span><strong id="result-value">—</strong></div>
+                <div class="chart-switch" id="chart-mode" aria-label="Chart view"><button type="button" data-chart="assets" aria-pressed="true">Money left</button><button type="button" data-chart="funding" aria-pressed="false">Spending</button></div>
                 <h4 id="chart-title" class="sr-only">Money remaining</h4>
                 <div class="retirement-chart"><svg id="demo-chart" role="img" aria-label="Calculated fictional retirement example"></svg></div>
                 <p id="chart-legend" class="small chart-legend"></p>
+                <p id="scenario-impact" class="scenario-impact"></p>
                 <p id="comparison-copy" class="comparison-copy"></p>
               </div>
               <aside class="scenario-column" aria-label="Change this example">
@@ -87,8 +92,8 @@
             </div>
             <details id="demo-details" class="demo-details"><summary>Show details</summary>
               <div class="current-details"><dl><div><dt>Pensions</dt><dd id="current-pension">—</dd></div><div><dt>Savings</dt><dd id="current-savings">—</dd></div></dl><p id="current-caption">Pensions and savings only; other values aren’t entered.</p></div>
-              <div class="projection-details"><p id="result-context"></p><p id="chart-caption"></p><p id="scenario-context"></p><div class="chart-switch" id="chart-mode" aria-label="Chart view"><button type="button" data-chart="assets" aria-pressed="true">Money left</button><button type="button" data-chart="funding" aria-pressed="false">Spending</button></div><div class="year-details"><label for="year-select">Look at a year</label><select id="year-select"></select><div id="year-summary"></div></div></div>
-              <details class="workings" id="workings"><summary>Inputs and assumptions</summary><p id="fixture-source"></p><div id="input-summary"></div><div id="assumption-inputs"></div><ul id="assumption-list"></ul></details>
+              <div class="projection-details"><p id="result-context"></p><p id="chart-caption"></p><p id="scenario-context"></p><div class="year-details"><label for="year-select">Look at a year</label><select id="year-select"></select><div id="year-summary"></div></div></div>
+              <details class="workings" id="workings"><summary>Inputs and assumptions</summary><div id="input-summary"></div><div id="assumption-inputs"></div><ul id="assumption-list"></ul><details class="provenance"><summary>Example source and version</summary><p id="fixture-source"></p></details></details>
             </details>
             <p id="demo-error" class="demo-error" role="alert" hidden></p>
             <noscript><p>The example controls need JavaScript.</p></noscript>
@@ -110,7 +115,7 @@
       <div class="updated-plan"><svg aria-hidden="true"><use href="#icon-plan" /></svg><span>Your retirement picture, updated.</span></div>
       <p class="small tracking-note">Connect accounts or update your numbers yourself.</p>
     </section>
-    <section class="start-section wrap"><a class="button primary" href="app.html">Start my draft <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a><p class="small">Free draft. No account connection needed.</p><details class="preview-details"><summary>About this preview</summary><p>The example is fictional. The draft workspace is available now. Personal forecasts, live account updates, inflation feeds and actual progress tracking are planned.</p></details></section>
+    <section class="start-section wrap"><h2>Start with your own retirement question.</h2><p class="draft-context">Bring your household figures together in a draft. Personal forecasts are planned.</p><a class="button primary" href="app.html">Start my draft <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a><p class="small">Free draft. No account connection needed.</p><details class="preview-details"><summary>About this preview</summary><p>The example is fictional. The draft workspace is available now. Personal forecasts, live account updates, inflation feeds and actual progress tracking are planned.</p></details></section>
   </main>
   <footer class="site-footer wrap"><a class="wordmark" href="retirement.html"><img src="favicon.svg" alt="" width="26" height="26" />steadybee<span aria-hidden="true">.</span></a><span>Retirement, with perspective.</span></footer>
 </body>

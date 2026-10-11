@@ -250,3 +250,31 @@ select { font-size: 16px; border: 1px solid #d7dfda; border-radius: 8px; padding
   html { scroll-behavior: auto; }
   *, *:before, *:after { transition: none !important; animation: none !important; }
 }
+
+/* Keep the example readable without opening its workings. */
+.household-story { max-width: 640px; margin: 0 auto 12px; text-align: center; color: var(--quiet); }
+.asset-breakdown { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px 40px; margin: 12px 0; }
+.asset-breakdown > div { display: grid; gap: 3px; }
+.asset-breakdown dt { color: var(--quiet); font-size: 16px; }
+.asset-breakdown dd { text-align: left; font-size: 20px; }
+.asset-dot { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; }
+.pension-dot { background: var(--blue); }
+.savings-dot { background: #b5cfc2; border: 1px solid var(--quiet); }
+.asset-note { text-align: center; }
+.chart-column > .chart-switch { margin: 18px auto 8px; }
+.scenario-impact { max-width: 680px; margin: 16px auto 0; font-size: 18px; color: var(--ink); }
+#demo[data-stage="picture"] .scenario-impact { text-align: center; }
+.comparison-copy { font-size: 16px; color: var(--quiet); margin-top: 9px; }
+.assumptions-table { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(0, 2fr); gap: 0 24px; }
+.assumptions-table dt, .assumptions-table dd { padding: 12px 0; border-bottom: 1px solid var(--line); text-align: left; }
+.assumptions-table dt { color: var(--ink); font-weight: 500; }
+.provenance { margin-top: 12px; }
+.start-section h2 { font-size: 30px; }
+.start-section .draft-context { margin: 12px auto 22px; max-width: 580px; color: var(--quiet); }
+@media (max-width: 480px) {
+  .asset-breakdown { gap: 15px 24px; }
+  .asset-breakdown dd { font-size: 18px; }
+  .assumptions-table { grid-template-columns: 1fr; }
+  .assumptions-table dt { border-bottom: 0; padding-bottom: 0; }
+  .assumptions-table dd { padding-top: 4px; }
+}

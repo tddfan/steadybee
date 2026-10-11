@@ -52,3 +52,14 @@ User feedback: unify the font, size and colour; put the retirement milestones on
 - [x] Verify the running 1200px desktop, 560px preview and 325px phone layouts without horizontal overflow. Spend less and Job loss update the calculated comparison. Funding charts keep nearby age-66/68 and coincident age-68 icons distinct. No browser errors observed.
 
 Validation: 49/49 Node tests pass, module syntax and static build pass. A focused geometry check covers assets/funding, retirement ages 60/66/68 and widths 220/280/528; badge centres stay at least 32px apart and age labels clear the badges. Financial calculations and authored household assumptions are unchanged.
+
+## Feedback clarity revision — 11 October
+
+- [x] Keep the app's warm paper/teal theme, large icons and Today / Outlook / What if slides.
+- [x] Introduce the fictional household using baseline ages, retirement dates and spending; show the computed pension/savings totals and percentage split below the donut.
+- [x] Move Money left / Spending above the graph. Keep the year inspector in details.
+- [x] Explain scenario work dates, spending reductions and part-time income beside the result. Show first unpaid year/amount when present, and qualify final assets when earlier gaps exist.
+- [x] Present inputs and assumptions as labelled rows, with technical provenance in a separate disclosure. Do not add external citations that did not supply the authored assumptions.
+- [x] Explain the draft CTA without claiming personal forecasts or unimplemented uploads, analysis or privacy features.
+
+Validation: 49/49 Node tests, module syntax, static build and diff whitespace checks pass. Chromium checks passed for all three slides at 1200px, 560px and 325px with no horizontal overflow or JavaScript errors. All four shortcuts, Reset and the spending view work. A combined immediate-retirement/high-spending case exposes the first unpaid year and amount; expanded assumptions fit the 325px layout. Desktop and phone screenshots inspected/captured locally. Calculation logic and fixtures unchanged.
