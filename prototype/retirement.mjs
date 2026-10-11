@@ -54,35 +54,35 @@ if (root) {
       {icon:'icon-plan',year:current.at(-1).year,age:current.at(-1).primaryAge,label:`Age ${current.at(-1).primaryAge}`,context:`Illustration ends at Alex age ${current.at(-1).primaryAge} in ${current.at(-1).year}; this is a modelling horizon, not a lifespan or guarantee.`},
     ].filter(Boolean);
     node('title', {id:'calculated-chart-title'}, title);
-    node('desc', {id:'calculated-chart-description'}, `${title}, from Alex age ${current[0].primaryAge} to ${current.at(-1).primaryAge}, in today’s pounds. Dashed line shows the starting example; blue line shows the current scenario. ${mode === 'funding' ? 'Grey shows annual spending; peach shading marks unpaid spending. Earlier gaps remain unpaid even when later years are covered.' : 'Peach markers below the chart identify years with unpaid spending. Closing assets can remain positive despite earlier unpaid spending.'} ${annotations.map(event=>event.context).join(' ')} ${partnerRetirement ? displayNames(partnerRetirement.label) + ` in ${partnerRetirement.year}; Alex is ${partnerRetirement.primaryAge}.` : ''} Use Look at a year for the calculated values.`);
-    node('text',{x:0,y:top-13,fill:'#596273','font-size':16},'Today’s £');
+    node('desc', {id:'calculated-chart-description'}, `${title}, from Alex age ${current[0].primaryAge} to ${current.at(-1).primaryAge}, in today’s pounds. Dashed line shows the starting example; teal line shows the current scenario. ${mode === 'funding' ? 'Grey shows annual spending; gold shading marks unpaid spending. Earlier gaps remain unpaid even when later years are covered.' : 'Gold markers below the chart identify years with unpaid spending. Closing assets can remain positive despite earlier unpaid spending.'} ${annotations.map(event=>event.context).join(' ')} ${partnerRetirement ? displayNames(partnerRetirement.label) + ` in ${partnerRetirement.year}; Alex is ${partnerRetirement.primaryAge}.` : ''} Use Look at a year for the calculated values.`);
+    node('text',{x:0,y:top-13,fill:'#536568','font-size':16},'Today’s £');
     for (let tick=0; tick<=4; tick++) {
       const value=max*tick/4;
-      node('line',{x1:left,x2:width-22,y1:y(value),y2:y(value),stroke:'#d4dde8','stroke-width':1});
-      node('text',{x:left-8,y:y(value)+5,fill:'#596273','font-size':16,'text-anchor':'end'},new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:1}).format(value));
+      node('line',{x1:left,x2:width-22,y1:y(value),y2:y(value),stroke:'#d7dfda','stroke-width':1});
+      node('text',{x:left-8,y:y(value)+5,fill:'#536568','font-size':16,'text-anchor':'end'},new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:1}).format(value));
     }
     const tickCount=width < 420 ? 3 : 5;
     for(let tick=0;tick<tickCount;tick++) {
       const index=Math.round(tick/(tickCount-1)*(current.length-1));
-      node('text',{x:x(index),y:height-27,fill:'#596273','font-size':16,'text-anchor':'middle'},String(current[index].primaryAge));
+      node('text',{x:x(index),y:height-27,fill:'#536568','font-size':16,'text-anchor':'middle'},String(current[index].primaryAge));
     }
-    node('text',{x:left+plotW/2,y:height-4,fill:'#596273','font-size':16,'text-anchor':'middle'},'Alex’s age');
+    node('text',{x:left+plotW/2,y:height-4,fill:'#536568','font-size':16,'text-anchor':'middle'},'Alex’s age');
     current.forEach((row,i) => {
       if (row.annualGap <= 0) return;
       const barWidth = Math.max(2, plotW / current.length);
       const barX = Math.min(width - 22 - barWidth, Math.max(left, x(i) - barWidth / 2));
-      node('rect',{x:barX,y:mode === 'funding' ? y(fundingFacts(row).need) : top + plotH + 4,width:barWidth,height:mode === 'funding' ? Math.max(1,y(fundingFacts(row).covered)-y(fundingFacts(row).need)) : 6,fill:'#f5b8a5'});
+      node('rect',{x:barX,y:mode === 'funding' ? y(fundingFacts(row).need) : top + plotH + 4,width:barWidth,height:mode === 'funding' ? Math.max(1,y(fundingFacts(row).covered)-y(fundingFacts(row).need)) : 6,fill:'#dfbe72'});
     });
     if (partnerRetirement) {
       const index=current.findIndex(row=>row.year===partnerRetirement.year);
       if(index>=0) {
-        const guide=node('line',{x1:x(index),x2:x(index),y1:top,y2:top+plotH,stroke:'#b7bfcd','stroke-width':1,'stroke-dasharray':'2 5'});
+        const guide=node('line',{x1:x(index),x2:x(index),y1:top,y2:top+plotH,stroke:'#b5cfc2','stroke-width':1,'stroke-dasharray':'2 5'});
         const title=document.createElementNS(ns,'title');title.textContent=displayNames(partnerRetirement.label);guide.append(title);
       }
     }
-    node('path',{d:path(baseline,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#7a8595','stroke-width':3,'stroke-dasharray':'7 5'});
-    if (mode==='funding') node('path',{d:path(current,r=>fundingFacts(r).need),fill:'none',stroke:'#596273','stroke-width':2});
-    node('path',{d:path(current,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#476fbe','stroke-width':4});
+    node('path',{d:path(baseline,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#536568','stroke-width':3,'stroke-dasharray':'7 5'});
+    if (mode==='funding') node('path',{d:path(current,r=>fundingFacts(r).need),fill:'none',stroke:'#536568','stroke-width':2});
+    node('path',{d:path(current,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#14665f','stroke-width':4});
     const annotationPoints = annotations.map(event=>{
       const index=current.findIndex(row=>row.year===event.year);
       return {event,index,px:x(index),py:index>=0 ? y(mode==='assets' ? current[index].closingTotal : fundingFacts(current[index]).covered) : 0};
@@ -99,13 +99,13 @@ if (root) {
     annotationPoints.forEach(point=>{
       const {event,px,py,badge:position}=point;
       const badgeX=position.x,badgeY=position.y;
-      node('line',{x1:px,x2:px,y1:py,y2:top+plotH,stroke:'#aeb8c8','stroke-width':1,'stroke-dasharray':'2 5'});
-      node('circle',{cx:px,cy:py,r:2.5,fill:'#476fbe'});
-      if(Math.hypot(badgeX-px,badgeY-py)>1)node('line',{x1:px,x2:badgeX,y1:py,y2:badgeY,stroke:'#596273','stroke-width':1});
+      node('line',{x1:px,x2:px,y1:py,y2:top+plotH,stroke:'#b5cfc2','stroke-width':1,'stroke-dasharray':'2 5'});
+      node('circle',{cx:px,cy:py,r:2.5,fill:'#14665f'});
+      if(Math.hypot(badgeX-px,badgeY-py)>1)node('line',{x1:px,x2:badgeX,y1:py,y2:badgeY,stroke:'#536568','stroke-width':1});
       const badge=node('g',{role:'group','aria-label':event.context});
       const title=document.createElementNS(ns,'title');title.textContent=event.context;badge.append(title);
-      const circle=document.createElementNS(ns,'circle');for(const [k,v] of Object.entries({cx:badgeX,cy:badgeY,r:13,fill:'#f6f7fc',stroke:'#bbc6d8'}))circle.setAttribute(k,v);badge.append(circle);
-      const icon=document.createElementNS(ns,'svg');for(const [k,v] of Object.entries({class:'chart-event-icon',x:badgeX-9,y:badgeY-9,width:18,height:18,viewBox:'0 0 32 32',fill:'none',stroke:'#596273','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))icon.setAttribute(k,v);
+      const circle=document.createElementNS(ns,'circle');for(const [k,v] of Object.entries({cx:badgeX,cy:badgeY,r:13,fill:'#fff',stroke:'#d7dfda'}))circle.setAttribute(k,v);badge.append(circle);
+      const icon=document.createElementNS(ns,'svg');for(const [k,v] of Object.entries({class:'chart-event-icon',x:badgeX-9,y:badgeY-9,width:18,height:18,viewBox:'0 0 32 32',fill:'none',stroke:'#536568','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))icon.setAttribute(k,v);
       const use=document.createElementNS(ns,'use');use.setAttribute('href',`#${event.icon}`);icon.append(use);badge.append(icon);
       const labelCandidates=[[0,-24],[0,30],[30,5],[-30,5],[0,-43],[0,49]].map(([dx,dy])=>({x:Math.max(16,Math.min(width-16,badgeX+dx)),y:Math.max(18,Math.min(top+plotH-2,badgeY+dy))}));
       const labelPosition=labelCandidates.find(label=>{
@@ -119,7 +119,7 @@ if (root) {
         return clearBadges && clearLabels;
       }) ?? labelCandidates.at(-1);
       labelBoxes.push({left:labelPosition.x-12,right:labelPosition.x+12,top:labelPosition.y-15,bottom:labelPosition.y+3});
-      node('text',{x:labelPosition.x,y:labelPosition.y,fill:'#242831','font-size':16,'text-anchor':'middle'},String(event.age));
+      node('text',{x:labelPosition.x,y:labelPosition.y,fill:'#182e32','font-size':16,'text-anchor':'middle'},String(event.age));
     });
     put('chart-title', title);
     put('chart-caption', 'Fixed growth in today’s pounds. Earlier gaps remain unpaid.');
@@ -167,7 +167,7 @@ if (root) {
     const savingsTotal = p.primary.savings + p.partner.savings;
     const openingTotal = pensionTotal + savingsTotal;
     put('current-total',money(openingTotal));put('current-pension',money(pensionTotal));put('current-savings',money(savingsTotal));
-    const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#476fbe 0% ${percent}%, #b8c9e8 ${percent}% 100%)`;donut.setAttribute('aria-label',`Opening financial assets ${money(openingTotal)}: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
+    const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#14665f 0% ${percent}%, #b5cfc2 ${percent}% 100%)`;donut.setAttribute('aria-label',`Opening financial assets ${money(openingTotal)}: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
     put('current-caption','Pensions and savings only; other values aren’t entered.');
     const inputDetails = `${inputsText()} Opening pension pots: Alex ${money(p.primary.pensionPot)}, Jemma ${money(p.partner.pensionPot)}. Opening accessible savings: Alex ${money(p.primary.savings)}, Jemma ${money(p.partner.savings)}. Annual employment income while working: Alex ${money(p.primary.employmentAnnualNet)}, Jemma ${money(p.partner.employmentAnnualNet)}. Monthly pension contributions while working: Alex ${money(p.primary.monthlyContributions)}, Jemma ${money(p.partner.monthlyContributions)}.`;
     put('input-summary',inputDetails);
