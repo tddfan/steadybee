@@ -5,6 +5,7 @@
 import { createDraft, field, normaliseOverrides } from "./state.mjs";
 
 export const FIXTURE_VERSION = "2026-10-10.1";
+const MODEL_VERSION = "2026-10-11.1";
 const SOURCE_DATE = "2026-10-10";
 const round = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -238,6 +239,9 @@ const changeLabels = {
   monthlyContributions: "Primary monthly pension contributions",
   partTimeAnnual: "Annual part-time income (net-assumed)",
   partTimeEndAge: "Primary age when part-time income ends",
+  extraRealSpendingRate: "Annual extra spending growth above baseline inflation",
+  pensionLossPercent: "One-off pension-pot loss (%)",
+  pensionLossAge: "Primary age at pension-pot loss",
   majorCost: "One-off major cost",
   majorCostAge: "Primary age at the major cost",
   horizonAge: "Illustrated horizon (primary age)",
@@ -270,6 +274,8 @@ function baselineValue(profile, key) {
     )?.startAge ?? profile.primary.age;
   if (["mortgageMonthly", "mortgagePayoffAmount", "homeSaleAmount", "replacementHomeCost", "mortgageSettlement", "movingCosts"].includes(key)) return profile[key] ?? 0;
   if (["mortgageEndAge", "mortgagePayoffAge", "downsizeAge"].includes(key)) return profile[key] ?? profile.horizonAge;
+  if (["extraRealSpendingRate", "pensionLossPercent"].includes(key)) return profile[key] ?? 0;
+  if (key === "pensionLossAge") return profile[key] ?? profile.primary.age;
   return profile[key];
 }
 
@@ -284,6 +290,7 @@ export function evaluateExample(exampleId, overrides = {}) {
     "mortgagePayoffAge", "homeSaleAmount", "replacementHomeCost",
     "mortgageSettlement", "movingCosts", "downsizeAge",
     "statePensionAnnual", "statePensionAge",
+    "extraRealSpendingRate", "pensionLossPercent", "pensionLossAge",
   ])
     p[key] = clean[key] ?? baselineValue(original, key);
   const primaryState = p.incomeStreams.find(
@@ -349,6 +356,7 @@ export function evaluateExample(exampleId, overrides = {}) {
     if (age < p.primary.age || age > p.horizonAge)
       throw new Error(`${label} must be within this example’s current age and horizon.`);
   };
+  if (p.pensionLossPercent > 0) requireEventAge(p.pensionLossAge, "Market loss age");
   if (p.mortgageMonthly > p.monthlySpending)
     throw new Error("The mortgage payment is part of monthly spending and cannot exceed it.");
   if (p.mortgageMonthly > 0) requireEventAge(p.mortgageEndAge, "Mortgage end age");
@@ -439,6 +447,8 @@ export function evaluateExample(exampleId, overrides = {}) {
   if (p.mortgagePayoffAmount > 0) event("mortgage-payoff", `Cash mortgage payoff of £${p.mortgagePayoffAmount.toLocaleString("en-GB")}`, "primary", p.mortgagePayoffAge);
   if (hasHomeEvent) event("home-move", `Home move releases £${netHomeCash.toLocaleString("en-GB")} after replacement home, settlement and supplied costs`, "primary", p.downsizeAge);
 
+  if (p.pensionLossPercent > 0) event("market-loss", `One-off ${p.pensionLossPercent}% pension-pot loss`, "primary", p.pensionLossAge);
+
   for (let offset = 0; offset <= p.horizonAge - p.primary.age; offset++) {
     const primaryAge = p.primary.age + offset,
       partnerAge = p.partner ? p.partner.age + offset : null;
@@ -455,6 +465,7 @@ export function evaluateExample(exampleId, overrides = {}) {
     if (mortgagePayoff > accessible)
       throw new Error(`The cash mortgage payoff at age ${primaryAge} exceeds accessible savings before that year’s income and spending. No borrowing or pension-funded payoff is modelled.`);
     accessible -= mortgagePayoff;
+    let pensionMarketLoss = 0;
     let pensionGrowth = 0,
       contributions = 0;
     const incomeBreakdown = {
@@ -466,6 +477,8 @@ export function evaluateExample(exampleId, overrides = {}) {
     };
     for (const person of people) {
       const age = person.age + offset;
+      const loss = primaryAge === p.pensionLossAge ? pots[person.owner] * p.pensionLossPercent / 100 : 0;
+      pots[person.owner] -= loss; pensionMarketLoss += loss;
       const growth = pots[person.owner] * p.realPensionReturn;
       pots[person.owner] += growth;
       pensionGrowth += growth;
@@ -491,7 +504,7 @@ export function evaluateExample(exampleId, overrides = {}) {
       0,
     );
     const mortgagePayment = primaryAge < mortgageStopAge ? p.mortgageMonthly * 12 : 0;
-    const spending = (p.monthlySpending - p.mortgageMonthly) * 12 + mortgagePayment,
+    const spending = (p.monthlySpending - p.mortgageMonthly) * 12 * (1 + p.extraRealSpendingRate) ** offset + mortgagePayment,
       majorCost = primaryAge === p.majorCostAge ? p.majorCost : 0;
     let need = Math.max(0, spending + majorCost - income);
     if (income > spending + majorCost)
@@ -525,6 +538,7 @@ export function evaluateExample(exampleId, overrides = {}) {
       openingPension: round(openingPension),
       accessibleGrowth: round(accessibleGrowth),
       pensionGrowth: round(pensionGrowth),
+      ...(p.pensionLossPercent > 0 ? { pensionMarketLoss: round(pensionMarketLoss) } : {}),
       contributions: round(contributions),
       income: round(income),
       incomeBreakdown,
@@ -609,11 +623,13 @@ export function evaluateExample(exampleId, overrides = {}) {
     "Promised DB and fictional State Pension income start at the supplied ages shown. State Pension is already included in annual income once from its start age, not added to pension assets. These spendable amounts are assumptions, not full UK entitlements. Changing retirement dates does not alter DB income or infer scheme terms. Pension access ages are supplied fictional facts, not current eligibility rules.",
     "Mortgage payments are a specified portion of existing monthly spending, not additional spending. Payments stop once at the beginning of the supplied end, cash payoff or mortgage-settling home-move age, whichever comes first. No loan interest or amortisation is calculated; payoff and settlement amounts must be supplied quotes.",
     "Home equity is not an opening financial asset. A home move adds only sale proceeds less replacement home cost, mortgage settlement and supplied transaction/moving costs. No new borrowing, tax or Stamp Duty calculation is included. Cash payoff uses accessible savings after growth and any home proceeds, before income/spending; insufficient cash rejects the scenario.",
-    "Monthly spending includes housing and debt payments in these examples. A scenario’s major cost is additional, one time only, at the primary person’s selected age. Spending and income stay constant in real pounds.",
+    "Monthly spending includes housing and debt payments in these examples. A scenario’s major cost is additional, one time only, at the primary person’s selected age. Income stays constant in real pounds. Non-mortgage spending stays constant unless extra real spending growth is selected; mortgage payments remain fixed in real pounds.",
     `The horizon is the end of primary age ${p.horizonAge}. This does not infer lifespan. Income ending at a stated age stops at the beginning of that year.`,
     "Uncovered spending is reported as an annual gap and accumulated unpaid amount. Assets never become negative. No borrowing, deficit interest or automatic spending reduction is assumed.",
-    "No tax, survivor/death benefits, changing investment returns, scheme-specific DB reductions or regulated recommendations are modelled. A covered fictional path is not proof of retirement affordability.",
+    "No tax, survivor/death benefits, stochastic market paths, scheme-specific DB reductions or regulated recommendations are modelled. A covered fictional path is not proof of retirement affordability.",
   ];
+  if (p.extraRealSpendingRate > 0) assumptions.push(`Price stress: non-mortgage spending rises ${p.extraRealSpendingRate * 100}% a year above baseline inflation from the second year; income and mortgage payments remain fixed in today’s pounds. This is an excess-cost stress, not a full inflation/indexation forecast.`);
+  if (p.pensionLossPercent > 0) assumptions.push(`Market stress: both invested pension pots lose ${p.pensionLossPercent}% of their opening value once at primary age ${p.pensionLossAge}, before that year’s growth, contributions and withdrawals. Savings and DB/State Pension income are unchanged; fixed real growth resumes on the reduced pots. No recovery is promised.`);
   return {
     rows,
     summary,
@@ -627,6 +643,7 @@ export function evaluateExample(exampleId, overrides = {}) {
       mode: "fictional-example",
       fixtureId: exampleId,
       fixtureVersion: FIXTURE_VERSION,
+      modelVersion: MODEL_VERSION,
       sourceDate: SOURCE_DATE,
       overrides: clean,
     },

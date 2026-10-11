@@ -63,3 +63,19 @@ Validation: 49/49 Node tests pass, module syntax and static build pass. A focuse
 - [x] Explain the draft CTA without claiming personal forecasts or unimplemented uploads, analysis or privacy features.
 
 Validation: 49/49 Node tests, module syntax, static build and diff whitespace checks pass. Chromium checks passed for all three slides at 1200px, 560px and 325px with no horizontal overflow or JavaScript errors. All four shortcuts, Reset and the spending view work. A combined immediate-retirement/high-spending case exposes the first unpaid year and amount; expanded assumptions fit the 325px layout. Desktop and phone screenshots inspected/captured locally. Calculation logic and fixtures unchanged.
+
+## Interactive planning revision — 11 October
+
+Approved direction: remove the redundant Outlook stage; retain Today and Plan with the baseline and scenario on one graph. Make all eight previously planned names interactive, using explicit editable fictional assumptions. Keep the warm app theme with teal, blue, amber and plum scenario groups; use colour alongside icons and labels.
+
+Implementation: reuse housing/one-off-cost ledger rules; add tested excess real spending growth and a single pension-pot market loss. Save more is funded by reduced spending, never invented contributions. Legacy is an end-horizon target, never a claim about inheritance or mortality. Housing comparisons must use the same declared mortgage within spending on both sides. Show amounts/dates before editable application, funding gaps and model limits. Verify calculations, all scenarios and keyboard/mobile layouts, then push the preview branch only.
+
+Completed revision:
+- [x] Today / Plan / Tracking replace the redundant Outlook and slide-arrow navigation.
+- [x] All twelve named scenarios have icon buttons and editable amount/date controls. Save more reduces spending; school fees and family help are explicit one-off budgets. Housing assumptions are declared and the mortgage baseline retains matching payments.
+- [x] Higher inflation applies tested excess real spending growth; Market falls applies a tested one-off loss to opening pension pots. Savings, DB and State Pension streams are not subject to the market loss. Original fixture amounts and baseline numeric results remain unchanged; the calculation model has its own version.
+- [x] Leave a legacy compares the end-horizon assets against an editable target line without reserving assets, inferring lifespan or hiding unpaid spending.
+- [x] The third view previews investment growth/risk, spending and progress tracking, with a visit-only yearly review checklist for pensions/ISAs, realised gains/allowances, household costs and mortgage/cash access. Personal suggestions, allowance reminders, live tracking and tax calculations remain explicitly planned; working comparison links open Plan.
+- [x] Teal, blue, honey, plum and muted terracotta distinguish scenario families alongside icons and labels.
+
+Validation: 55/55 Node tests pass, including real-spending compounding, one-off pension losses, funded saving, cost timing, matched mortgage baselines, net home proceeds, legacy targets and annual reconciliation for every scenario. Syntax checks, static build and whitespace checks pass. Chromium verified all twelve shortcuts and editable scenario forms at 1200px, 560px and 325px without horizontal overflow or page errors. Stress editing, funding view, expanded assumptions, invalid payoff rejection, Reset, keyboard slider edits, form/slider synchronisation, legacy shortfall and Tracking comparison links passed. Desktop Plan and mobile Tracking screenshots visually inspected. Compliance review: fictional, user-initiated comparisons; no product or allocation recommendations, DB transfers, promised outcomes, invented live observations or unsupported tax/privacy claims.
