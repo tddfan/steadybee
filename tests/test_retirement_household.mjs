@@ -69,3 +69,30 @@ test('a dated cost cannot silently disappear outside the forecast or between ann
   assert.throws(()=>simulateHousehold(input),/outside/);input.expenses.at(-1).startAge=60.5;input.expenses.at(-1).endAge=60.5;
   assert.throws(()=>simulateHousehold(input),/whole ages/);input.expenses.pop();input.people[0].horizonAge=90.5;assert.throws(()=>simulateHousehold(input),/whole ages/);
 });
+
+test('dated spending replaces the budget without duplicating it; ongoing has no artificial end',()=>{
+ const input=householdExample();input.debts=[];input.inflation=0;
+ input.expenses=[{id:'budget',label:'Budget',type:'regular',owner:'primary',amount:100,frequency:'month',startAge:57,endAge:58,ongoing:true,growth:0,changes:[{age:60,amount:50}]}];
+ const model=simulateHousehold(input);
+ assert.equal(model.rows.find(r=>r.primaryAge===59).spending,1200);
+ assert.equal(model.rows.find(r=>r.primaryAge===60).spending,600);
+ assert.equal(model.final.spending,600);
+ input.expenses[0].changes[0].age=60.5;assert.throws(()=>simulateHousehold(input),/whole/);
+});
+test('debt payoff dates reflect funded payments and do not forgive unpaid balances',()=>{
+ const input=householdExample();const model=simulateHousehold(input);
+ const paid=model.rows.find(r=>r.debtBalances['car-loan']<0.01);
+ assert.ok(paid);assert.ok(model.events.some(e=>e.label==='Car finance ends'&&e.age===paid.primaryAge));
+ input.assets.forEach(a=>a.balance=0);input.incomes=[];
+ const unfunded=simulateHousehold(input);
+ assert.ok(unfunded.final.debtBalances['car-loan']>8000);
+ assert.ok(!unfunded.events.some(e=>e.label==='Car finance ends'));
+});
+test('changed budgets keep inflation growth and dated ends',()=>{
+ const input=householdExample();input.debts=[];input.expenses=[{id:'budget',label:'Budget',type:'regular',owner:'primary',amount:100,frequency:'year',startAge:57,endAge:62,growth:1,changes:[{age:60,amount:50}]}];
+ const model=simulateHousehold(input);
+ assert.ok(Math.abs(model.rows[2].spending-100*1.03**2)<1e-8);
+ assert.ok(Math.abs(model.rows[3].spending-50*1.03**3)<1e-8);
+ assert.equal(model.rows[5].spending,0);
+ assert.ok(model.events.some(e=>e.age===60&&e.label==='Budget changes'));
+});

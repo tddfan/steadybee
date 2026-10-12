@@ -585,3 +585,14 @@ select { font-size: 16px; border: 1px solid #d7dfda; border-radius: 8px; padding
 body[data-workspace-screen="flows"] .hero, body[data-workspace-screen="plan"] .hero,
 body[data-workspace-screen="flows"] .start-section, body[data-workspace-screen="plan"] .start-section { display:none; }
 body[data-workspace-screen="flows"] .experience, body[data-workspace-screen="plan"] .experience { padding-top:100px; }
+/* One timing pattern across debts, budgets and plan milestones. */
+.debt-row {grid-template-columns:minmax(120px,1fr) 150px minmax(160px,1fr) 130px 44px}
+.budget-changes,.budget-step {grid-column:1/-1}.budget-step {padding:16px 0;border-top:1px solid #d7dfda;display:grid;gap:12px}
+.quick-fields [hidden] {display:none}
+.baseline-chips {margin:12px 0 20px}.baseline-chips #plan-people {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.baseline-chips .person-chip {border-radius:12px;text-align:left;padding:12px;font-size:16px}
+.plan-result {align-items:flex-start;text-align:left;margin:16px 0 24px;padding:16px 0;border-block:1px solid #d7dfda;gap:6px}
+.plan-result strong {font-size:24px}.plan-result span {font-size:16px}
+.graph-events {font-size:16px;margin:8px 0}.graph-events summary {cursor:pointer;min-height:44px;display:flex;align-items:center}
+#wealth-events {display:flex;flex-wrap:wrap;gap:6px}.event-chip {background:transparent;border:1px solid #d7dfda;border-radius:8px;padding:8px;min-height:44px;font-size:16px;color:#536568}
+@media(max-width:600px){.debt-row {grid-template-columns:minmax(0,1fr) 125px 44px}.debt-row .debt-meta {grid-column:1/3}.debt-row .timing-chip {grid-column:1/3;justify-self:start}.debt-row .more-button {grid-column:3;grid-row:1}.baseline-chips #plan-people {grid-template-columns:1fr 1fr}.baseline-chips .person-chip:last-child {grid-column:1/-1}.household-intro {margin-bottom:12px}.plan-result strong {font-size:22px}}

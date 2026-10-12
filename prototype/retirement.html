@@ -66,11 +66,11 @@
           <div class="screen-next"><button type="button" class="button primary" id="run-plan">See the plan →</button></div>
         </section>
         <section id="screen-plan" class="household-screen" hidden aria-label="Your household simulation">
-          <div class="household-intro"><h2>See the years ahead.</h2><span class="small">Baseline, your choices, and a declared stress path.</span></div>
-          <div class="baseline-chips"><span class="small">Baseline dates</span><div id="plan-people"></div></div>
+          <div class="household-intro"><h2>Your plan.</h2></div>
+          <div class="baseline-chips"><span class="small">Assumptions</span><div id="plan-people"></div></div>
           <div class="plan-result" id="plan-result" role="status"></div>
           <div class="two-charts">
-            <section class="graph-panel"><div class="section-heading"><h3>Household wealth</h3><span class="small">Future £</span></div><svg id="wealth-chart" role="img" aria-label="Household wealth over the planning horizon"></svg><div class="chart-legend small"><span><i class="legend-swatch original"></i>Baseline</span><span><i class="legend-swatch"></i>Your choices</span><span><i class="legend-swatch stress-line"></i>Stress path</span></div></section>
+            <section class="graph-panel"><div class="section-heading"><h3>Household wealth</h3><span class="small">Future £</span></div><svg id="wealth-chart" role="img" aria-label="Household wealth over the planning horizon"></svg><details class="graph-events"><summary>Milestones</summary><div id="wealth-events"></div></details><div class="chart-legend small"><span><i class="legend-swatch original"></i>Baseline</span><span><i class="legend-swatch"></i>Your choices</span><span><i class="legend-swatch stress-line"></i>Stress path</span></div></section>
             <section class="graph-panel"><div class="section-heading"><h3>Income &amp; funding</h3><span class="small">£ / year</span></div><svg id="income-chart" role="img" aria-label="Income sources and asset withdrawals against spending"></svg><div id="income-legend" class="chart-legend small"></div></section>
           </div>
           <div class="plan-year"><label for="inspect-year">Inspect a year</label><select id="inspect-year"></select><span id="year-income"></span><span id="year-withdrawals"></span></div>

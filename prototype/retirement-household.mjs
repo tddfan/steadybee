@@ -26,13 +26,13 @@ export function householdExample() {
     incomes:[
       {id:'salary-a',label:'Alex’s salary',type:'salary',owner:'primary',amount:42000,frequency:'year',startAge:57,endAge:100,growth:2},
       {id:'salary-j',label:'Jemma’s salary',type:'salary',owner:'partner',amount:24000,frequency:'year',startAge:55,endAge:100,growth:2},
-      {id:'state-a',label:'Alex’s State Pension',type:'state',owner:'primary',amount:10000,frequency:'year',startAge:67,endAge:101,growth:2},
-      {id:'state-j',label:'Jemma’s State Pension',type:'state',owner:'partner',amount:10000,frequency:'year',startAge:67,endAge:101,growth:2},
-      {id:'db-a',label:'Alex’s DB pension',type:'pension',owner:'primary',amount:12000,frequency:'year',startAge:62,endAge:101,growth:2},
-      {id:'db-j',label:'Jemma’s DB pension',type:'pension',owner:'partner',amount:6000,frequency:'year',startAge:65,endAge:101,growth:2},
+      {id:'state-a',label:'Alex’s State Pension',type:'state',owner:'primary',amount:10000,frequency:'year',startAge:67,endAge:101,ongoing:true,growth:2},
+      {id:'state-j',label:'Jemma’s State Pension',type:'state',owner:'partner',amount:10000,frequency:'year',startAge:67,endAge:101,ongoing:true,growth:2},
+      {id:'db-a',label:'Alex’s DB pension',type:'pension',owner:'primary',amount:12000,frequency:'year',startAge:62,endAge:101,ongoing:true,growth:2},
+      {id:'db-j',label:'Jemma’s DB pension',type:'pension',owner:'partner',amount:6000,frequency:'year',startAge:65,endAge:101,ongoing:true,growth:2},
     ],
     expenses:[
-      {id:'living',label:'Everyday spending',type:'regular',owner:'primary',amount:2800,frequency:'month',startAge:57,endAge:101,growth:0},
+      {id:'living',label:'Everyday spending',type:'regular',owner:'primary',amount:2800,frequency:'month',startAge:57,endAge:101,ongoing:true,growth:0},
       {id:'lease',label:'Second car lease',type:'lease',owner:'primary',amount:400,frequency:'month',startAge:57,endAge:65,growth:0},
       {id:'save-a',label:'Alex’s pension saving',type:'saving',owner:'primary',amount:700,frequency:'month',startAge:57,endAge:67,growth:0},
       {id:'save-j',label:'Jemma’s pension saving',type:'saving',owner:'partner',amount:350,frequency:'month',startAge:55,endAge:67,growth:0},
@@ -51,6 +51,7 @@ function validate(input) {
   for(const a of input.assets){numeric(a.balance,a.label+' balance');numeric(a.rate,a.label+' growth',-50,30);numeric(a.accessAge,a.label+' access age',0,100);}
   for(const d of input.debts){numeric(d.balance,d.label+' balance');numeric(d.rate,d.label+' interest',0,50);numeric(d.payment,d.label+' monthly payment');}
   for(const r of [...input.incomes,...input.expenses]){numeric(r.amount,r.label+' amount');numeric(r.startAge,r.label+' start',18,105);numeric(r.endAge,r.label+' end',r.startAge,110);numeric(r.growth,r.label+' growth',-20,20);if(!Number.isInteger(r.startAge)||!Number.isInteger(r.endAge))throw Error(`Use whole ages for ${r.label}.`);if(r.frequency!=='once'&&r.endAge===r.startAge)throw Error(`End ${r.label} after its start age.`);}
+  for(const r of input.expenses)for(const c of r.changes??[]){numeric(c.age,r.label+' change age',r.startAge,105);numeric(c.amount,r.label+' changed amount');if(!Number.isInteger(c.age))throw Error('Use whole ages for spending changes.');}
   const ranges={earlyPrimary:[18,100],earlyPartner:[18,100],jobAge:[18,100],jobYears:[1,20],partTimeAnnual:[0,100000],downsizeAge:[18,100],replacementPercent:[0,100],movingCosts:[0,1000000],payoffAge:[18,100],leaseMonthly:[0,10000],spendPercent:[0,100],pensionMonthly:[0,10000],withdrawAge:[18,100],withdrawAmount:[0,1e7],growthExtra:[0,10],fixedPercent:[0,100],fixedAge:[18,100],legacyTarget:[0,1e8],marketAge:[18,100],marketPercent:[0,100]};
   for(const [key,[min,max]] of Object.entries(ranges))numeric(input.settings[key],key,min,max);
   for(const key of ['earlyPrimary','earlyPartner','jobAge','jobYears','downsizeAge','payoffAge','withdrawAge','fixedAge','marketAge'])if(!Number.isInteger(input.settings[key]))throw Error(`Use a whole age/year for ${key}.`);
@@ -62,7 +63,8 @@ export function simulateHousehold(input, actions={}, stress=false) {
   if(actions.early&&(s.earlyPrimary<input.people[0].age||s.earlyPartner<input.people[1].age))throw Error('Work-end ages must not precede the current ages.');
   if(actions.job&&s.jobAge<input.people[0].age)throw Error('Income interruption must not precede the current age.');
   for(const r of input.expenses.filter(r=>r.frequency==='once'&&r.amount>0)){const offset=r.startAge-personFor(input,r.owner).age;if(offset<0||offset>horizon)throw Error(`${r.label} is outside the current planning horizon.`);}
-  const rows=[],events=[];
+  const rows=[],events=[{age:input.people[0].age+horizon,label:'Planning horizon'}];
+  for(const r of input.expenses)for(const c of r.changes??[])events.push({age:input.people[0].age+c.age-personFor(input,r.owner).age,label:r.label+' changes'});
   for(const stream of input.incomes.filter(r=>r.type==='pension')){const owner=personFor(input,stream.owner);events.push({age:input.people[0].age+stream.startAge-owner.age,label:`${owner.name} DB / pension`});}let cumulativeGap=0;
   const workEnd=p=>actions.early? (p.id==='primary'?s.earlyPrimary:s.earlyPartner):p.retireAge;
   for(const p of input.people){events.push({age:input.people[0].age+workEnd(p)-p.age,label:`${p.name} stops work`});events.push({age:input.people[0].age+p.stateAge-p.age,label:`${p.name} State Pension`});}
@@ -101,7 +103,7 @@ export function simulateHousehold(input, actions={}, stress=false) {
     let income=0,requestedRelease=0,parttimeRemaining=s.partTimeAnnual;
     for(const r of input.incomes) {
       const person=personFor(input,r.owner),ownAge=person.age+offset,start=r.type==='state'?person.stateAge:r.startAge;
-      if(ownAge<start||ownAge>=r.endAge)continue;
+      if(ownAge<start||(!r.ongoing&&ownAge>=r.endAge))continue;
       let amount=annual(r)*(1+r.growth/100)**offset;
       if(r.type==='salary') {
         if(ownAge>=workEnd(person))continue;
@@ -116,9 +118,10 @@ export function simulateHousehold(input, actions={}, stress=false) {
     let spending=0,oneOff=0,savingGoal=0;const savingGoals={primary:0,partner:0};
     for(const r of input.expenses) {
       const person=personFor(input,r.owner),ownAge=person.age+offset;
-      if(r.frequency==='once'?ownAge!==r.startAge:ownAge<r.startAge||ownAge>=r.endAge)continue;
+      if(r.frequency==='once'?ownAge!==r.startAge:ownAge<r.startAge||(!r.ongoing&&ownAge>=r.endAge))continue;
       const priceGrowth=['regular','oneoff'].includes(r.type)?input.inflation:0;
-      let amount=annual(r)*(1+(r.growth+priceGrowth+(stress&&r.type!=='saving'?2:0)+(actions.inflation&&r.type!=='saving'?2:0))/100)**offset;
+      const change=(r.changes??[]).filter(c=>c.age<=ownAge).sort((a,b)=>b.age-a.age)[0];
+      let amount=(change?change.amount*(r.frequency==='month'?12:1):annual(r))*(1+(r.growth+priceGrowth+(stress&&r.type!=='saving'?2:0)+(actions.inflation&&r.type!=='saving'?2:0))/100)**offset;
       if(r.type==='saving'){if(ownAge<workEnd(person)){savingGoal+=amount;savingGoals[person.id]+=amount;}continue;}
       if(actions.lease&&r.type==='lease')amount=Math.min(amount,s.leaseMonthly*12);
       if(actions.spend&&r.type==='regular')amount*=1-s.spendPercent/100;
@@ -131,7 +134,7 @@ export function simulateHousehold(input, actions={}, stress=false) {
     const available=income+funded;
     // Debt payments are funded first. Unpaid interest stays in the debt balance.
     let paymentBudget=Math.min(available,scheduled),debtPaid=0;
-    for(const d of debts){const pay=Math.min(d.balance,d.payment*12,paymentBudget);d.balance-=pay;paymentBudget-=pay;debtPaid+=pay;}
+    for(const d of debts){const wasPositive=d.balance>0.01;const pay=Math.min(d.balance,d.payment*12,paymentBudget);d.balance-=pay;paymentBudget-=pay;debtPaid+=pay;if(wasPositive&&d.balance<0.01)events.push({age,label:d.label+' ends'});}
     const fundedSpending=Math.min(spending,Math.max(0,available-debtPaid));
     const gap=Math.max(0,need-debtPaid-fundedSpending);cumulativeGap+=gap;
     const surplus=Math.max(0,income-need),pensionSaving=Math.min(surplus,savingGoal);
@@ -140,7 +143,7 @@ export function simulateHousehold(input, actions={}, stress=false) {
     cash.balance+=surplus-pensionSaving;
     sources.assetRelease=Math.min(released,funded);sources.withdrawals=funded-sources.assetRelease;
     const closingAssets=sum(assets.map(a=>a.balance)),closingDebt=sum(debts.map(d=>d.balance));
-    rows.push({year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>liquid(a)||(a.type==='pension'&&personFor(input,a.owner).age+offset>=a.accessAge)).map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash,withdrawals:funded+payoff,transfer});
+    rows.push({debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>liquid(a)||(a.type==='pension'&&personFor(input,a.owner).age+offset>=a.accessAge)).map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash,withdrawals:funded+payoff,transfer});
   }
   return {rows,events,firstGap:rows.find(r=>r.gap>0.01)??null,final:rows.at(-1),opening:openingPicture(input)};
 }
