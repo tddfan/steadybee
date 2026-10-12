@@ -36,7 +36,7 @@
   </defs></svg>
   <header class="site-header wrap">
     <a class="wordmark" href="retirement.html"><img src="favicon.svg" alt="" width="28" height="28" />steadybee<span aria-hidden="true">.</span></a>
-    <span class="preview-label">Fictional household preview</span>
+    <span class="preview-label">Fictional example</span>
   </header>
   <main id="main"><div class="hero-sky">
     <section class="hero wrap"><h1>All your money.<br />One retirement plan.</h1><p>Understand today. Explore what comes next.</p></section>
@@ -67,44 +67,45 @@
 
           <div class="plan-workbench">
             <div id="plan-visuals" class="plan-visuals">
+              <div class="chart-toolbar">
               <div class="chart-tabs" role="tablist" aria-label="Plan charts">
                 <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="true">Assets</button>
                 <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="false" tabindex="-1">Income</button>
                 <button type="button" role="tab" id="chart-tab-spending" aria-controls="chart-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
               </div>
+                <div class="plan-year"><label for="inspect-year">Year</label><select id="inspect-year" aria-label="Explore a year"></select></div>
+              </div>
               <div class="timeline-inspector">
-                <div class="plan-year"><label for="inspect-year">Year</label><select id="inspect-year" aria-label="Explore a year"></select><span id="inspect-year-caption"></span></div>
                 <label class="year-slider"><span class="sr-only">Year for all plan views</span><input type="range" id="inspect-year-range" aria-label="Year for all plan views" min="2026" max="2074" step="1" value="2026" /></label>
+                <span id="inspect-year-caption"></span>
               </div>
               <div class="two-charts plan-charts">
                 <section class="graph-panel" id="chart-panel-estate" role="tabpanel" aria-labelledby="chart-tab-estate">
-                  <div class="chart-headline"><div><h3 id="estate-year-title">Net wealth</h3><strong id="estate-year-value">—</strong></div><label class="chart-mode"><span class="sr-only">Estate view</span><select id="estate-view" aria-label="Estate view"><option value="composition">By account</option><option value="total">Compare plans</option></select></label></div>
+                  <div class="chart-headline"><div><h3 id="estate-year-title">Net wealth</h3><strong id="estate-year-value">—</strong></div></div>
                   <p id="estate-year-context" class="chart-reading"></p>
-                  <p class="chart-caption">Across the plan · future pounds</p>
                   <svg id="wealth-chart" role="group" aria-label="Household estate and accounts over the planning horizon"></svg>
-                  <details class="chart-details"><summary>Chart key &amp; milestones</summary><div id="estate-legend" class="chart-legend"></div><p>Coloured areas show assets. Debt is below zero; the line shows wealth after debt.</p><div id="wealth-events"></div></details>
+                  <details class="chart-details"><summary>Chart key &amp; milestones</summary><label class="chart-mode">Chart view <select id="estate-view" aria-label="Estate view"><option value="composition">By account</option><option value="total">Compare plans</option></select></label><div id="estate-legend" class="chart-legend"></div><p>Coloured areas show year-end assets. Debt is below zero; the line shows wealth after debt.</p><div id="wealth-events"></div></details>
                   <p id="selected-milestone" class="small selected-milestone" role="status"></p>
                 </section>
                 <section class="graph-panel" id="chart-panel-income" role="tabpanel" aria-labelledby="chart-tab-income" hidden>
-                  <div class="chart-headline"><div><h3 id="income-year-title">Income</h3><strong id="income-year-value">—</strong></div><span class="chart-unit">per year</span></div>
+                  <div class="chart-headline"><div><h3 id="income-year-title">Income</h3><strong id="income-year-value">—</strong></div><span class="chart-unit">/ year</span></div>
                   <p id="income-year-context" class="chart-reading"></p>
-                  <p id="income-chart-caption" class="chart-caption">Bars show income and withdrawals. The line shows spending.</p>
                   <svg id="income-chart" role="img" aria-label="Income and asset withdrawals against spending"></svg>
-                  <details class="chart-details"><summary>Sources &amp; chart key</summary><div id="income-legend" class="chart-legend"></div><p>Salary uses take-home pay. Where tax is excluded, the full receipt is shown. Withdrawals and investment releases come from existing assets.</p></details>
+                  <details class="chart-details"><summary>Chart key</summary><p id="income-chart-caption" class="chart-caption">Bars show income and withdrawals. The line shows spending.</p><div id="income-legend" class="chart-legend"></div><p>Salary uses take-home pay. Where tax is excluded, the full receipt is shown. Withdrawals and investment releases come from existing assets.</p></details>
                 </section>
                 <section class="graph-panel" id="chart-panel-spending" role="tabpanel" aria-labelledby="chart-tab-spending" hidden>
-                  <div class="chart-headline"><div><h3 id="spending-year-title">Spending</h3><strong id="spending-year-value">—</strong></div><span class="chart-unit">per year</span></div>
+                  <div class="chart-headline"><div><h3 id="spending-year-title">Spending</h3><strong id="spending-year-value">—</strong></div><span class="chart-unit">/ year</span></div>
                   <p id="spending-year-context" class="chart-reading"></p>
-                  <p class="chart-caption">Bars show spending categories. The line shows income.</p>
                   <svg id="spending-chart" role="img" aria-label="Annual spending by category against income"></svg>
-                  <details class="chart-details"><summary>Categories &amp; chart key</summary><div id="spending-legend" class="chart-legend"></div><p>Spending includes scheduled debt payments and any mortgage payoff. Pension saving is a transfer into your assets, so it is shown in the year details.</p></details>
+                  <details class="chart-details"><summary>Chart key</summary><p class="chart-caption">Bars show spending categories. The line shows income.</p><div id="spending-legend" class="chart-legend"></div><p>Spending includes scheduled debt payments and any mortgage payoff. Pension saving is a transfer into your assets, so it is shown in the year details.</p></details>
                 </section>
               </div>
-              <p class="chart-footnote">Fictional example · annual amounts in future pounds. Illustration, not advice. Current rules, subject to change.</p>
+              <p class="chart-footnote">Future pounds. Illustration, not advice. Current rules, subject to change.</p>
               <div class="analytical-drilldowns">
-                <details><summary>More figures for this year</summary><div id="year-summary" class="year-summary" aria-label="Selected year overview"></div></details>
+                <details class="year-details"><summary>Year details</summary><div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
                 <details class="pension-details"><summary>Pension contributions &amp; growth</summary><div id="pension-breakdown"></div></details>
                 <details class="model-notes"><summary>Full year workings</summary><div id="household-year-details"></div></details>
+                </details>
               </div>
             </div>
 
@@ -112,7 +113,7 @@
               <div class="section-heading"><h3>Adjust your plan</h3><button type="button" class="quiet-button" id="reset-actions">Reset changes</button></div>
               <p id="scenario-live" class="scenario-live" role="status"></p>
               <details class="scenario-management control-section">
-                <summary>Saved scenarios &amp; comparisons</summary>
+                <summary>Saved scenarios</summary>
                 <div class="plan-status-pills"><span id="scenario-state" class="scenario-state" role="status"></span><span id="scenario-feedback" class="scenario-feedback" role="status"></span></div>
                 <div class="scenario-toolbar">
                   <label for="scenario-preset">Scenario</label>
@@ -128,13 +129,12 @@
               <details class="control-section" open><summary>Work &amp; retirement</summary><div id="plan-retirement"></div></details>
               <details class="control-section"><summary>Income <span id="income-now" class="control-summary">—</span></summary><div class="section-heading"><p class="small">Starting year · monthly average</p><button type="button" class="quiet-button" id="add-income">+ Income</button></div><div id="income-rows" class="stream-list"></div></details>
               <details class="control-section"><summary>Spending <span id="spending-now" class="control-summary">—</span></summary><div class="section-heading"><p class="small">Starting year · includes debt payments</p><button type="button" class="quiet-button" id="add-expense">+ Spending</button></div><div id="expense-rows" class="stream-list"></div></details>
-              <details class="control-section"><summary>Try a change</summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div></details>
+              <details class="control-section"><summary>Try a change</summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details></details>
               <div id="action-editors"></div>
               <details class="control-section"><summary>Transfers &amp; surplus</summary><div class="cashflow-summary"><div><span>Starting income surplus · monthly average</span><strong id="surplus-now">—</strong></div></div><button id="add-money-move" type="button" class="quiet-button">+ Move money</button><div id="money-moves"></div><div id="surplus-policy"></div></details>
-              <details class="more-scenarios"><summary>+ Add another change</summary><div id="more-actions" class="scenario-shortcuts"></div></details>
               <div id="plan-pay" hidden></div><div id="plan-spending" hidden></div>
-              <details class="plan-tweak-group"><summary>Returns, inflation &amp; horizons</summary><div id="plan-assumptions"></div></details>
-              <details class="withdrawal-settings"><summary>Withdrawals: whose accounts &amp; how much</summary><div id="withdrawal-policy" class="quick-fields"></div></details>
+              <details class="plan-tweak-group"><summary>Rates &amp; planning ages</summary><div id="plan-assumptions"></div></details>
+              <details class="withdrawal-settings"><summary>Withdrawal settings</summary><div id="withdrawal-policy" class="quick-fields"></div></details>
               <button type="button" id="view-graphs" class="quiet-button">View updated graphs ↑</button>
             </aside>
           </div>
