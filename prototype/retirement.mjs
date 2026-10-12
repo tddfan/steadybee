@@ -1,4 +1,4 @@
-import { householdExample, simulateHousehold, openingPicture } from './retirement-household.mjs';
+import { householdExample, simulateHousehold, openingPicture, convertStreamFrequency, paymentForDebtEnd } from './retirement-household.mjs';
 const $=id=>document.getElementById(id);
 const money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
 const compact=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:1}).format(value);
@@ -22,10 +22,10 @@ const definitions={
 };
 function node(tag,attributes={},children=[]) {const element=document.createElement(tag);for(const [key,value] of Object.entries(attributes)){if(key==='text')element.textContent=value;else if(key==='class')element.className=value;else if(key==='checked')element.checked=value;else element.setAttribute(key,value);}for(const child of children)element.append(typeof child==='string'?document.createTextNode(child):child);return element;}
 function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href',`#icon-${name}`);svg.append(use);return svg;}
-function numberField(label,object,key,{min=0,max=1e8,step=100,range=false,change}={}) {
+function numberField(label,object,key,{min=0,max=1e8,step=100,range=false,change,formatOutput}={}) {
  const control=node('input',{type:range?'range':'number',min,max,step,value:object[key],'aria-label':label});
- const caption=node('span',{text:label});const output=range?node('output',{text:object[key]}):null;
- control.addEventListener('input',()=>{object[key]=control.value===''?NaN:Number(control.value);if(output)output.textContent=object[key];change?.();calculate();});
+ const caption=node('span',{text:label});const output=range?node('output',{text:formatOutput?formatOutput(object[key]):object[key]}):null;
+ control.addEventListener('input',()=>{object[key]=control.value===''?NaN:Number(control.value);if(output)output.textContent=formatOutput?formatOutput(object[key]):object[key];change?.();calculate();});
  return node('label',{class:range?'range-field':'number-field'},[caption,...(output?[output]:[]),control]);
 }
 function selectField(label,object,key,choices,onChange) {
@@ -86,43 +86,50 @@ function renderDebts() {
   const meta=node('button',{type:'button',class:'debt-meta','data-debt-meta':debt.id,text:`${debt.rate}% · ${money(debt.payment)}/mo`});
   const edit=()=>{
    const remove=node('button',{type:'button',class:'remove-row',text:'Remove debt'});remove.addEventListener('click',()=>{dialog.close();input.debts=input.debts.filter(d=>d!==debt);renderDebts();calculate();});
-   openEditor(debt.label,[numberField('Interest / year (%)',debt,'rate',{max:50,step:.5}),numberField('Payment / month (£)',debt,'payment',{step:50}),selectField('Debt type',debt,'type',[['mortgage','Mortgage'],['loan','Loan / credit']]),node('p',{class:'small',text:'Estimated end follows your balance, interest and funded payments. Edit the payment to change the date. Annual illustration; lender terms may differ.'})],[remove]);
+   const projected=baseline?.rows.find(r=>r.debtBalances[debt.id]<.01);
+   const target={year:projected?.year??input.year+9,mode:'payment'};
+   const payment=numberField('Payment / month (£)',debt,'payment',{step:.01});
+   const end=numberField('Target end year (payment adjusts)',target,'year',{min:input.year,max:input.year+80,step:1,change:()=>{if(target.mode==='end')syncPayment();}});end.hidden=true;
+   function syncPayment(){try{debt.payment=paymentForDebtEnd(debt.balance,debt.rate,target.year-input.year+1);payment.querySelector('input').value=debt.payment.toFixed(2);}catch{debt.payment=NaN;}}
+   const mode=selectField('Set by',target,'mode',[['payment','Monthly payment'],['end','End year']],()=>{end.hidden=target.mode!=='end';payment.querySelector('input').readOnly=target.mode==='end';if(target.mode==='end')syncPayment();});
+   openEditor(debt.label,[mode,numberField('Interest / year (%)',debt,'rate',{max:50,step:.5,change:()=>{if(target.mode==='end')syncPayment();}}),payment,end,selectField('Debt type',debt,'type',[['mortgage','Mortgage'],['loan','Loan / credit']]),node('p',{class:'small',text:'End year sets the payment needed in this annual illustration. Unfunded balances remain. Lender terms and balloon payments may differ.'})],[remove]);
   };
   meta.addEventListener('click',edit);
   const timing=node('button',{type:'button',class:'timing-chip','data-debt-timing':debt.id,text:'Estimated end'});timing.addEventListener('click',edit);
   const more=node('button',{type:'button',class:'more-button','aria-label':`More settings for ${debt.label}`,text:'⋯'});more.addEventListener('click',edit);
-  return node('div',{class:'debt-row'},[node('strong',{text:debt.label}),inlineAmount('Balance (£)',debt,'balance'),meta,timing,more]);
+  return node('div',{class:'debt-row'},[node('strong',{text:debt.label}),inlineAmount(`${debt.label} balance (£)`,debt,'balance'),meta,timing,more]);
  }));
 }
 function streamRow(row,list) {
  const title=node('input',{type:'text',class:'stream-title',value:row.label,'aria-label':`${list==='incomes'?'Income':'Expense'} name`,maxlength:70});title.addEventListener('input',()=>{row.label=title.value;});
- const amount=inlineAmount('Amount (£)',row,'amount',row.frequency==='month'?'/mo':row.frequency==='year'?'/yr':'once');
+ const amount=inlineAmount(`${row.label} amount (£ per ${row.frequency==='month'?'month':row.frequency==='year'?'year':'one-off'})`,row,'amount',row.frequency==='month'?'/mo':row.frequency==='year'?'/yr':'once');
  const startChange=()=>{if(row.type==='state'){const person=personForRow(row),previous=person.stateAge;person.stateAge=row.startAge;if(person.retireAge===previous)person.retireAge=person.stateAge;renderPeople();renderPlanPeople();}if(row.frequency==='once')row.endAge=row.startAge;};
  const timing=node('button',{type:'button',class:'timing-chip','data-timing':row.id,text:timingLabel(row),'aria-label':`Timing for ${row.label}`});
  timing.addEventListener('click',()=>{
-  const fields=[numberField('Starts at owner age',row,'startAge',{min:18,max:105,step:1,range:true,change:startChange})];
+  const person=personForRow(row);
+  const fields=[selectField('Age belongs to',row,'owner',owners(),()=>{if(row.type==='state')row.startAge=personForRow(row).stateAge;dialog.close();renderStreams();document.querySelector(`[data-timing="${row.id}"]`)?.click();}),numberField(`Starts at ${person.name}’s age`,row,'startAge',{min:18,max:105,step:1,range:true,formatOutput:age=>`${age} · ${input.year+age-person.age}`,change:startChange})];
   if(row.frequency!=='once'){
    const choice={duration:row.ongoing?'ongoing':'until'};
-   const end=numberField('Ends before owner age',row,'endAge',{min:18,max:110,step:1,range:true});end.hidden=Boolean(row.ongoing);
+   const end=numberField(`Ends at start of ${person.name}’s age`,row,'endAge',{min:18,max:110,step:1,range:true,formatOutput:age=>`${age} · ${input.year+age-person.age}`});end.hidden=Boolean(row.ongoing);
    fields.push(selectField('Duration',choice,'duration',[['ongoing','Ongoing'],['until','Until age…']],()=>{row.ongoing=choice.duration==='ongoing';end.hidden=row.ongoing;}),end);
    if(list==='expenses'&&row.type!=='saving'){
     const changes=node('div',{class:'budget-changes'});
     const render=()=>{changes.replaceChildren(...(row.changes??[]).map((change,index)=>{
      const remove=node('button',{type:'button',class:'quiet-button',text:'Remove change'});remove.addEventListener('click',()=>{row.changes.splice(index,1);render();calculate();});
-     return node('div',{class:'budget-step'},[numberField('Changes at owner age',change,'age',{min:row.startAge,max:105,step:1,range:true}),numberField('New budget (£, today’s prices)',change,'amount',{step:50}),remove]);
+     return node('div',{class:'budget-step'},[numberField(`Changes at ${person.name}’s age`,change,'age',{min:row.startAge,max:105,step:1,range:true,formatOutput:age=>`${age} · ${input.year+age-person.age}`}),numberField(`New budget (£/${row.frequency==='month'?'month':'year'}, today’s prices)`,change,'amount',{step:50}),remove]);
     }));};render();
     const add=node('button',{type:'button',class:'quiet-button',text:'+ Change later'});add.addEventListener('click',()=>{(row.changes??=[]).push({age:Math.min(105,Math.max(row.startAge,personForRow(row).retireAge)),amount:row.amount});render();calculate();});
     fields.push(changes,add);
    }
   }
-  if(row.type==='salary'||row.type==='saving')fields.push(node('p',{class:'small',text:'Work-end dates can end this stream sooner.'}));
+  fields.push(node('p',{class:'small',text:`${person.name} turns ${row.startAge} in ${input.year+row.startAge-person.age}. ${row.type==='salary'||row.type==='saving'?'This stream also ends when they stop work.':'End ages exclude that year.'}`}));
   openEditor(row.label+' · timing',fields);
  });
  const more=node('button',{type:'button',class:'more-button','data-edit-row':row.id,'aria-label':`More settings for ${row.label}`,text:'⋯'});
  more.addEventListener('click',()=>{
   let previousFrequency=row.frequency;
   const frequency=selectField('Frequency',row,'frequency',[['month','Monthly'],['year','Yearly'],...(list==='expenses'?[['once','One-off']]:[])],()=>{
-   if(previousFrequency!=='once'&&row.frequency!=='once')row.amount*=(previousFrequency==='month'?12:1)/(row.frequency==='month'?12:1);
+   const next=row.frequency;row.frequency=previousFrequency;convertStreamFrequency(row,next);
    previousFrequency=row.frequency;
    if(row.frequency==='once')row.endAge=row.startAge;else if(row.endAge<=row.startAge)row.endAge=row.startAge+1;
    renderStreams();
@@ -135,7 +142,7 @@ function streamRow(row,list) {
  const unit=amount.querySelector('.amount-unit');
  if(unit){unit.setAttribute('aria-label',`Change frequency for ${row.label}`);unit.title='Switch monthly / yearly';unit.addEventListener('click',()=>{
   if(row.frequency==='once'){more.click();return;}
-  const monthly=row.frequency==='year';row.amount*=monthly?1/12:12;row.frequency=monthly?'month':'year';renderStreams();calculate();document.querySelector(`[data-stream="${row.id}"] .amount-unit`)?.focus({preventScroll:true});
+  convertStreamFrequency(row,row.frequency==='year'?'month':'year');renderStreams();calculate();document.querySelector(`[data-stream="${row.id}"] .amount-unit`)?.focus({preventScroll:true});
  });}
 
  const rowIcon=row.type==='salary'?'work':['state','pension','saving'].includes(row.type)?'pension':['dividend','sale'].includes(row.type)?'investment':row.frequency==='once'?'family':'spending';
@@ -146,9 +153,9 @@ function timingLabel(row) {
  const person=personForRow(row),start=row.type==='state'?person.stateAge:row.startAge;
  const end=row.type==='salary'||row.type==='saving'?Math.min(row.ongoing?Infinity:row.endAge,person.retireAge):(row.ongoing?Infinity:row.endAge);
  if(row.frequency==='once')return start===person.age?'Once · now':`At ${start}`;
- if(row.changes?.length)return `Changes · ${Math.min(...row.changes.map(c=>c.age))}`;
- if(start>person.age)return `From ${start}`;
- return end===Infinity?'Ongoing':`Until ${end}`;
+ if(row.changes?.length)return `${person.name} · changes ${Math.min(...row.changes.map(c=>c.age))}`;
+ if(start>person.age)return `From ${person.name} ${start}`;
+ return (row.type==='salary'||row.type==='saving')&&end===person.retireAge?`Until ${person.name} stops work`:end===Infinity?'Ongoing':`Until ${person.name} ${end}`;
 }
 function renderStreams() {$('income-rows').replaceChildren(...input.incomes.map(r=>streamRow(r,'incomes')));$('expense-rows').replaceChildren(...input.expenses.map(r=>streamRow(r,'expenses')));}
 function renderPlanPeople() {
@@ -159,10 +166,11 @@ function renderPlanPeople() {
  $('inflation-chip').addEventListener('click',()=>openEditor('Inflation assumption',[numberField('Inflation assumption (%)',input,'inflation',{max:15,step:.5}),node('p',{class:'small',text:'An editable illustration, not a live market forecast.'})]));
 }
 function renderActions() {
- $('household-actions').replaceChildren(...Object.entries(definitions).map(([key,definition])=>{
+ $('household-actions').replaceChildren();$('more-actions').replaceChildren();
+ Object.entries(definitions).forEach(([key,definition])=>{
   const button=node('button',{type:'button','data-action':key,'data-group':definition.group,'aria-pressed':String(Boolean(actions[key]))},[icon(definition.icon),definition.title]);
-  button.addEventListener('click',()=>{actions[key]=!actions[key];renderActions();calculate();});return button;
- }));
+  button.addEventListener('click',()=>{actions[key]=!actions[key];renderActions();calculate();document.querySelector(`[data-action="${key}"]`)?.focus({preventScroll:true});});$('early spend downsize pension'.split(' ').includes(key)?'household-actions':'more-actions').append(button);
+ });
  $('action-editors').replaceChildren(...Object.entries(definitions).filter(([key])=>actions[key]).map(([key,definition])=>{
   const note=node('details',{class:'scenario-note'},[node('summary',{text:'Assumptions'}),node('p',{text:definition.note})]);
   return node('div',{class:'action-editor','data-editor':key},[node('h4',{text:definition.title}),node('div',{class:'action-fields'},definition.fields.map(([field,label,min,max,step])=>numberField(label,input.settings,field,{min:max<=1e6?min:0,max,step}))),note]);
@@ -171,7 +179,7 @@ function renderActions() {
 function calculate() {
  try{
   baseline=simulateHousehold(input);current=simulateHousehold(input,actions);stressed=simulateHousehold(input,actions,true);
-  $('household-error').hidden=true;$('quick-editor-error').hidden=true;document.querySelector('.two-charts').hidden=false;
+  $('household-error').hidden=true;$('quick-editor-error').hidden=true;for(const id of ['wealth-chart','income-chart'])$(id).style.display='';
   const opening=openingPicture(input);$('net-total').textContent=money(opening.net);$('accessible-total').textContent=money(opening.accessible);$('opening-equation').textContent=`${compact(opening.assets)} assets − ${compact(opening.debt)} debts`;
   for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);}
   for(const person of input.people){const chip=document.querySelector(`[data-person-chip="${person.id}"]`);if(chip)chip.textContent=`${person.name} · ${person.age}`;const planChip=document.querySelector(`[data-plan-person="${person.id}"]`);if(planChip)planChip.textContent=`${person.name} · work ends ${person.retireAge}`;}
@@ -179,17 +187,20 @@ function calculate() {
   for(const debt of input.debts){const meta=document.querySelector(`[data-debt-meta="${debt.id}"]`);if(meta)meta.textContent=`${debt.rate}% · ${money(debt.payment)}/mo`;const timing=document.querySelector(`[data-debt-timing="${debt.id}"]`);const end=baseline.rows.find(r=>r.debtBalances[debt.id]<.01);if(timing)timing.textContent=debt.balance===0?'Paid off':end?`Ends ~${end.year}`:'Beyond plan';}
   for(const row of [...input.incomes,...input.expenses]){const label=document.querySelector(`[data-timing="${row.id}"]`);if(label)label.textContent=timingLabel(row);}
   const now=baseline.rows[0];$('income-now').textContent=money(now.income/12)+'/mo';$('spending-now').textContent=money(now.spending/12)+'/mo';$('surplus-now').textContent=money(Math.max(0,now.income-now.spending)/12)+'/mo';$('saving-goal-warning').textContent=now.unfundedSaving>0.01?`${money(now.unfundedSaving/12)}/mo of the pension-saving goals is not funded by the current surplus.`:'';
-  const result=current.firstGap?`First funding gap at Alex age ${current.firstGap.primaryAge} · ${money(current.firstGap.gap)} that year.`:`Covered to age ${current.final.primaryAge} · illustration`;
-  $('plan-result').replaceChildren(node('strong',{text:result}),...(stressed.firstGap?[node('span',{class:'stress-warning',text:`Stress path: first unpaid spending at Alex age ${stressed.firstGap.primaryAge}. Property is not automatically sold to cover a gap.`})]:[]),node('span',{text:`${compact(current.final.netWealth)} remaining · Alex ${current.final.primaryAge} / Jemma ${current.final.partnerAge}${actions.legacy?` · ${compact(Math.abs(current.final.netWealth-input.settings.legacyTarget))} ${current.final.netWealth>=input.settings.legacyTarget?'above':'below'} target`:''}${current.firstGap?' · earlier gaps remain unpaid':''}.`}));
+  const result=current.firstGap?`First funding gap at Alex age ${current.firstGap.primaryAge} · ${money(current.firstGap.gap)} that year.`:`Spending covered to Alex ${current.final.primaryAge} · illustration`;
+  $('plan-result').replaceChildren(node('strong',{text:result}),...(stressed.firstGap?[node('span',{class:'stress-warning',text:`Stress path: first unpaid spending at Alex age ${stressed.firstGap.primaryAge}. Property is not automatically sold to cover a gap.`})]:[]),node('span',{text:`Remaining estate ${compact(current.final.netWealth)} · Alex ${current.final.primaryAge} / Jemma ${current.final.partnerAge}${actions.legacy?` · ${compact(Math.abs(current.final.netWealth-input.settings.legacyTarget))} ${current.final.netWealth>=input.settings.legacyTarget?'above':'below'} target`:''}${current.firstGap?' · earlier gaps remain unpaid':''}.`}));
+  $('estate-composition').replaceChildren(node('summary',{text:`Financial assets ${compact(current.final.financialAssets)} · Property ${compact(current.final.propertyValue)}`}),node('p',{class:'small',text:`Vehicle ${money(current.final.vehicleValue)} · Debt ${money(current.final.closingDebt)}. Estate includes property; it is not all available for spending.`}));
+  const delta=current.final.netWealth-baseline.final.netWealth;const accessAge=input.people[0].retireAge;const c=current.rows.find(r=>r.primaryAge===accessAge)??current.final,b=baseline.rows.find(r=>r.primaryAge===c.primaryAge);
+  $('scenario-feedback').textContent=Object.values(actions).some(Boolean)?`${result} · ${delta>=0?'+':'−'}${compact(Math.abs(delta))} end estate vs baseline · ${money(c.accessible-b.accessible)} change in accessible assets at Alex ${c.primaryAge}.`:'Choose a change to compare with the baseline.';
   const select=$('inspect-year');const values=current.rows.map(row=>node('option',{value:row.year,text:`${row.year} · Alex ${row.primaryAge}, Jemma ${row.partnerAge}`}));select.replaceChildren(...values);if(!current.rows.some(r=>r.year===selectedYear))selectedYear=current.rows[0].year;select.value=selectedYear;
   renderYear();if(screen==='plan')drawCharts();$('household-status').textContent='Example recalculated. '+result;
- }catch(error){$('quick-editor-error').textContent=error.message;$('quick-editor-error').hidden=!dialog.open;current=null;baseline=null;stressed=null;$('household-year-details').replaceChildren();$('inspect-year').replaceChildren();$('household-error').textContent=error.message+' Complete the figures to run this illustration.';$('household-error').hidden=false;document.querySelector('.two-charts').hidden=true;$('plan-result').textContent='Check the highlighted message before using the plan.';$('saving-goal-warning').textContent='';for(const id of ['net-total','accessible-total','income-now','spending-now','surplus-now','year-income','year-withdrawals'])$(id).textContent='—';}
+ }catch(error){$('quick-editor-error').textContent=error.message;$('quick-editor-error').hidden=!dialog.open;current=null;baseline=null;stressed=null;$('selected-milestone').textContent='';$('household-year-details').replaceChildren();$('inspect-year').replaceChildren();$('household-error').textContent=error.message+' Complete the figures to run this illustration.';$('household-error').hidden=false;for(const id of ['wealth-chart','income-chart'])$(id).style.display='none';$('wealth-events').replaceChildren();$('income-legend').replaceChildren();$('plan-result').textContent='Check the highlighted message before using the plan.';$('saving-goal-warning').textContent='';$('scenario-feedback').textContent='Complete the figures to compare.';$('estate-composition').replaceChildren();for(const id of ['net-total','accessible-total','income-now','spending-now','surplus-now','year-income','year-withdrawals'])$(id).textContent='—';}
 }
 const ns='http://www.w3.org/2000/svg';
 function svgNode(svg,name,attributes,text){const e=document.createElementNS(ns,name);for(const [key,value]of Object.entries(attributes))e.setAttribute(key,String(value));if(text)e.textContent=text;svg.append(e);return e;}
 function chartFrame(id,title,max,min=0) {
  const svg=$(id);svg.replaceChildren();const width=Math.max(260,svg.parentElement.clientWidth),height=400,left=64,right=16,top=36,bottom=342;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.setAttribute('aria-labelledby',id+'-title '+id+'-desc');svgNode(svg,'title',{id:id+'-title'},title);svgNode(svg,'desc',{id:id+'-desc'},title+'. Fictional annual model, future pounds. Use the year inspector for all calculated figures.');
- const x=i=>left+(width-left-right)*i/(current.rows.length-1),y=v=>bottom-(v-min)/(max-min||1)*(bottom-top);
+ const x=i=>left+(width-left-right)*i/Math.max(1,current.rows.length-1),y=v=>bottom-(v-min)/(max-min||1)*(bottom-top);
  for(let i=0;i<5;i++){const value=min+(max-min)*i/4;svgNode(svg,'line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#d7dfda','stroke-width':1});svgNode(svg,'text',{x:left-7,y:y(value)+5,'text-anchor':'end',fill:'#536568','font-size':16},compact(value));}
  for(let i=0;i<4;i++){const index=Math.round(i/3*(current.rows.length-1));svgNode(svg,'text',{x:x(index),y:369,'text-anchor':'middle',fill:'#536568','font-size':16},String(current.rows[index].primaryAge));}
  svgNode(svg,'text',{x:(width+left-right)/2,y:394,'text-anchor':'middle',fill:'#536568','font-size':16},'Alex’s age');
@@ -202,12 +213,15 @@ function drawCharts() {
  const frame=chartFrame('wealth-chart','Net household wealth: baseline, chosen scenario and stress path',max,min);const {svg,x,y,width}=frame;
  for(const [model,colour,dash] of [[stressed,'#ad633d','3 4'],[baseline,'#7b898b','7 5'],[current,'#14665f','']]){const path=model.rows.map((r,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(r.netWealth).toFixed(2)}`).join(' ');svgNode(svg,'path',{d:path,stroke:colour,'stroke-width':model===current?3.5:2.5,'stroke-dasharray':dash,fill:'none'});}
  const groups=new Map();for(const event of current.events){if(event.age<current.rows[0].primaryAge||event.age>current.final.primaryAge)continue;groups.set(event.age,[...(groups.get(event.age)??[]),event.label]);}
- let lastLabel=-Infinity;for(const [age,labels]of [...groups].sort((a,b)=>a[0]-b[0])){
+ const ordered=[...groups].sort((a,b)=>a[0]-b[0]);
+ const priority=ordered.filter(([,labels])=>labels.some(l=>l.includes('stops work')||l.includes('State Pension')||l==='Planning horizon'));
+ for(const [age,labels]of ordered){
   const index=age-current.rows[0].primaryAge,px=x(index),py=y(current.rows[index].netWealth);
-  const marker=svgNode(svg,'circle',{cx:px,cy:py,r:5,fill:'#14665f',stroke:'#fff','stroke-width':2});svgNode(marker,'title',{},`${age}: ${labels.join(', ')}`);
-  if(px-lastLabel>75){const label=labels.some(l=>l.includes('stops work'))?'Retire':labels.some(l=>l.includes('State Pension'))?'State':labels[0].includes('ends')?'Debt ends':labels[0]==='Planning horizon'?'Horizon':labels[0].includes('changes')?'Budget':'Pension';svgNode(svg,'text',{x:Math.max(108,Math.min(width-46,px)),y:Math.max(18,py-24),'text-anchor':'middle',fill:'#536568','font-size':12},`${label} · ${age}`);lastLabel=px;}
+  const inspect=()=>{selectedYear=input.year+age-input.people[0].age;$('inspect-year').value=selectedYear;renderYear();$('selected-milestone').textContent=`${input.year+index} · Alex ${age} / Jemma ${current.rows[index].partnerAge} · ${labels.join(' / ').replaceAll('stops work','retires')}`;};
+  const marker=svgNode(svg,'g',{role:'button',tabindex:0,'aria-label':`Inspect Alex age ${age}, Jemma age ${current.rows[index].partnerAge}: ${labels.join(', ')}`,class:'milestone-marker'});svgNode(marker,'circle',{cx:px,cy:py,r:22,fill:'transparent'});svgNode(marker,'circle',{cx:px,cy:py,r:5,fill:'#14665f',stroke:'#fff','stroke-width':2});svgNode(marker,'title',{},`${age}: ${labels.join(', ')}`);marker.addEventListener('click',inspect);marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();inspect();}});
+  const rank=priority.findIndex(([a])=>a===age);if(rank>=0){const personLabel=labels.find(l=>l.includes('stops work'))?.replace('stops work','retires');const state=labels.find(l=>l.includes('State Pension'));const label=personLabel?(state?personLabel+' + State':personLabel):state??'Horizon';const tx=Math.max(110,Math.min(width-65,px));svgNode(svg,'text',{x:tx,y:Math.max(18,py-26-(rank%2)*22),'text-anchor':'middle',fill:'#536568','font-size':12},`${label} · ${personLabel?.startsWith('Jemma')||(!personLabel&&state?.startsWith('Jemma'))?current.rows[index].partnerAge:age}`);}
  }
- $('wealth-events').replaceChildren(...[...groups].sort((a,b)=>a[0]-b[0]).map(([age,labels])=>{const button=node('button',{type:'button',class:'event-chip',text:`${age} · ${labels.join(' / ').replaceAll('stops work','retires')}`});button.addEventListener('click',()=>{selectedYear=input.year+age-input.people[0].age;$('inspect-year').value=selectedYear;renderYear();});return button;}));
+ $('wealth-events').replaceChildren(...[...groups].sort((a,b)=>a[0]-b[0]).map(([age,labels])=>{const button=node('button',{type:'button',class:'event-chip',text:`${input.year+age-input.people[0].age} · ${labels.join(' / ').replaceAll('stops work','retires')}`});button.addEventListener('click',()=>{selectedYear=input.year+age-input.people[0].age;$('inspect-year').value=selectedYear;renderYear();$('selected-milestone').textContent=button.textContent;});return button;}));
  if(actions.legacy){const target=input.settings.legacyTarget;if(target<=max&&target>=min)svgNode(svg,'line',{x1:64,x2:width-16,y1:y(target),y2:y(target),stroke:'#79548b','stroke-width':2,'stroke-dasharray':'2 4'});}
  const fundingMax=Math.max(1,...current.rows.map(r=>Math.max(r.spending+r.payoff,r.income+r.releasedFromInvestments+r.sources.withdrawals+r.payoff+r.gap)))*1.08;const bar=chartFrame('income-chart','Annual income and asset withdrawals against spending, with unpaid gaps',fundingMax);
  const barWidth=Math.max(2,(bar.width-80)/current.rows.length*.8);
@@ -220,11 +234,17 @@ function renderYear() {
  const facts=[['Net wealth',row.netWealth],['Accessible assets',row.accessible],['Property',row.propertyValue],['Debt remaining',row.closingDebt],['New income (excluding asset sales)',row.income],['Internal dividends / sale releases',row.releasedFromInvestments],['Spending & scheduled debt payments',row.spending],['Cash mortgage payoff',row.payoff],['Added to financial assets',row.additions],['Withdrawn from assets',row.withdrawals],['Growth / value change',row.growth],['Market loss',row.marketLoss],['Debt interest',row.debtInterest],['Debt repaid',row.debtPaid+row.settlement],['Alex pension saving funded',row.pensionSavingByOwner.primary],['Jemma pension saving funded',row.pensionSavingByOwner.partner],['Saving goal not funded',row.unfundedSaving],['Unpaid spending',row.gap],['Earlier + current unpaid spending',row.cumulativeGap]];
  $('household-year-details').replaceChildren(node('dl',{class:'assumptions-table'},facts.flatMap(([label,value])=>[node('dt',{text:label}),node('dd',{text:money(value)})])));
 }
-function addStream(list,type) {const person=input.people[0];const label={salary:'New salary',rent:'Rent after costs',support:'Support',pension:'Pension income',state:'State Pension',dividend:'Dividend distribution',sale:'Investment sale proceeds',other:'Other income',regular:'Regular spending',lease:'Car lease',oneoff:'One-off cost',saving:'Pension saving'}[type];input[list].push({id:`row-${++sequence}`,label,type,owner:'primary',amount:0,frequency:type==='oneoff'?'once':'month',startAge:type==='state'?person.stateAge:person.age,endAge:type==='oneoff'?person.age:101,growth:0});renderStreams();calculate();}
-$('add-income').addEventListener('click',()=>addStream('incomes',$('income-type').value));$('add-expense').addEventListener('click',()=>addStream('expenses',$('expense-type').value));
+function addStream(list,type) {const person=input.people[0];const label={salary:'New salary',rent:'Rent after costs',support:'Support',pension:'Pension income',state:'State Pension',dividend:'Dividend distribution',sale:'Investment sale proceeds',other:'Other income',regular:'Regular spending',lease:'Car lease',oneoff:'One-off cost',saving:'Pension saving'}[type];input[list].push({id:`row-${++sequence}`,label,type,owner:'primary',amount:0,frequency:type==='oneoff'?'once':'month',startAge:type==='state'?person.stateAge:person.age,endAge:type==='oneoff'?person.age:110,ongoing:type!=='oneoff',growth:0});renderStreams();calculate();}
+function openStreamPicker(list){
+ const types=list==='incomes'?[['salary','Salary / self-employment'],['rent','Rent, after costs'],['support','Benefits / support'],['pension','DB / other pension income'],['state','State Pension'],['dividend','Dividend from investments'],['sale','Investment sale'],['other','Other income']]:[['regular','Regular spending'],['lease','Car lease'],['oneoff','One-off cost'],['saving','Pension saving from income']];
+ const choice={type:types[0][0]},add=node('button',{type:'button',class:'quiet-button',text:'Add row'});
+ add.addEventListener('click',()=>{dialog.close();addStream(list,choice.type);const row=input[list].at(-1);document.querySelector(`[data-stream="${row.id}"] .stream-title`)?.focus();});
+ openEditor(list==='incomes'?'Add income':'Add spending',[selectField('Type',choice,'type',types)],[add]);
+}
+$('add-income').addEventListener('click',()=>openStreamPicker('incomes'));$('add-expense').addEventListener('click',()=>openStreamPicker('expenses'));
 $('add-debt').addEventListener('click',()=>{input.debts.push({id:`debt-${++sequence}`,label:'Additional debt',type:'loan',balance:0,rate:6,payment:0});renderDebts();calculate();});
 $('add-asset').addEventListener('click',()=>{input.assets.push({id:`asset-${++sequence}`,label:'Additional investment',type:'investment',owner:'joint',balance:0,rate:5,accessAge:0});renderAssets();calculate();});
-$('reset-household').addEventListener('click',()=>{input=householdExample();actions={};sequence=0;initialise();});$('reset-actions').addEventListener('click',()=>{actions={};renderActions();calculate();});
+$('reset-household').addEventListener('click',()=>{input=householdExample();actions={};sequence=0;initialise();});$('reset-actions').addEventListener('click',()=>{actions={};input.settings=householdExample().settings;renderActions();calculate();});
 $('run-plan').addEventListener('click',()=>{calculate();if($('household-error').hidden)show('plan');});
 $('inspect-year').addEventListener('change',()=>{selectedYear=Number($('inspect-year').value);renderYear();});
 for(const button of document.querySelectorAll('[data-screen],[data-next]'))button.addEventListener('click',()=>show(button.dataset.screen??button.dataset.next));

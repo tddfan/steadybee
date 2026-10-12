@@ -596,3 +596,15 @@ body[data-workspace-screen="flows"] .experience, body[data-workspace-screen="pla
 .graph-events {font-size:16px;margin:8px 0}.graph-events summary {cursor:pointer;min-height:44px;display:flex;align-items:center}
 #wealth-events {display:flex;flex-wrap:wrap;gap:6px}.event-chip {background:transparent;border:1px solid #d7dfda;border-radius:8px;padding:8px;min-height:44px;font-size:16px;color:#536568}
 @media(max-width:600px){.debt-row {grid-template-columns:minmax(0,1fr) 125px 44px}.debt-row .debt-meta {grid-column:1/3}.debt-row .timing-chip {grid-column:1/3;justify-self:start}.debt-row .more-button {grid-column:3;grid-row:1}.baseline-chips #plan-people {grid-template-columns:1fr 1fr}.baseline-chips .person-chip:last-child {grid-column:1/-1}.household-intro {margin-bottom:12px}.plan-result strong {font-size:22px}}
+/* Review refinements: controls stay beside their result. */
+.estate-composition {margin:-14px 0 24px;font-size:16px;color:var(--quiet)}
+.estate-composition summary,.more-scenarios summary {min-height:44px;cursor:pointer;padding:10px 0}
+.graph-panel .scenario-shortcuts {grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px}
+.graph-panel .section-heading:has(#reset-actions) {margin-top:24px}
+.scenario-feedback {font-size:16px;line-height:1.5;border-left:3px solid #14665f;padding:8px 12px;margin:12px 0}
+.more-scenarios {font-size:16px;margin-top:12px}.selected-milestone:empty {display:none}
+.milestone-marker {cursor:pointer}.milestone-marker:focus {outline:none}.milestone-marker:focus circle:last-of-type {stroke:#182e32;stroke-width:4}
+.inline-number input {border-bottom:1px dashed #b0c1ba;border-radius:0}.inline-number input:focus {border-bottom:2px solid #14665f}
+.ledger-row .timing-chip {white-space:normal;line-height:1.3;font-size:16px}
+.quick-fields input[readonly] {background:#eef1ec;color:#536568}
+@media(max-width:600px){.two-charts {gap:30px}.graph-panel .action-fields {grid-template-columns:1fr}.graph-panel .scenario-shortcuts button {font-size:16px}}

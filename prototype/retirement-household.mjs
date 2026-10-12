@@ -143,7 +143,23 @@ export function simulateHousehold(input, actions={}, stress=false) {
     cash.balance+=surplus-pensionSaving;
     sources.assetRelease=Math.min(released,funded);sources.withdrawals=funded-sources.assetRelease;
     const closingAssets=sum(assets.map(a=>a.balance)),closingDebt=sum(debts.map(d=>d.balance));
-    rows.push({debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>liquid(a)||(a.type==='pension'&&personFor(input,a.owner).age+offset>=a.accessAge)).map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash,withdrawals:funded+payoff,transfer});
+    rows.push({debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>liquid(a)||(a.type==='pension'&&personFor(input,a.owner).age+offset>=a.accessAge)).map(a=>a.balance)),financialAssets:sum(assets.filter(a=>liquid(a)||a.type==='pension').map(a=>a.balance)),vehicleValue:sum(assets.filter(a=>a.type==='car').map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash,withdrawals:funded+payoff,transfer});
   }
   return {rows,events,firstGap:rows.find(r=>r.gap>0.01)??null,final:rows.at(-1),opening:openingPicture(input)};
+}
+
+/** Preserve annual budgets, including every future replacement amount. */
+export function convertStreamFrequency(row,next) {
+ const previous=row.frequency;
+ if(previous!==next&&previous!=='once'&&next!=='once'){
+  const factor=(previous==='month'?12:1)/(next==='month'?12:1);
+  row.amount*=factor;for(const change of row.changes??[])change.amount*=factor;
+ }
+ if(next==='once')row.changes=[];
+ row.frequency=next;
+}
+/** Monthly equivalent of level annual payments, with interest before payment. */
+export function paymentForDebtEnd(balance,rate,years) {
+ if(!Number.isFinite(balance)||balance<0||!Number.isFinite(rate)||rate<0||!Number.isInteger(years)||years<1)throw Error('Enter a valid debt balance, rate and end year.');
+ const r=rate/100;return (r===0?balance/years:balance*r/(1-(1+r)**(-years)))/12;
 }

@@ -96,3 +96,19 @@ test('changed budgets keep inflation growth and dated ends',()=>{
  assert.equal(model.rows[5].spending,0);
  assert.ok(model.events.some(e=>e.age===60&&e.label==='Budget changes'));
 });
+
+test('frequency conversion preserves current and future budgets through repeated switches',async()=>{
+ const {convertStreamFrequency}=await import('../prototype/retirement-household.mjs');
+ const input=householdExample();input.expenses[0].changes=[{age:67,amount:2400},{age:80,amount:2000}];const before=simulateHousehold(input);
+ for(let i=0;i<4;i++){convertStreamFrequency(input.expenses[0],'year');convertStreamFrequency(input.expenses[0],'month');}
+ convertStreamFrequency(input.expenses[0],'year');const after=simulateHousehold(input);
+ before.rows.forEach((r,i)=>assert.ok(Math.abs(r.spending-after.rows[i].spending)<1e-7));
+});
+test('target debt end derives a payment but unfunded debt survives that year',async()=>{
+ const {paymentForDebtEnd}=await import('../prototype/retirement-household.mjs');
+ const input=householdExample();input.debts=[{id:'loan',label:'Loan',type:'loan',balance:12000,rate:5,payment:paymentForDebtEnd(12000,5,3)}];
+ const model=simulateHousehold(input);assert.ok(model.rows[1].debtBalances.loan>0);assert.ok(model.rows[2].debtBalances.loan<.01);
+ assert.equal(paymentForDebtEnd(12000,0,2),500);
+ input.assets.forEach(a=>a.balance=0);input.incomes=[];assert.ok(simulateHousehold(input).rows[2].debtBalances.loan>12000);
+ assert.throws(()=>paymentForDebtEnd(12000,5,0));
+});
