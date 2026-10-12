@@ -137,7 +137,7 @@ function renderPeople() {
 }
 function renderAssets() {
  const tiles=input.assets.map(asset=>{
-  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id},[icon(asset.wrapper==='isa'?'isa':icons[asset.type]),node('span',{text:asset.label.replace(/^(Alex|Jemma)(’s|’)?\s+/,'')}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)}),node('small',{'data-asset-rate':asset.id,text:`${asset.rate}% / yr`})]);
+  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id,'aria-label':'Edit '+asset.label,title:asset.label+(asset.availableYear>input.year?' · available '+asset.availableYear:'')},[icon(asset.wrapper==='isa'?'isa':icons[asset.type]),node('span',{text:asset.label.replace(/^(Alex|Jemma)(’s|’)?\s+/,'')}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)}),node('small',{'data-asset-rate':asset.id,text:`${asset.rate}% /yr`}),node('span',{class:'asset-edit'},[icon('edit')])]);
   button.addEventListener('click',()=>{
    asset.availableYear??=input.year;asset.wrapper??=asset.type==='pension'?'pension':'taxable';
    const fields=[numberField('Balance / value (£)',asset,'balance'),numberField(asset.type==='car'?'Value change / year (%)':'Total return assumption / year (%)',asset,'rate',{min:-50,max:30,step:.5})];
@@ -268,7 +268,7 @@ function calculate() {
   $('tax-warning').textContent=current.warnings.some(w=>w.includes('tax excluded'))?'Tax excluded in some figures · check the example assumptions.':'';
   $('example-notes').replaceChildren(node('summary',{text:'Starting example & tax assumptions'}),...(input.assumptionNotes??[]).map(text=>node('p',{class:'small',text})),node('p',{class:'small',text:current.warnings.join(' ')}));
   const opening=openingPicture(input);$('net-total').textContent=money(opening.net);$('accessible-total').textContent=money(opening.accessible);$('opening-equation').textContent=`${compact(opening.assets)} assets − ${compact(opening.debt)} debts`;
-  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);const rate=document.querySelector(`[data-asset-rate="${asset.id}"]`);if(rate)rate.textContent=`${asset.rate}% / yr${asset.availableYear&&asset.availableYear>input.year?` · ${asset.availableYear}`:''}`;}
+  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);const rate=document.querySelector(`[data-asset-rate="${asset.id}"]`);if(rate)rate.textContent=`${asset.rate}% /yr`;}
   for(const person of input.people){const chip=document.querySelector(`[data-person-chip="${person.id}"]`);if(chip)chip.textContent=`${person.name} · ${person.age}`;const planChip=document.querySelector(`[data-plan-person="${person.id}"]`);if(planChip)planChip.textContent=`${person.name} · work ends ${person.retireAge}`;}
   if($('inflation-chip'))$('inflation-chip').textContent=`Inflation ${input.inflation}%`;
   for(const debt of input.debts){const meta=document.querySelector(`[data-debt-meta="${debt.id}"]`);if(meta)meta.textContent=`${debt.rate}% · ${money(debt.payment)}/mo`;const timing=document.querySelector(`[data-debt-timing="${debt.id}"]`);const end=baseline.rows.find(r=>r.debtBalances[debt.id]<.01);if(timing)timing.textContent=debt.balance===0?'Paid off':end?`Ends ~${end.year}`:'Beyond plan';}
