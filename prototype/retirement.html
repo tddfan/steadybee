@@ -60,7 +60,7 @@
         <section id="screen-plan" class="household-screen" hidden aria-label="Your household simulation">
           <div class="household-intro"><h2>Your plan.</h2><button type="button" id="assets-only" class="quiet-button">Start with assets only</button></div>
           <div id="plan-people" hidden></div>
-          <div class="scenario-toolbar"><label for="scenario-preset">Scenario</label><select id="scenario-preset"></select><button type="button" id="new-scenario" class="quiet-button">+ New</button><button type="button" id="save-scenario" class="button primary">Save scenario</button><button type="button" id="jump-controls" class="quiet-button">Edit plan ↓</button></div><p id="scenario-state" class="small scenario-state" role="status"></p><div id="saved-scenarios" class="saved-scenarios"></div><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><div class="plan-workbench"><div id="plan-visuals" class="plan-visuals"><div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
+          <div class="scenario-toolbar"><label for="scenario-preset">Scenario</label><select id="scenario-preset"></select><button type="button" id="new-scenario" class="quiet-button">+ New</button><button type="button" id="save-scenario" class="button primary">Save scenario</button><button type="button" id="jump-controls" class="quiet-button">Edit plan ↓</button></div><div id="saved-scenarios" class="saved-scenarios"></div><div class="plan-workbench"><div id="plan-visuals" class="plan-visuals"><div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
           <div class="chart-tabs" role="tablist" aria-label="Plan charts">
             <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="true">Estate</button>
             <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="false" tabindex="-1">Income</button>
@@ -82,6 +82,7 @@
               <div class="section-heading"><h3>Spending &amp; commitments</h3><span class="small">£ / year</span></div><svg id="spending-chart" role="img" aria-label="Annual costs by category against spendable income"></svg><div id="spending-legend" class="chart-legend small"></div><p class="small">Costs include scheduled debt payments. Pension transfers are shown separately.</p>
             </section>
           </div>
+          <div class="after-chart-actions"><p id="scenario-state" class="small scenario-state" role="status"></p><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div></div>
           <div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
           <details class="pension-details"><summary>Pension growth: contributions &amp; returns</summary><div id="pension-breakdown"></div></details>
           <p id="scenario-feedback" class="scenario-feedback" role="status"></p>
