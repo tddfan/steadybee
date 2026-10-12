@@ -1,22 +1,26 @@
-import { householdExample, simulateHousehold, openingPicture, convertStreamFrequency, paymentForDebtEnd } from './retirement-household.mjs';
+import { householdExample, simulateHousehold, openingPicture, convertStreamFrequency, paymentForDebtEnd, monthlyDebtPayment } from './retirement-household.mjs';
+import { householdBaseExample } from './retirement-example.mjs';
 const $=id=>document.getElementById(id);
 const money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
 const compact=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:1}).format(value);
-let input=householdExample(),actions={},current=null,baseline=null,stressed=null,screen='today',selectedYear=2026,sequence=0;
+let input=householdBaseExample(),actions={},current=null,baseline=null,stressed=null,screen='today',selectedYear=2026,sequence=0,savedScenarios=[];
 const icons={cash:'savings',investment:'investment',pension:'pension',property:'home',car:'work',bonds:'coins'};
 const definitions={
- early:{title:'Stop work earlier',icon:'sun',group:'work',note:'Salary stops at each work-end age. DB and State Pension dates stay separate.',fields:[['earlyPrimary','Alex stops at',57,100,1],['earlyPartner','Jemma stops at',55,100,1]]},
- job:{title:'Income interruption',icon:'pause',group:'work',note:'Alex’s salaries stop for this period, then resume their declared growth path. No benefits are invented.',fields:[['jobAge','Alex age at interruption',57,100,1],['jobYears','Years without salary',1,20,1]]},
- parttime:{title:'Part-time work',icon:'work',group:'work',note:'Alex’s combined salary is capped at the entered annual amount from the step-back age until work ends.',fields:[['earlyPrimary','Alex steps back at',57,100,1],['partTimeAnnual','Spendable pay / year (£)',0,100000,1000]]},
- downsize:{title:'Downsize',icon:'home',group:'home',note:'Sell the modelled home, buy a replacement, settle the mortgage and pay costs. Only the remainder becomes cash.',fields:[['downsizeAge','Move at Alex age',57,100,1],['replacementPercent','Replacement / sale value (%)',0,100,5],['movingCosts','Moving / transaction costs (£)',0,1000000,1000]]},
+ jobPartner:{title:'Jemma redundancy',icon:'pause',group:'work',note:'Stops Jemma’s employment-linked pay and bonus at the entered month. Severance is paid once; future employment is optional.',fields:[]},
+ allocate:{title:'Cash / investment mix',icon:'investment',group:'stress',note:'A user-chosen transfer between owned accounts. Investment returns are editable assumptions, with losses in the stress path. This is not an allocation recommendation.',fields:[]},
+ parttimePartner:{title:'Jemma part-time',icon:'work',group:'work',note:'Salary and bonus scale with chosen days out of five. Retirement and redundancy still stop employment pay.',fields:[['partTimePartnerAge','Jemma steps back at',18,100,1],['partTimeDaysPartner','Jemma days / week (from 5)',0,5,1]]},
+ early:{title:'Stop work earlier',icon:'sun',group:'work',note:'Salary stops at each work-end age. DB and State Pension dates stay separate.',fields:[['earlyPrimary','Alex stops at',18,100,1],['earlyPartner','Jemma stops at',18,100,1]]},
+ job:{title:'Alex redundancy',icon:'pause',group:'work',note:'Salary is prorated by employment months. Bonus is paid only if employed in its payment month. No benefits or tax entitlements are invented.',fields:[['jobAge','Alex age at interruption',18,100,1],['jobYears','Years without salary',1,20,1]]},
+ parttime:{title:'Alex part-time',icon:'work',group:'work',note:'Salary and bonus scale with chosen days out of five. Retirement and redundancy still stop employment pay.',fields:[['earlyPrimary','Alex steps back at',18,100,1],['partTimeDaysPrimary','Alex days / week (from 5)',0,5,1]]},
+ downsize:{title:'Downsize',icon:'home',group:'home',note:'Sell the modelled home, buy a replacement, settle the mortgage and pay costs. Only the remainder becomes cash.',fields:[['downsizeAge','Move at Alex age',18,100,1],['replacementPercent','Replacement / sale value (%)',0,100,5],['movingCosts','Moving / transaction costs (£)',0,1000000,1000]]},
  lease:{title:'Lower car costs',icon:'work',group:'home',note:'Caps declared lease costs; car finance is still modelled separately.',fields:[['leaseMonthly','Lease budget / month (£)',0,10000,50]]},
- payoff:{title:'Repay mortgage',icon:'mortgage',group:'home',note:'Uses accessible assets to repay the modelled balance including that year’s interest. This is not a lender payoff quote.',fields:[['payoffAge','Pay off at Alex age',57,100,1]]},
+ payoff:{title:'Repay mortgage',icon:'mortgage',group:'home',note:'Repays the linked home mortgage using your selected withdrawal owner, order and ceiling, including deduction estimates. Locked pensions remain unavailable. This is not a lender payoff quote.',fields:[['payoffAge','Pay off at Alex age',18,100,1]]},
  spend:{title:'Spend less',icon:'spending',group:'money',note:'Reduces regular spending. Debt payments, one-offs and saving goals remain separate.',fields:[['spendPercent','Regular spending reduction (%)',0,100,5]]},
  pension:{title:'Save into pension',icon:'pension',group:'money',note:'Adds a pension-saving goal funded only from surplus income while Alex works. It is an internal transfer, not new wealth; tax relief is not calculated.',fields:[['pensionMonthly','Extra saving / month (£)',0,10000,100]]},
- withdraw:{title:'One-off spending',icon:'family',group:'family',note:'A budget for school fees, family help or another dated cost. Income funds it first, then available assets; any remaining gap is explicit.',fields:[['withdrawAge','Spend at Alex age',57,100,1],['withdrawAmount','One-off budget (£)',0,10000000,1000]]},
+ withdraw:{title:'One-off spending',icon:'family',group:'family',note:'A budget for school fees, family help or another dated cost. Income funds it first, then available assets; any remaining gap is explicit.',fields:[['withdrawAge','Spend at Alex age',18,100,1],['withdrawAmount','One-off budget (£)',0,10000000,1000]]},
  growth:{title:'Change growth',icon:'investment',group:'stress',note:'A hypothetical increase to the trading-account return assumption, not an allocation recommendation or expected return. Compare the stress path too.',fields:[['growthExtra','Extra assumed growth / year (%)',0,10,.5]]},
- fixed:{title:'Fixed-income mix',icon:'coins',group:'stress',note:'Moves a chosen part of trading assets into the declared fixed-income account. This does not guarantee safety; the stress path includes a bond loss.',fields:[['fixedAge','Change mix at Alex age',57,100,1],['fixedPercent','Trading assets moved (%)',0,100,5]]},
- market:{title:'Market setback',icon:'investment',group:'stress',note:'One loss across trading and pension assets; bonds lose 5%. Returns resume on reduced balances. Cash and property are unchanged.',fields:[['marketAge','Loss at Alex age',57,100,1],['marketPercent','Trading / pension loss (%)',0,100,5]]},
+ fixed:{title:'Fixed-income mix',icon:'coins',group:'stress',note:'Moves a chosen part of trading assets into the declared fixed-income account. This does not guarantee safety; the stress path includes a bond loss.',fields:[['fixedAge','Change mix at Alex age',18,100,1],['fixedPercent','Trading assets moved (%)',0,100,5]]},
+ market:{title:'Market setback',icon:'investment',group:'stress',note:'One loss across trading and pension assets; bonds lose 5%. Returns resume on reduced balances. Cash and property are unchanged.',fields:[['marketAge','Loss at Alex age',18,100,1],['marketPercent','Trading / pension loss (%)',0,100,5]]},
  inflation:{title:'Higher costs',icon:'inflation',group:'stress',note:'Adds two percentage points to declared expense growth. Income growth is unchanged. This is a price stress, not a complete inflation model.',fields:[]},
  legacy:{title:'Resources left',icon:'legacy',group:'family',note:'Compare remaining net wealth with a target. Property may not be spendable; inheritance tax and death benefits are not calculated.',fields:[['legacyTarget','End-horizon target (£)',0,100000000,10000]]},
 };
@@ -32,6 +36,14 @@ function selectField(label,object,key,choices,onChange) {
  const control=node('select',{'aria-label':label});for(const [value,text] of choices)control.append(node('option',{value,text}));control.value=object[key];
  control.addEventListener('change',()=>{object[key]=control.value;onChange?.();calculate();});return node('label',{class:'select-field'},[node('span',{text:label}),control]);
 }
+function taxFields(object,{withdrawal=false,returns=false}={}){
+ const key=withdrawal?'withdrawalTaxBasis':'taxBasis',rateKey=withdrawal?'withdrawalTaxRate':'taxRate';object[key]??='net';object[rateKey]??=0;
+ const rate=numberField(`${object.label??personForRow(object)?.name??'Severance'} ${withdrawal?'withdrawal':returns?'return':'income'} deduction (%)`,object,rateKey,{max:withdrawal?99:100,step:1});rate.hidden=object[key]!=='estimate';
+ const basis=selectField(withdrawal?'Withdrawal tax':returns?'Return assumption':'Amount entered',object,key,[['net',withdrawal?'No further tax assumed':returns?'After tax / charges':'After tax (take-home)'],['excluded','Tax not included'],['estimate','Before tax + my deduction estimate']],()=>{rate.hidden=object[key]!=='estimate';});
+ return [basis,rate,node('p',{class:'small',text:'A deduction estimate is your assumption, not a calculation of tax rules. Tax excluded uses the full amount and can overstate spendable money.'})];
+}
+function taxBadge(row){return row.taxBasis==='excluded'?'Tax excluded':row.taxBasis==='estimate'?'Est. net':'After tax';}
+function defaultScenarioSettings(){return householdBaseExample().settings;}
 function owners(){return input.people.map(p=>[p.id,p.name]);}
 function show(next) {screen=next;document.body.dataset.workspaceScreen=next;document.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.screen===next)));for(const id of ['today','flows','plan'])$('screen-'+id).hidden=id!==next;if(next==='plan')drawCharts();$('demo').scrollIntoView({block:'start',behavior:'instant'});}
 const dialog=$('quick-editor');
@@ -61,17 +73,18 @@ function renderPeople() {
   chip.addEventListener('click',()=>{
    let oldStateAge=person.stateAge;
    const sync=()=>{for(const stream of input.incomes.filter(r=>r.type==='state'&&r.owner===person.id))stream.startAge=person.stateAge;renderStreams();renderPlanPeople();};
-   openEditor(person.name,[numberField('Age now',person,'age',{min:18,max:100,step:1,change:sync}),numberField('State Pension age',person,'stateAge',{min:50,max:100,step:1,change:()=>{if(person.retireAge===oldStateAge)person.retireAge=person.stateAge;oldStateAge=person.stateAge;sync();}})]);
+   openEditor(person.name,[...(person.niYears!==undefined?[numberField('NI qualifying years (record only)',person,'niYears',{min:0,max:60,step:1})]:[]),numberField('Age now',person,'age',{min:18,max:100,step:1,change:sync}),numberField('State Pension age',person,'stateAge',{min:50,max:100,step:1,change:()=>{if(person.retireAge===oldStateAge)person.retireAge=person.stateAge;oldStateAge=person.stateAge;sync();}})]);
   });return chip;
  }));
 }
 function renderAssets() {
  $('asset-cards').replaceChildren(...input.assets.map(asset=>{
-  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id},[icon(icons[asset.type]),node('span',{text:asset.label}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)})]);
+  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id},[icon(icons[asset.type]),node('span',{text:asset.label}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)}),node('small',{'data-asset-rate':asset.id,text:`${asset.rate}% / year${asset.availableYear?` · available ${asset.availableYear}`:''}`})]);
   button.addEventListener('click',()=>{
-   const fields=[numberField('Balance / value (£)',asset,'balance'),numberField(asset.type==='car'?'Value change / year (%)':'Net total growth / year (%)',asset,'rate',{min:-50,max:30,step:.5})];
+   asset.availableYear??=input.year;asset.wrapper??=asset.type==='pension'?'pension':'taxable';
+   const fields=[numberField('Balance / value (£)',asset,'balance'),numberField(asset.type==='car'?'Value change / year (%)':'Total return assumption / year (%)',asset,'rate',{min:-50,max:30,step:.5})];
    const more=node('details',{class:'quick-more'},[node('summary',{text:'More settings'})]);
-   const advanced=[selectField('Owner',asset,'owner',asset.type==='pension'?owners():[...owners(),['joint','Household']])];
+   const advanced=[...taxFields(asset,{returns:true}),selectField('Account / holding',asset,'wrapper',[['taxable','Taxable account'],['isa','ISA'],['pension','Pension'],['property','Property'],['other','Other']]),...taxFields(asset,{withdrawal:true}),numberField('Available from year',asset,'availableYear',{min:input.year,max:input.year+80,step:1}),selectField('Owner',asset,'owner',asset.type==='pension'?owners():[...owners(),['joint','Household']])];
    if(!['cash','bonds'].includes(asset.id))advanced.push(selectField('Asset type',asset,'type',[['cash','Savings'],['investment','Trading / ISA'],['pension','Pension pot'],['property','Property'],['car','Vehicle'],['bonds','Fixed income']],()=>{if(asset.type==='pension'&&asset.owner==='joint')asset.owner='primary';dialog.close();renderAssets();}));
    if(asset.type==='pension')advanced.push(numberField('Access at owner age',asset,'accessAge',{min:18,max:100,step:1}));
    more.append(node('div',{class:'quick-fields'},advanced));fields.push(more);
@@ -90,9 +103,9 @@ function renderDebts() {
    const target={year:projected?.year??input.year+9,mode:'payment'};
    const payment=numberField('Payment / month (£)',debt,'payment',{step:.01});
    const end=numberField('Target end year (payment adjusts)',target,'year',{min:input.year,max:input.year+80,step:1,change:()=>{if(target.mode==='end')syncPayment();}});end.hidden=true;
-   function syncPayment(){try{debt.payment=paymentForDebtEnd(debt.balance,debt.rate,target.year-input.year+1);payment.querySelector('input').value=debt.payment.toFixed(2);}catch{debt.payment=NaN;}}
+   function syncPayment(){try{debt.payment=debt.monthly?monthlyDebtPayment(debt.balance,debt.rate,(target.year-input.year+1)*12):paymentForDebtEnd(debt.balance,debt.rate,target.year-input.year+1);payment.querySelector('input').value=debt.payment.toFixed(2);}catch{debt.payment=NaN;}}
    const mode=selectField('Set by',target,'mode',[['payment','Monthly payment'],['end','End year']],()=>{end.hidden=target.mode!=='end';payment.querySelector('input').readOnly=target.mode==='end';if(target.mode==='end')syncPayment();});
-   openEditor(debt.label,[mode,numberField('Interest / year (%)',debt,'rate',{max:50,step:.5,change:()=>{if(target.mode==='end')syncPayment();}}),payment,end,selectField('Debt type',debt,'type',[['mortgage','Mortgage'],['loan','Loan / credit']]),node('p',{class:'small',text:'End year sets the payment needed in this annual illustration. Unfunded balances remain. Lender terms and balloon payments may differ.'})],[remove]);
+   openEditor(debt.label,[mode,numberField('Interest / year (%)',debt,'rate',{max:50,step:.5,change:()=>{if(target.mode==='end')syncPayment();}}),payment,end,selectField('Debt type',debt,'type',[['mortgage','Mortgage'],['loan','Loan / credit']]),node('p',{class:'small',text:'End year adjusts the payment. Home mortgage interest compounds monthly; cash funding is annual. Unfunded balances remain. Fees, rate changes and balloon payments are not calculated.'})],[remove]);
   };
   meta.addEventListener('click',edit);
   const timing=node('button',{type:'button',class:'timing-chip','data-debt-timing':debt.id,text:'Estimated end'});timing.addEventListener('click',edit);
@@ -101,8 +114,9 @@ function renderDebts() {
  }));
 }
 function streamRow(row,list) {
- const title=node('input',{type:'text',class:'stream-title',value:row.label,'aria-label':`${list==='incomes'?'Income':'Expense'} name`,maxlength:70});title.addEventListener('input',()=>{row.label=title.value;});
+ const title=node('input',{type:'text',class:'stream-title',value:row.label,title:row.label,'aria-label':`${list==='incomes'?'Income':'Expense'} name`,maxlength:70});title.addEventListener('input',()=>{row.label=title.value;});
  const amount=inlineAmount(`${row.label} amount (£ per ${row.frequency==='month'?'month':row.frequency==='year'?'year':'one-off'})`,row,'amount',row.frequency==='month'?'/mo':row.frequency==='year'?'/yr':'once');
+ if(list==='incomes'){const basis=node('button',{type:'button',class:'tax-chip','data-tax-badge':row.id,text:taxBadge(row),'aria-label':`Tax basis for ${row.label}`});basis.addEventListener('click',()=>openEditor(row.label+' · tax',taxFields(row)));amount.append(basis);}
  const startChange=()=>{if(row.type==='state'){const person=personForRow(row),previous=person.stateAge;person.stateAge=row.startAge;if(person.retireAge===previous)person.retireAge=person.stateAge;renderPeople();renderPlanPeople();}if(row.frequency==='once')row.endAge=row.startAge;};
  const timing=node('button',{type:'button',class:'timing-chip','data-timing':row.id,text:timingLabel(row),'aria-label':`Timing for ${row.label}`});
  timing.addEventListener('click',()=>{
@@ -116,19 +130,19 @@ function streamRow(row,list) {
     const changes=node('div',{class:'budget-changes'});
     const render=()=>{changes.replaceChildren(...(row.changes??[]).map((change,index)=>{
      const remove=node('button',{type:'button',class:'quiet-button',text:'Remove change'});remove.addEventListener('click',()=>{row.changes.splice(index,1);render();calculate();});
-     return node('div',{class:'budget-step'},[numberField(`Changes at ${person.name}’s age`,change,'age',{min:row.startAge,max:105,step:1,range:true,formatOutput:age=>`${age} · ${input.year+age-person.age}`}),numberField(`New budget (£/${row.frequency==='month'?'month':'year'}, today’s prices)`,change,'amount',{step:50}),remove]);
+     return node('div',{class:'budget-step'},[numberField(`Changes at ${person.name}’s age`,change,'age',{min:row.startAge,max:105,step:1,range:true,formatOutput:age=>`${age} · ${input.year+age-person.age}`}),numberField(`New budget (£/${row.frequency==='month'?'month':'year'}, ${row.priceBasis==='future'?'quoted prices':'today’s prices'})`,change,'amount',{step:50}),remove]);
     }));};render();
     const add=node('button',{type:'button',class:'quiet-button',text:'+ Change later'});add.addEventListener('click',()=>{(row.changes??=[]).push({age:Math.min(105,Math.max(row.startAge,personForRow(row).retireAge)),amount:row.amount});render();calculate();});
     fields.push(changes,add);
    }
   }
-  fields.push(node('p',{class:'small',text:`${person.name} turns ${row.startAge} in ${input.year+row.startAge-person.age}. ${row.type==='salary'||row.type==='saving'?'This stream also ends when they stop work.':'End ages exclude that year.'}`}));
+  fields.push(node('p',{class:'small',text:`${person.name} turns ${row.startAge} in ${input.year+row.startAge-person.age}. ${['salary','bonus','saving'].includes(row.type)?'This stream also ends when they stop work.':'End ages exclude that year.'}`}));
   openEditor(row.label+' · timing',fields);
  });
  const more=node('button',{type:'button',class:'more-button','data-edit-row':row.id,'aria-label':`More settings for ${row.label}`,text:'⋯'});
  more.addEventListener('click',()=>{
   let previousFrequency=row.frequency;
-  const frequency=selectField('Frequency',row,'frequency',[['month','Monthly'],['year','Yearly'],...(list==='expenses'?[['once','One-off']]:[])],()=>{
+  const frequency=selectField('Frequency',row,'frequency',[['month','Monthly'],['year','Yearly'],['once','One-off']],()=>{
    const next=row.frequency;row.frequency=previousFrequency;convertStreamFrequency(row,next);
    previousFrequency=row.frequency;
    if(row.frequency==='once')row.endAge=row.startAge;else if(row.endAge<=row.startAge)row.endAge=row.startAge+1;
@@ -137,7 +151,8 @@ function streamRow(row,list) {
   const owner=selectField('Owner',row,'owner',owners(),()=>{if(row.type==='state')row.startAge=personForRow(row).stateAge;renderStreams();});
   const copy=node('button',{type:'button',class:'quiet-button',text:'Duplicate'});copy.addEventListener('click',()=>{dialog.close();input[list].push({...structuredClone(row),id:`copy-${++sequence}`,label:row.label+' copy'});renderStreams();calculate();});
   const remove=node('button',{type:'button',class:'remove-row',text:'Remove'});remove.addEventListener('click',()=>{dialog.close();input[list]=input[list].filter(r=>r!==row);renderStreams();calculate();});
-  openEditor(row.label,[frequency,owner,numberField(list==='expenses'&&['regular','oneoff'].includes(row.type)?'Growth above inflation (%)':'Annual growth (%)',row,'growth',{min:-20,max:20,step:.5})],[copy,remove]);
+  const extras=[];if(list==='incomes'){extras.push(...taxFields(row));if(row.type==='bonus'||row.frequency==='once'){row.paymentMonth??=1;extras.push(numberField('Payment month (1–12)',row,'paymentMonth',{min:1,max:12,step:1}));}if(['dividend','sale'].includes(row.type)){row.assetId??=input.assets.find(a=>a.type==='investment'&&a.owner===row.owner)?.id;extras.push(selectField('Release from account',row,'assetId',input.assets.filter(a=>a.type==='investment').map(a=>[a.id,a.label])));}}else{row.priceBasis??='today';extras.push(selectField('Budget prices',row,'priceBasis',[['today','Today’s prices + inflation'],['future','Quoted future prices']]));if(row.type==='vehicle'){row.assetId??='car';extras.push(selectField('Vehicle purchased',row,'assetId',input.assets.filter(a=>a.type==='car').map(a=>[a.id,a.label])));}}
+  openEditor(row.label,[frequency,owner,...extras,numberField(list==='expenses'&&row.priceBasis!=='future'&&['regular','oneoff','education','vehicle'].includes(row.type)?'Growth above inflation (%)':'Annual growth (%)',row,'growth',{min:-20,max:20,step:.5})],[copy,remove]);
  });
  const unit=amount.querySelector('.amount-unit');
  if(unit){unit.setAttribute('aria-label',`Change frequency for ${row.label}`);unit.title='Switch monthly / yearly';unit.addEventListener('click',()=>{
@@ -151,11 +166,11 @@ function streamRow(row,list) {
 function personForRow(row){return input.people.find(p=>p.id===row.owner);}
 function timingLabel(row) {
  const person=personForRow(row),start=row.type==='state'?person.stateAge:row.startAge;
- const end=row.type==='salary'||row.type==='saving'?Math.min(row.ongoing?Infinity:row.endAge,person.retireAge):(row.ongoing?Infinity:row.endAge);
+ const end=['salary','bonus','saving'].includes(row.type)?Math.min(row.ongoing?Infinity:row.endAge,person.retireAge):(row.ongoing?Infinity:row.endAge);
  if(row.frequency==='once')return start===person.age?'Once · now':`At ${start}`;
  if(row.changes?.length)return `${person.name} · changes ${Math.min(...row.changes.map(c=>c.age))}`;
  if(start>person.age)return `From ${person.name} ${start}`;
- return (row.type==='salary'||row.type==='saving')&&end===person.retireAge?`Until ${person.name} stops work`:end===Infinity?'Ongoing':`Until ${person.name} ${end}`;
+ return (['salary','bonus','saving'].includes(row.type))&&end===person.retireAge?`Until ${person.name} stops work`:end===Infinity?'Ongoing':`Until ${person.name} ${end}`;
 }
 function renderStreams() {$('income-rows').replaceChildren(...input.incomes.map(r=>streamRow(r,'incomes')));$('expense-rows').replaceChildren(...input.expenses.map(r=>streamRow(r,'expenses')));}
 function renderPlanPeople() {
@@ -169,22 +184,27 @@ function renderActions() {
  $('household-actions').replaceChildren();$('more-actions').replaceChildren();
  Object.entries(definitions).forEach(([key,definition])=>{
   const button=node('button',{type:'button','data-action':key,'data-group':definition.group,'aria-pressed':String(Boolean(actions[key]))},[icon(definition.icon),definition.title]);
-  button.addEventListener('click',()=>{actions[key]=!actions[key];renderActions();calculate();document.querySelector(`[data-action="${key}"]`)?.focus({preventScroll:true});});$('early spend downsize pension'.split(' ').includes(key)?'household-actions':'more-actions').append(button);
+  button.addEventListener('click',()=>{actions[key]=!actions[key];renderActions();calculate();document.querySelector(`[data-action="${key}"]`)?.focus({preventScroll:true});});$('early job spend pension'.split(' ').includes(key)?'household-actions':'more-actions').append(button);
  });
  $('action-editors').replaceChildren(...Object.entries(definitions).filter(([key])=>actions[key]).map(([key,definition])=>{
   const note=node('details',{class:'scenario-note'},[node('summary',{text:'Assumptions'}),node('p',{text:definition.note})]);
-  return node('div',{class:'action-editor','data-editor':key},[node('h4',{text:definition.title}),node('div',{class:'action-fields'},definition.fields.map(([field,label,min,max,step])=>numberField(label,input.settings,field,{min:max<=1e6?min:0,max,step}))),note]);
+  const profile=input.employment?.find(e=>e.owner===(key==='job'?'primary':key==='jobPartner'?'partner':null));
+  const fields=key==='allocate'?[selectField('Cash account',input.allocation,'fromId',input.assets.filter(a=>a.type==='cash').map(a=>[a.id,a.label])),selectField('Investment account',input.allocation,'toId',input.assets.filter(a=>a.type==='investment').map(a=>[a.id,a.label])),numberField('Change in year',input.allocation,'year',{min:input.year,max:input.year+80,step:1}),numberField('Cash transferred (%)',input.allocation,'percent',{max:100,step:5})]:profile?[numberField('Redundancy year',profile,'year',{min:input.year,max:input.year+80,step:1}),numberField('Month (1–12)',profile,'month',{min:1,max:12,step:1}),numberField('Severance amount (£)',profile,'severance',{step:1000}),...taxFields(profile),numberField('Years until new job (0 = no return)',profile,'returnYears',{min:0,max:40,step:1}),numberField('New job pay (% of previous pay)',profile,'returnPayPercent',{min:0,max:200,step:5})]:definition.fields.map(([field,label,min,max,step])=>numberField(label,input.settings,field,{min:(field.includes('Age')||['earlyPrimary','earlyPartner'].includes(field))?input.people[field==='earlyPartner'||field==='partTimePartnerAge'?1:0].age:min,max,step}));
+  return node('div',{class:'action-editor','data-editor':key},[node('h4',{text:definition.title}),node('div',{class:'action-fields'},fields),note]);
  }));
 }
 function calculate() {
  try{
   baseline=simulateHousehold(input);current=simulateHousehold(input,actions);stressed=simulateHousehold(input,actions,true);
   $('household-error').hidden=true;$('quick-editor-error').hidden=true;for(const id of ['wealth-chart','income-chart'])$(id).style.display='';
+  $('tax-warning').textContent=current.warnings.some(w=>w.includes('tax excluded'))?'Tax excluded in some figures · check the example assumptions.':'';
+  $('example-notes').replaceChildren(node('summary',{text:'Starting example & tax assumptions'}),...(input.assumptionNotes??[]).map(text=>node('p',{class:'small',text})),node('p',{class:'small',text:current.warnings.join(' ')}));
   const opening=openingPicture(input);$('net-total').textContent=money(opening.net);$('accessible-total').textContent=money(opening.accessible);$('opening-equation').textContent=`${compact(opening.assets)} assets − ${compact(opening.debt)} debts`;
-  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);}
+  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);const rate=document.querySelector(`[data-asset-rate="${asset.id}"]`);if(rate)rate.textContent=`${asset.rate}% / year${asset.availableYear&&asset.availableYear>input.year?` · available ${asset.availableYear}`:''}`;}
   for(const person of input.people){const chip=document.querySelector(`[data-person-chip="${person.id}"]`);if(chip)chip.textContent=`${person.name} · ${person.age}`;const planChip=document.querySelector(`[data-plan-person="${person.id}"]`);if(planChip)planChip.textContent=`${person.name} · work ends ${person.retireAge}`;}
   if($('inflation-chip'))$('inflation-chip').textContent=`Inflation ${input.inflation}%`;
   for(const debt of input.debts){const meta=document.querySelector(`[data-debt-meta="${debt.id}"]`);if(meta)meta.textContent=`${debt.rate}% · ${money(debt.payment)}/mo`;const timing=document.querySelector(`[data-debt-timing="${debt.id}"]`);const end=baseline.rows.find(r=>r.debtBalances[debt.id]<.01);if(timing)timing.textContent=debt.balance===0?'Paid off':end?`Ends ~${end.year}`:'Beyond plan';}
+  for(const row of input.incomes){const badge=document.querySelector(`[data-tax-badge="${row.id}"]`);if(badge)badge.textContent=taxBadge(row);}
   for(const row of [...input.incomes,...input.expenses]){const label=document.querySelector(`[data-timing="${row.id}"]`);if(label)label.textContent=timingLabel(row);}
   const now=baseline.rows[0];$('income-now').textContent=money(now.income/12)+'/mo';$('spending-now').textContent=money(now.spending/12)+'/mo';$('surplus-now').textContent=money(Math.max(0,now.income-now.spending)/12)+'/mo';$('saving-goal-warning').textContent=now.unfundedSaving>0.01?`${money(now.unfundedSaving/12)}/mo of the pension-saving goals is not funded by the current surplus.`:'';
   const result=current.firstGap?`First funding gap at Alex age ${current.firstGap.primaryAge} · ${money(current.firstGap.gap)} that year.`:`Spending covered to Alex ${current.final.primaryAge} · illustration`;
@@ -194,7 +214,7 @@ function calculate() {
   $('scenario-feedback').textContent=Object.values(actions).some(Boolean)?`${result} · ${delta>=0?'+':'−'}${compact(Math.abs(delta))} end estate vs baseline · ${money(c.accessible-b.accessible)} change in accessible assets at Alex ${c.primaryAge}.`:'Choose a change to compare with the baseline.';
   const select=$('inspect-year');const values=current.rows.map(row=>node('option',{value:row.year,text:`${row.year} · Alex ${row.primaryAge}, Jemma ${row.partnerAge}`}));select.replaceChildren(...values);if(!current.rows.some(r=>r.year===selectedYear))selectedYear=current.rows[0].year;select.value=selectedYear;
   renderYear();if(screen==='plan')drawCharts();$('household-status').textContent='Example recalculated. '+result;
- }catch(error){$('quick-editor-error').textContent=error.message;$('quick-editor-error').hidden=!dialog.open;current=null;baseline=null;stressed=null;$('selected-milestone').textContent='';$('household-year-details').replaceChildren();$('inspect-year').replaceChildren();$('household-error').textContent=error.message+' Complete the figures to run this illustration.';$('household-error').hidden=false;for(const id of ['wealth-chart','income-chart'])$(id).style.display='none';$('wealth-events').replaceChildren();$('income-legend').replaceChildren();$('plan-result').textContent='Check the highlighted message before using the plan.';$('saving-goal-warning').textContent='';$('scenario-feedback').textContent='Complete the figures to compare.';$('estate-composition').replaceChildren();for(const id of ['net-total','accessible-total','income-now','spending-now','surplus-now','year-income','year-withdrawals'])$(id).textContent='—';}
+ }catch(error){$('quick-editor-error').textContent=error.message;$('quick-editor-error').hidden=!dialog.open;current=null;baseline=null;stressed=null;$('selected-milestone').textContent='';$('household-year-details').replaceChildren();$('inspect-year').replaceChildren();$('household-error').textContent=error.message+' Complete the figures to run this illustration.';$('household-error').hidden=false;for(const id of ['wealth-chart','income-chart'])$(id).style.display='none';$('wealth-events').replaceChildren();$('income-legend').replaceChildren();$('plan-result').textContent='Check the highlighted message before using the plan.';$('saving-goal-warning').textContent='';$('tax-warning').textContent='';$('scenario-feedback').textContent='Complete the figures to compare.';$('estate-composition').replaceChildren();for(const id of ['net-total','accessible-total','income-now','spending-now','surplus-now','year-income','year-withdrawals'])$(id).textContent='—';}
 }
 const ns='http://www.w3.org/2000/svg';
 function svgNode(svg,name,attributes,text){const e=document.createElementNS(ns,name);for(const [key,value]of Object.entries(attributes))e.setAttribute(key,String(value));if(text)e.textContent=text;svg.append(e);return e;}
@@ -206,7 +226,7 @@ function chartFrame(id,title,max,min=0) {
  svgNode(svg,'text',{x:(width+left-right)/2,y:394,'text-anchor':'middle',fill:'#536568','font-size':16},'Alex’s age');
  return {svg,width,height,x,y,left,right,top,bottom};
 }
-const funding=[['salary','Work','#4775ac'],['rent','Rent','#ad863c'],['support','Support','#856399'],['pension','DB / pension','#548579'],['state','State Pension','#2b675e'],['other','Other','#85959c'],['assetRelease','Dividends / sales','#a080b3'],['withdrawals','Savings / pots','#d5ac60'],['gap','Unfunded','#b4563b']];
+const funding=[['bonus','Bonus','#687bb6'],['severance','Severance','#92764a'],['inheritance','Inheritance','#926899'],['salary','Work','#4775ac'],['rent','Rent','#ad863c'],['support','Support','#856399'],['pension','DB / pension','#548579'],['state','State Pension','#2b675e'],['other','Other','#85959c'],['assetRelease','Dividends / sales','#a080b3'],['withdrawals','Savings / pots','#d5ac60'],['gap','Unfunded','#b4563b']];
 function drawCharts() {
  if(!current||!$('household-error').hidden)return;
  const values=[...baseline.rows,...current.rows,...stressed.rows].map(r=>r.netWealth);const max=Math.max(1,actions.legacy?input.settings.legacyTarget:0,...values)*1.08,min=Math.min(0,...values);
@@ -231,12 +251,12 @@ function drawCharts() {
 }
 function renderYear() {
  if(!current)return;const row=current.rows.find(r=>r.year===selectedYear)??current.rows[0];$('year-income').textContent=`${money(row.income)} income`;$('year-withdrawals').textContent=`${money(row.withdrawals)} from assets`;
- const facts=[['Net wealth',row.netWealth],['Accessible assets',row.accessible],['Property',row.propertyValue],['Debt remaining',row.closingDebt],['New income (excluding asset sales)',row.income],['Internal dividends / sale releases',row.releasedFromInvestments],['Spending & scheduled debt payments',row.spending],['Cash mortgage payoff',row.payoff],['Added to financial assets',row.additions],['Withdrawn from assets',row.withdrawals],['Growth / value change',row.growth],['Market loss',row.marketLoss],['Debt interest',row.debtInterest],['Debt repaid',row.debtPaid+row.settlement],['Alex pension saving funded',row.pensionSavingByOwner.primary],['Jemma pension saving funded',row.pensionSavingByOwner.partner],['Saving goal not funded',row.unfundedSaving],['Unpaid spending',row.gap],['Earlier + current unpaid spending',row.cumulativeGap]];
- $('household-year-details').replaceChildren(node('dl',{class:'assumptions-table'},facts.flatMap(([label,value])=>[node('dt',{text:label}),node('dd',{text:money(value)})])));
+ const facts=[['Net wealth',row.netWealth],['Accessible assets',row.accessible],['Property',row.propertyValue],['Debt remaining',row.closingDebt],['New income (excluding asset sales)',row.income],['Internal dividends / sale releases',row.releasedFromInvestments],['Spending & scheduled debt payments',row.spending],['Cash mortgage payoff',row.payoff],['Income deduction estimates',row.incomeTax],['Return deduction estimates',row.growthTax],['Withdrawal deduction estimates',row.withdrawalTax],['Vehicle value purchased',row.assetPurchased],['Alex accounts withdrawn (gross)',row.withdrawalsByOwner.primary],['Jemma accounts withdrawn (gross)',row.withdrawalsByOwner.partner],['Joint accounts withdrawn (gross)',row.withdrawalsByOwner.joint],['Added to financial assets',row.additions],['Withdrawn from assets',row.withdrawals],['Growth / value change',row.growth],['Market loss',row.marketLoss],['Debt interest',row.debtInterest],['Debt repaid',row.debtPaid+row.settlement],['Alex pension saving funded',row.pensionSavingByOwner.primary],['Jemma pension saving funded',row.pensionSavingByOwner.partner],['Saving goal not funded',row.unfundedSaving],['Unpaid spending',row.gap],['Earlier + current unpaid spending',row.cumulativeGap]];
+ $('household-year-details').replaceChildren(node('dl',{class:'assumptions-table'},[...facts,...Object.entries(row.withdrawalsByAccount).map(([id,value])=>[`${row.accountLabels[id]??id} withdrawn (gross)`,value])].flatMap(([label,value])=>[node('dt',{text:label}),node('dd',{text:money(value)})])));
 }
-function addStream(list,type) {const person=input.people[0];const label={salary:'New salary',rent:'Rent after costs',support:'Support',pension:'Pension income',state:'State Pension',dividend:'Dividend distribution',sale:'Investment sale proceeds',other:'Other income',regular:'Regular spending',lease:'Car lease',oneoff:'One-off cost',saving:'Pension saving'}[type];input[list].push({id:`row-${++sequence}`,label,type,owner:'primary',amount:0,frequency:type==='oneoff'?'once':'month',startAge:type==='state'?person.stateAge:person.age,endAge:type==='oneoff'?person.age:110,ongoing:type!=='oneoff',growth:0});renderStreams();calculate();}
+function addStream(list,type) {const person=input.people[0];const label={salary:'New salary',bonus:'Employment bonus',inheritance:'Inheritance / gift',education:'Education fees',vehicle:'Vehicle purchase',rent:'Rent after costs',support:'Support',pension:'Pension income',state:'State Pension',dividend:'Dividend distribution',sale:'Investment sale proceeds',other:'Other income',regular:'Regular spending',lease:'Car lease',oneoff:'One-off cost',saving:'Pension saving'}[type];input[list].push({id:`row-${++sequence}`,label,type,owner:'primary',amount:0,frequency:['oneoff','inheritance','vehicle'].includes(type)?'once':['bonus','education'].includes(type)?'year':'month',startAge:type==='state'?person.stateAge:person.age,endAge:['oneoff','inheritance','vehicle'].includes(type)?person.age:110,ongoing:!['oneoff','inheritance','vehicle'].includes(type),growth:0,taxBasis:'net',taxRate:0,assetId:type==='vehicle'?'car':undefined,priceBasis:'today'});renderStreams();calculate();}
 function openStreamPicker(list){
- const types=list==='incomes'?[['salary','Salary / self-employment'],['rent','Rent, after costs'],['support','Benefits / support'],['pension','DB / other pension income'],['state','State Pension'],['dividend','Dividend from investments'],['sale','Investment sale'],['other','Other income']]:[['regular','Regular spending'],['lease','Car lease'],['oneoff','One-off cost'],['saving','Pension saving from income']];
+ const types=list==='incomes'?[['salary','Salary / self-employment'],['bonus','Employment bonus'],['inheritance','Inheritance / gift'],['rent','Rent, after costs'],['support','Benefits / support'],['pension','DB / other pension income'],['state','State Pension'],['dividend','Dividend from investments'],['sale','Investment sale'],['other','Other income']]:[['regular','Regular spending'],['education','Education fees'],['lease','Car lease'],['vehicle','Vehicle purchase'],['oneoff','One-off cost'],['saving','Pension saving from income']];
  const choice={type:types[0][0]},add=node('button',{type:'button',class:'quiet-button',text:'Add row'});
  add.addEventListener('click',()=>{dialog.close();addStream(list,choice.type);const row=input[list].at(-1);document.querySelector(`[data-stream="${row.id}"] .stream-title`)?.focus();});
  openEditor(list==='incomes'?'Add income':'Add spending',[selectField('Type',choice,'type',types)],[add]);
@@ -244,11 +264,18 @@ function openStreamPicker(list){
 $('add-income').addEventListener('click',()=>openStreamPicker('incomes'));$('add-expense').addEventListener('click',()=>openStreamPicker('expenses'));
 $('add-debt').addEventListener('click',()=>{input.debts.push({id:`debt-${++sequence}`,label:'Additional debt',type:'loan',balance:0,rate:6,payment:0});renderDebts();calculate();});
 $('add-asset').addEventListener('click',()=>{input.assets.push({id:`asset-${++sequence}`,label:'Additional investment',type:'investment',owner:'joint',balance:0,rate:5,accessAge:0});renderAssets();calculate();});
-$('reset-household').addEventListener('click',()=>{input=householdExample();actions={};sequence=0;initialise();});$('reset-actions').addEventListener('click',()=>{actions={};input.settings=householdExample().settings;renderActions();calculate();});
+$('reset-household').addEventListener('click',()=>{input=householdBaseExample();actions={};sequence=0;savedScenarios=[];renderSavedScenarios();initialise();});$('reset-actions').addEventListener('click',()=>{actions={};input.settings=defaultScenarioSettings();input.employment=householdBaseExample().employment;input.withdrawal=householdBaseExample().withdrawal;input.allocation=householdBaseExample().allocation;$('scenario-preset').value='continue';renderWithdrawal();renderActions();calculate();});
 $('run-plan').addEventListener('click',()=>{calculate();if($('household-error').hidden)show('plan');});
 $('inspect-year').addEventListener('change',()=>{selectedYear=Number($('inspect-year').value);renderYear();});
 for(const button of document.querySelectorAll('[data-screen],[data-next]'))button.addEventListener('click',()=>show(button.dataset.screen??button.dataset.next));
 window.addEventListener('resize',()=>{if(screen==='plan')drawCharts();});
-function initialise(){renderPeople();renderAssets();renderDebts();renderStreams();renderPlanPeople();renderActions();calculate();}
+function renderWithdrawal(){
+ const policy=input.withdrawal;
+ $('withdrawal-policy').replaceChildren(selectField('Use accounts belonging to',policy,'owner',[['household','Both people'],...owners()]),selectField('Withdrawal order',policy,'order',[['cash-first','Cash → investments → pensions'],['investments-first','Investments → cash → pensions'],['pension-first','Accessible pensions → cash → investments']]),numberField('Annual net withdrawal ceiling (%)',policy,'maxPercent',{min:0,max:100,step:1}),node('p',{class:'small',text:'100% permits funding the entered costs. A lower ceiling limits net withdrawals to that percentage of accessible assets at the start of each year; unmet costs remain visible. This is a comparison, not a recommended withdrawal strategy.'}));
+}
+function renderSavedScenarios(){const select=$('scenario-preset');select.replaceChildren(...[['continue','Continue working'],['redundancy','Both redundancies'],['alex','Alex redundancy only'],['jemma','Jemma redundancy only'],...savedScenarios.map((s,i)=>['saved-'+i,s.name])].map(([value,text])=>node('option',{value,text})));}
+$('scenario-preset').addEventListener('change',()=>{const value=$('scenario-preset').value;if(value.startsWith('saved-')){const saved=savedScenarios[Number(value.slice(6))];input=structuredClone(saved.input);actions=structuredClone(saved.actions);initialise();}else{actions=value==='redundancy'?{job:true,jobPartner:true}:value==='alex'?{job:true}:value==='jemma'?{jobPartner:true}:{};renderActions();calculate();}});
+$('save-scenario').addEventListener('click',()=>{const name=node('input',{type:'text',value:`Scenario ${savedScenarios.length+1}`,'aria-label':'Scenario name',maxlength:60});const save=node('button',{type:'button',class:'quiet-button',text:'Save copy'});save.addEventListener('click',()=>{savedScenarios.push({name:name.value.trim()||`Scenario ${savedScenarios.length+1}`,input:structuredClone(input),actions:structuredClone(actions)});dialog.close();renderSavedScenarios();$('scenario-preset').value='saved-'+(savedScenarios.length-1);});openEditor('Save scenario',[node('label',{class:'number-field'},[node('span',{text:'Name'}),name]),node('p',{class:'small',text:'Saved for this page session only. Reloading clears these copies.'})],[save]);});
+function initialise(){renderWithdrawal();renderPeople();renderAssets();renderDebts();renderStreams();renderPlanPeople();renderActions();calculate();}
 document.body.dataset.workspaceScreen=screen;
-initialise();
+renderSavedScenarios();initialise();
