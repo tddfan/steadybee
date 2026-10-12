@@ -782,7 +782,12 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 .scenario-controls .compact-income > .more-button {grid-column:5;grid-row:1;display:grid;place-items:center}
 .compact-income .more-button svg {width:16px;height:16px}
 @media(max-width:560px){.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(60px,1fr) 104px 48px 44px}.scenario-controls .compact-income > .timing-chip {grid-column:3}.scenario-controls .compact-income > .more-button {grid-column:4}.scenario-controls .compact-income > .tweak-field {grid-column:1 / -1;grid-row:2}.compact-income .tweak-field input[type="range"] {height:44px}}
-#income-rows {width:100%;max-width:380px}
-.scenario-controls .ledger-row.compact-income {width:100%;min-width:0;grid-template-columns:minmax(0,1fr) 100px 56px 44px 44px;gap:2px}
-.scenario-controls .compact-income > .ledger-amount,.scenario-controls .compact-income > .tweak-field {min-width:0}
-@media(max-width:560px){.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(0,1fr) 100px 44px 44px}.scenario-controls .compact-income > .tweak-field {width:100%;max-width:260px}}
+/* Compact income height without narrowing the available row width. */
+.scenario-controls .ledger-row.compact-income {padding-block:0;row-gap:0;min-height:44px}
+.compact-income .stream-title,.compact-income .inline-number input {min-height:44px;margin:0;padding-block:0}
+.scenario-controls .compact-income > .tweak-field {margin:0;line-height:0}
+.scenario-controls .compact-income > .tweak-field > input[type="range"] {height:44px;min-height:44px;margin:0}
+@media(max-width:560px){
+ .scenario-controls .ledger-row.compact-income {grid-template-rows:44px 28px;padding-block:0}
+ .scenario-controls .compact-income > .tweak-field > input[type="range"] {height:28px;min-height:28px}
+}
