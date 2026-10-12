@@ -67,8 +67,8 @@
         </section>
         <section id="screen-plan" class="household-screen" hidden aria-label="Your household simulation">
           <div class="household-intro"><h2>Your plan.</h2></div>
-          <div class="baseline-chips"><span class="small">Assumptions</span><div id="plan-people"></div></div>
-          <div class="scenario-toolbar"><label for="scenario-preset">Starting scenario</label><select id="scenario-preset"></select><button type="button" id="save-scenario" class="quiet-button">Save copy</button></div><div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
+          <div id="plan-people" hidden></div>
+          <div class="scenario-toolbar"><label for="scenario-preset">Scenario</label><select id="scenario-preset"></select><button type="button" id="new-scenario" class="quiet-button">+ New</button><button type="button" id="save-scenario" class="button primary">Save scenario</button><button type="button" id="jump-controls" class="quiet-button">Adjust sliders ↓</button></div><p id="scenario-state" class="small scenario-state" role="status"></p><div id="saved-scenarios" class="saved-scenarios"></div><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><div class="plan-workbench"><div id="plan-visuals" class="plan-visuals"><div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
           <div class="chart-tabs" role="tablist" aria-label="Plan charts">
             <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="true">Estate</button>
             <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="false" tabindex="-1">Income</button>
@@ -91,12 +91,20 @@
             </section>
           </div>
           <div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
-          <div class="section-heading"><h3>Change the plan</h3><button type="button" class="quiet-button" id="reset-actions">Clear choices</button></div>
-          <div id="household-actions" class="scenario-shortcuts"></div>
-          <details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details>
-          <p id="scenario-feedback" class="scenario-feedback" role="status"></p><div id="action-editors"></div>
           <details class="pension-details"><summary>Pension growth: contributions &amp; returns</summary><div id="pension-breakdown"></div></details>
-          <details class="withdrawal-settings"><summary>Withdrawals: whose accounts &amp; how much</summary><div id="withdrawal-policy" class="quick-fields"></div></details>
+          <p id="scenario-feedback" class="scenario-feedback" role="status"></p>
+          </div>
+          <aside id="scenario-controls" class="scenario-controls" tabindex="-1" aria-label="Scenario sliders and changes">
+            <div class="section-heading"><h3>Adjust scenario</h3><button type="button" class="quiet-button" id="reset-actions">Reset to default</button></div>
+            <p id="scenario-live" class="scenario-live" role="status"></p>
+            <div id="plan-retirement"></div><div id="action-editors"></div>
+            <details class="more-scenarios"><summary>+ Add another change</summary><div id="more-actions" class="scenario-shortcuts"></div></details>
+            <details class="plan-tweak-group"><summary>Income &amp; pension contributions</summary><p class="small">Payslip take-home stays as entered. Choose an estimated deduction method to link take-home to gross pay.</p><div id="plan-pay"></div></details>
+            <details class="plan-tweak-group"><summary>Spending budgets</summary><div id="plan-spending"></div></details>
+            <details class="plan-tweak-group"><summary>Returns, inflation &amp; horizons</summary><div id="plan-assumptions"></div></details>
+            <details class="withdrawal-settings"><summary>Withdrawals: whose accounts &amp; how much</summary><div id="withdrawal-policy" class="quick-fields"></div></details>
+            <button type="button" id="view-graphs" class="quiet-button">View updated graphs ↑</button>
+          </aside></div>
           <p class="small uncertainty-note">Stress path: lower investment growth, a one-off market fall and faster spending growth. These are scenarios, not probabilities.</p>
           <details class="model-notes"><summary>Year details &amp; assumptions</summary><div id="household-year-details"></div><p>Future pounds, not inflation-adjusted purchasing power. Return defaults are authored nominal total-return assumptions. Tax-excluded amounts use the whole figure; user deduction estimates are flat assumptions, not UK tax calculations. ISA/pension/account labels do not calculate legal tax treatment. Quoted future budgets do not also receive inflation; today’s-price budgets grow with inflation. Employment salary uses active months and bonuses require employment in the payment month; other income/expenses and asset growth remain annual. The model starts January2026 and cannot show within-month shortages.</p><p>Withdrawals follow your selected owner/order and optional net ceiling; each account’s deduction assumption determines gross assets needed. Mortgage payoff respects the same account owner, order, deduction assumptions and annual withdrawal ceiling. Payroll employee/employer contributions follow employment and go to owned pots at year end; new contributions start earning the modelled return next year. Employee deductions are not repeated when already included in take-home. Salary sacrifice/net-pay options only change the base for a user deduction estimate; NI, statutory relief, matching and contribution limits are not calculated. Extra saving goals are funded only from income surplus. Main-home debt is linked to the home; rental income/costs are entered separately. Monthly home-mortgage interest/payment calculations assume a constant rate and annual cash funding. Fees, early repayment charges and refinancing are not calculated. A vehicle purchase adds the funded portion to vehicle value.</p><p>The stress path lowers investment/pension/bond growth by two points, applies a 20% investment/pension loss (5% bonds) at Alex60 or later, and adds two points to expense growth. It is a declared scenario, not a probability estimate. Planning horizons are endpoints, not death predictions. Both people remain in the model through the shared horizon; survivor benefits, statutory tax relief, inheritance tax, vesting tax and death-benefit rules are not calculated. Remaining estate includes property. Saved copies last only for this page session; account connections and tracking remain planned.</p></details>
           <p class="projection-note">Fictional illustration, not advice. Assumptions are editable; current rules are subject to change.</p>

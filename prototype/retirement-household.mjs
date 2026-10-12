@@ -64,7 +64,7 @@ function validate(input) {
   if(input.allocation){numeric(input.allocation.year,'allocation year',input.year,input.year+80);numeric(input.allocation.percent,'allocation amount (%)',0,100);if(!Number.isInteger(input.allocation.year))throw Error('Use a whole allocation year.');}
   for(const key of ['partTimeDaysPrimary','partTimeDaysPartner'])if(input.settings[key]!==undefined)numeric(input.settings[key],key,0,5);
   if(input.settings.partTimePartnerAnnual!==undefined)numeric(input.settings.partTimePartnerAnnual,'Jemma part-time amount',0,1e7);
-  if(input.settings.partTimePartnerAge!==undefined){numeric(input.settings.partTimePartnerAge,'Jemma part-time age',18,100);if(!Number.isInteger(input.settings.partTimePartnerAge))throw Error('Use a whole part-time age.');}
+  for(const key of ['partTimePrimaryAge','partTimePartnerAge'])if(input.settings[key]!==undefined){numeric(input.settings[key],key,18,100);if(!Number.isInteger(input.settings[key]))throw Error('Use a whole part-time age.');}
   for(const r of input.incomes)if(['salary','bonus'].includes(r.type))payrollFlow(r,annual(r),1);
   const ranges={earlyPrimary:[18,100],earlyPartner:[18,100],jobAge:[18,100],jobYears:[1,20],partTimeAnnual:[0,100000],downsizeAge:[18,100],replacementPercent:[0,100],movingCosts:[0,1000000],payoffAge:[18,100],leaseMonthly:[0,10000],spendPercent:[0,100],pensionMonthly:[0,10000],withdrawAge:[18,100],withdrawAmount:[0,1e7],growthExtra:[0,10],fixedPercent:[0,100],fixedAge:[18,100],legacyTarget:[0,1e8],marketAge:[18,100],marketPercent:[0,100]};
   for(const [key,[min,max]] of Object.entries(ranges))numeric(input.settings[key],key,min,max);
@@ -140,7 +140,7 @@ export function simulateHousehold(input, actions={}, stress=false) {
           else if(actions.job&&person.id==='primary'&&ownAge>=s.jobAge&&ownAge<s.jobAge+s.jobYears)continue;
         }
         const parttime=person.id==='primary'?actions.parttime:actions.parttimePartner;
-        const stepAge=person.id==='primary'?s.earlyPrimary:(s.partTimePartnerAge??50);
+        const stepAge=person.id==='primary'?(s.partTimePrimaryAge??s.earlyPrimary):(s.partTimePartnerAge??50);
         if(parttime&&ownAge>=stepAge){
           const days=person.id==='primary'?s.partTimeDaysPrimary:s.partTimeDaysPartner;
           if(days!==undefined)amount*=days/5;

@@ -631,3 +631,22 @@ body[data-workspace-screen="flows"] .experience, body[data-workspace-screen="pla
 .pension-details {font-size:16px;margin:16px 0}.pension-details summary {cursor:pointer;min-height:44px;padding:12px 0}.pension-table {width:100%;border-collapse:collapse;font-size:16px;table-layout:fixed}.pension-table caption {text-align:left;padding:12px 0}.pension-table td,.pension-table th {padding:10px 6px;border-bottom:1px solid var(--line);text-align:right;overflow-wrap:anywhere}.pension-table th:first-child {text-align:left;font-weight:500}
 @media(max-width:560px){.ledger-row > .stream-name {grid-column:2;grid-row:1}.ledger-row > .more-button {align-self:start}.year-summary {grid-template-columns:repeat(2,minmax(0,1fr))}.chart-mode select {max-width:125px}.plan-charts .section-heading h3 {font-size:22px}}
 @media(min-width:1000px){.chart-tabs {display:none}.plan-charts {grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.plan-charts > .graph-panel[hidden] {display:block!important}.year-summary {grid-template-columns:repeat(6,minmax(0,1fr))}}
+/* Plan is a playground, with defaults isolated from scenario drafts. */
+.primary-changes {grid-template-columns:repeat(3,minmax(0,1fr));margin:16px 0 24px}
+.scenario-state {margin:4px 0 10px;color:var(--quiet)}.saved-scenarios {display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.saved-scenario {display:flex;border:1px solid var(--line);border-radius:10px;background:#ffffff60;max-width:100%}
+.saved-scenario button {min-height:44px;border:0;background:transparent;color:var(--blue);font-size:16px}
+.saved-scenario-load {padding:8px 12px;overflow-wrap:anywhere;text-align:left}.saved-scenario-load[aria-pressed="true"] {background:var(--tint)}.saved-scenario-remove {min-width:44px;font-size:24px!important}
+.plan-workbench {display:grid;grid-template-columns:minmax(0,1fr);gap:24px}.plan-visuals {min-width:0}
+.scenario-controls {min-width:0;border:1px solid var(--line);border-radius:16px;padding:20px;background:#ffffff60;scroll-margin-top:20px}
+.scenario-controls .section-heading h3 {font-size:24px}.scenario-live {font-size:16px;line-height:1.5;padding:10px 0;margin:0 0 10px;border-bottom:1px solid var(--line)}
+.tweak-field {margin:14px 0;min-width:0}.tweak-heading {display:flex;gap:10px;align-items:center;justify-content:space-between}.tweak-heading > span {font-size:16px;line-height:1.4;color:var(--quiet)}
+.tweak-exact {width:104px;min-width:80px;min-height:44px;padding:6px 8px;font:inherit;font-size:18px;text-align:right;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.tweak-field > input[type="range"] {width:100%;min-height:44px;accent-color:var(--blue)}.tweak-hint {display:block;font-size:16px;color:var(--quiet);text-align:right}.tweak-hint:empty {display:none}
+.scenario-controls .action-fields,.scenario-controls .quick-fields {grid-template-columns:1fr;gap:8px}
+.active-change-heading {display:flex;justify-content:space-between;align-items:center;gap:8px}.active-change-heading h4 {margin:0;font-size:20px}.scenario-controls .action-editor {padding:14px;margin:16px 0}
+.plan-tweak-group {font-size:16px;border-top:1px solid var(--line);margin-top:12px}.plan-tweak-group > summary {min-height:48px;padding:12px 0;cursor:pointer}.plan-pay-group {padding:12px 0;border-bottom:1px solid var(--line)}.plan-pay-group h4 {font-size:18px;margin-bottom:8px}
+#view-graphs {margin-top:16px;min-height:44px}#plan-visuals {scroll-margin-top:20px}
+@media(min-width:1000px){.plan-workbench .plan-charts {grid-template-columns:repeat(2,minmax(0,1fr))}.plan-workbench #chart-panel-estate {grid-column:1/-1}.plan-workbench .year-summary {grid-template-columns:repeat(3,minmax(0,1fr))}.primary-changes {grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(min-width:1200px){.plan-workbench {grid-template-columns:minmax(0,1fr) 340px;align-items:start}.scenario-controls {position:sticky;top:20px;max-height:calc(100dvh - 40px);overflow:auto;scrollbar-gutter:stable}.scenario-controls .section-heading {flex-wrap:wrap}.scenario-controls .section-heading h3 {font-size:22px}}
+@media(max-width:560px){.primary-changes {grid-template-columns:repeat(2,minmax(0,1fr))}.scenario-toolbar {gap:8px}.scenario-toolbar select {flex-basis:180px}.scenario-controls {padding:16px}.tweak-exact {width:100px}.scenario-controls .section-heading {flex-wrap:wrap}}

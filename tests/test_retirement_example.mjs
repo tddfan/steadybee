@@ -61,7 +61,7 @@ test('monthly mortgage pays down over its 21-year term and unpaid interest stays
  i.incomes=[];i.assets.forEach(a=>a.balance=0);const bad=simulateHousehold(i);assert.ok(bad.rows[0].debtBalances.mortgage>383000);assert.equal(bad.rows[0].debtPaid,0);
 });
 test('part-time income is scaled before partial-year redundancy; March bonus follows chosen days',()=>{
- const i=householdBaseExample();i.settings.earlyPrimary=43;i.settings.partTimeDaysPrimary=3;i.incomes=i.incomes.filter(r=>r.owner==='primary'&&['salary','bonus'].includes(r.type));
+ const i=householdBaseExample();i.settings.partTimePrimaryAge=43;i.settings.partTimeDaysPrimary=3;i.incomes=i.incomes.filter(r=>r.owner==='primary'&&['salary','bonus'].includes(r.type));
  const r=simulateHousehold(i,{parttime:true,job:true}).rows[1];assert.ok(Math.abs(r.sources.salary-78000*1.01*.6*.5)<.01);assert.ok(Math.abs(r.sources.bonus-50000*1.01*.6)<.01);
 });
 test('deduction estimates require extra gross withdrawals and account transfers preserve ownership',()=>{
@@ -93,4 +93,11 @@ test('a release into Alex cash cannot be claimed as funding withdrawn from Jemma
 test('a replacement job starts in the return month at its declared pay percentage',()=>{
  const i=householdBaseExample();i.incomes=i.incomes.filter(r=>r.id==='salary-a');i.employment[0].returnYears=1;i.employment[0].returnPayPercent=80;
  const m=simulateHousehold(i,{job:true});assert.ok(Math.abs(m.rows[2].sources.salary-78000*1.01**2*.5*.8)<.01);assert.ok(Math.abs(m.rows[3].sources.salary-78000*1.01**3*.8)<.01);
+});
+
+test('Alex part-time start is independent of his chosen retirement date',()=>{
+ const i=householdBaseExample();i.settings.earlyPrimary=60;i.settings.earlyPartner=62;i.settings.partTimePrimaryAge=50;
+ const m=simulateHousehold(i,{early:true,parttime:true}),r=m.rows.find(r=>r.primaryAge===51);
+ assert.ok(Math.abs(r.sources.salary-(78000*1.01**8*.6+66000*1.03**8))<.01);
+ i.settings.partTimePrimaryAge=53;const later=simulateHousehold(i,{early:true,parttime:true});assert.ok(later.rows.find(r=>r.primaryAge===51).sources.salary>r.sources.salary);assert.ok(later.events.some(e=>e.label==='Alex stops work'&&e.age===60));
 });

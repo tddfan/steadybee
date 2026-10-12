@@ -30,7 +30,7 @@ export function householdBaseExample(){
   employment:[{owner:'primary',year:2027,month:7,severance:110000,taxBasis:'excluded',taxRate:0,returnYears:0,returnPayPercent:100},{owner:'partner',year:2029,month:7,severance:80000,taxBasis:'excluded',taxRate:0,returnYears:0,returnPayPercent:100}],
   allocation:{fromId:'cash',toId:'trading',year:2027,percent:25},
   withdrawal:{owner:'household',order:'cash-first',maxPercent:100},
-  settings:{...legacy.settings,earlyPrimary:55,earlyPartner:55,jobAge:44,jobYears:1,partTimeAnnual:39000,partTimePartnerAnnual:33000,partTimePartnerAge:50,partTimeDaysPrimary:3,partTimeDaysPartner:3,downsizeAge:60,payoffAge:50,withdrawAge:55,fixedAge:55,marketAge:50},
+  settings:{...legacy.settings,earlyPrimary:55,earlyPartner:55,jobAge:44,jobYears:1,partTimeAnnual:39000,partTimePartnerAnnual:33000,partTimePrimaryAge:50,partTimePartnerAge:50,partTimeDaysPrimary:3,partTimeDaysPartner:3,downsizeAge:60,payoffAge:50,withdrawAge:55,fixedAge:55,marketAge:50},
   assumptionNotes:[
    'Alex’s unclear savings phrase is interpreted as £230k investments plus £160k cash. The lease is £350/month; rent is £100/month before tax and costs.',
    'Home equity £400k plus mortgage £383k gives a £783k home value. Other properties are assumed mortgage-free.',
