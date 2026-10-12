@@ -51,7 +51,10 @@ export function openingPicture(input) {
 function validate(input) {
   const numeric=(v,label,min=0,max=1e10)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error(`Complete ${label} with a value from ${min} to ${max}.`);};
   numeric(input.inflation,'inflation',0,15);
-  for(const p of input.people) {if(p.niYears!==undefined){numeric(p.niYears,p.name+' NI years',0,60);if(!Number.isInteger(p.niYears))throw Error('Use whole NI qualifying years.');}numeric(p.age,p.name+' age',18,100);numeric(p.retireAge,p.name+' work-end age',18,100);numeric(p.stateAge,p.name+' pension start age',50,100);numeric(p.horizonAge,p.name+' horizon',p.age,105);if([p.age,p.retireAge,p.stateAge,p.horizonAge].some(value=>!Number.isInteger(value)))throw Error(`Use whole ages for ${p.name}.`);}
+  if(input.savings){for(const key of ['cashTarget','isaLimit','pensionLimit'])numeric(input.savings[key],key);if(!['liquidity','pension'].includes(input.savings.priority))throw Error('Select a surplus saving order.');}
+  for(const m of input.moves??[]){numeric(m.amount,m.label+' amount');numeric(m.year,m.label+' year',input.year,input.year+Math.max(...input.people.map(p=>p.horizonAge-p.age)));if(!Number.isInteger(m.year))throw Error('Use a whole move year.');if(!['transfer','prepay'].includes(m.type))throw Error('Select a money move type.');if(m.type==='prepay'){numeric(m.fee??0,'prepayment fee');if(!['payment','term'].includes(m.repayment))throw Error('Select payment or term reduction.');}}
+
+  for(const p of input.people) {if(p.niReferenceYear!==undefined){numeric(p.niReferenceYear,'NI reference year',1900,input.year-1);if(!Number.isInteger(p.niReferenceYear))throw Error('Use a whole NI reference year.');}if(p.niYears!==undefined){numeric(p.niYears,p.name+' NI years',0,60);if(!Number.isInteger(p.niYears))throw Error('Use whole NI qualifying years.');}numeric(p.age,p.name+' age',18,100);numeric(p.retireAge,p.name+' work-end age',18,100);numeric(p.stateAge,p.name+' pension start age',50,100);numeric(p.horizonAge,p.name+' horizon',p.age,105);if([p.age,p.retireAge,p.stateAge,p.horizonAge].some(value=>!Number.isInteger(value)))throw Error(`Use whole ages for ${p.name}.`);}
   for(const a of input.assets){numeric(a.balance,a.label+' balance');numeric(a.rate,a.label+' growth',-50,30);numeric(a.accessAge,a.label+' access age',0,100);}
   for(const d of input.debts){numeric(d.balance,d.label+' balance');numeric(d.rate,d.label+' interest',0,50);numeric(d.payment,d.label+' monthly payment');}
   for(const r of [...input.incomes,...input.expenses]){numeric(r.amount,r.label+' amount');numeric(r.startAge,r.label+' start',18,105);numeric(r.endAge,r.label+' end',r.startAge,110);numeric(r.growth,r.label+' growth',-20,20);if(!Number.isInteger(r.startAge)||!Number.isInteger(r.endAge))throw Error(`Use whole ages for ${r.label}.`);if(r.frequency!=='once'&&r.endAge===r.startAge)throw Error(`End ${r.label} after its start age.`);}
@@ -88,6 +91,7 @@ export function simulateHousehold(input, actions={}, stress=false) {
   for(const stream of input.incomes.filter(r=>r.type==='pension')){const owner=personFor(input,stream.owner);events.push({age:input.people[0].age+stream.startAge-owner.age,label:`${owner.name} DB / pension`});}let cumulativeGap=0;
   const workEnd=p=>actions.early? (p.id==='primary'?s.earlyPrimary:s.earlyPartner):p.retireAge;
   for(const p of input.people){events.push({age:input.people[0].age+workEnd(p)-p.age,label:`${p.name} stops work`});events.push({age:input.people[0].age+p.stateAge-p.age,label:`${p.name} State Pension`});}
+  const niYearsByOwner=Object.fromEntries(input.people.map(p=>[p.id,p.niYears??0]));
   let withdrawalsByOwner={},withdrawalsByAccount={},netWithdrawalsByAccount={},withdrawalBudget=Infinity,withdrawalTax=0;
   const withdraw=(amount,offset,includePension=true,policy=true)=>{
     let remaining=policy?Math.min(amount,withdrawalBudget):amount,taken=0;
@@ -124,12 +128,33 @@ export function simulateHousehold(input, actions={}, stress=false) {
       payoff=sum(debts.filter(d=>d.type==='mortgage'&&(!d.propertyId||d.propertyId===(assets.find(a=>a.id==='home')??assets.find(a=>a.type==='property'))?.id)).map(d=>d.balance));
       if(withdraw(payoff,offset,true,true)+.001<payoff)throw Error('Mortgage payoff exceeds selected accounts or the annual withdrawal ceiling after deduction estimates.');for(const d of debts.filter(d=>d.type==='mortgage'&&(!d.propertyId||d.propertyId===(assets.find(a=>a.id==='home')??assets.find(a=>a.type==='property'))?.id)))d.balance=0;events.push({age,label:'Mortgage repaid'});
     }
-    let income=0,distributionTax=0;const releaseRequests=[];let parttimeRemaining=s.partTimeAnnual,partnerParttimeRemaining=s.partTimePartnerAnnual??33000;
+    const moneyMoves=[];let moveTax=0;const movedPensions={};
+    for(const m of (input.moves??[]).filter(m=>m.year===year)){
+      if(m.type==='transfer'){
+        const source=assets.find(a=>a.id===m.sourceId);
+        if(!source||!availableAt(input,source,offset)||!['investment','bonds','pension'].includes(source.type))throw Error(m.label+': select an available investment or pension account.');
+        const fraction=source.withdrawalTaxBasis==='estimate'?1-source.withdrawalTaxRate/100:1,gross=m.amount/fraction;
+        if(gross>source.balance+.001)throw Error(m.label+': amount exceeds available source after deduction assumptions.');
+        const destination=assets.find(a=>a.type==='cash'&&a.owner===source.owner)??cash;
+        source.balance-=gross;destination.balance+=m.amount;moveTax+=gross-m.amount;transfer+=m.amount;
+        if(source.type==='pension')movedPensions[source.id]=(movedPensions[source.id]??0)+gross;
+      }else{
+        const debt=debts.find(d=>d.id===m.debtId);if(!debt)throw Error(m.label+': select a debt.');
+        if(m.amount>debt.balance+.001)throw Error(m.label+': amount exceeds remaining debt.');
+        const before=debt.balance;
+        if(withdraw(m.amount+(m.fee??0),offset)+.001<m.amount+(m.fee??0))throw Error(m.label+': exceeds accessible funding or withdrawal ceiling.');
+        debt.balance-=m.amount;payoff+=m.amount;if(m.repayment==='payment'&&before>0)debt.payment*=debt.balance/before;
+      }
+      moneyMoves.push({id:m.id,label:m.label,type:m.type,amount:m.amount});events.push({age,label:m.label});
+    }
+    let income=0,distributionTax=moveTax;const releaseRequests=[];let parttimeRemaining=s.partTimeAnnual,partnerParttimeRemaining=s.partTimePartnerAnnual??33000;
+    const eligiblePayByOwner={primary:0,partner:0};
     const incomeByOwner={primary:0,partner:0},payrollEmployeeByOwner={primary:0,partner:0},payrollEmployerByOwner={primary:0,partner:0};
     for(const r of input.incomes) {
       const person=personFor(input,r.owner),ownAge=person.age+offset,start=r.type==='state'?person.stateAge:r.startAge;
       if(r.frequency==='once'?ownAge!==start:ownAge<start||(!r.ongoing&&ownAge>=r.endAge))continue;
-      let amount=annual(r)*(1+r.growth/100)**offset,employmentFraction=1;
+      const salary=r.salaryId?input.incomes.find(x=>x.id===r.salaryId&&x.type==='salary'):null;const flowGrowth=salary?.growth??r.growth;
+      let amount=annual(r)*(1+flowGrowth/100)**offset,employmentFraction=1;
       if(['salary','bonus'].includes(r.type)) {
         const event=(input.employment??[]).find(e=>e.owner===person.id&&actions[person.id==='primary'?'job':'jobPartner']);
         if(r.type==='bonus'||r.frequency==='once'){
@@ -149,13 +174,14 @@ export function simulateHousehold(input, actions={}, stress=false) {
           else {amount=Math.min(amount,partnerParttimeRemaining);partnerParttimeRemaining-=amount;}
         }
       }
-      amount*=employmentFraction;const payroll=['salary','bonus'].includes(r.type)?payrollFlow(r,amount,(1+r.growth/100)**offset):null;const net=payroll?payroll.net:afterTax(amount,r);
-      if(payroll){const pot=assets.find(a=>a.type==='pension'&&a.owner===person.id&&(!r.pension?.assetId||a.id===r.pension.assetId));if(payroll.employee+payroll.employer>0&&!pot)throw Error(`Select a ${person.name} pension pot for payroll contributions.`);if(pot)pot.balance+=payroll.employee+payroll.employer;payrollEmployeeByOwner[person.id]+=payroll.employee;payrollEmployerByOwner[person.id]+=payroll.employer;}
+      amount*=employmentFraction;const payroll=['salary','bonus'].includes(r.type)?payrollFlow(r,amount,(1+flowGrowth/100)**offset):null;const net=payroll?payroll.net:afterTax(amount,r);
+      if(payroll){eligiblePayByOwner[person.id]+=payroll.gross??amount;const pot=assets.find(a=>a.type==='pension'&&a.owner===person.id&&(!r.pension?.assetId||a.id===r.pension.assetId));if(payroll.employee+payroll.employer>0&&!pot)throw Error(`Select a ${person.name} pension pot for payroll contributions.`);if(pot)pot.balance+=payroll.employee+payroll.employer;payrollEmployeeByOwner[person.id]+=payroll.employee;payrollEmployerByOwner[person.id]+=payroll.employer;}
       if(['dividend','sale'].includes(r.type)){releaseRequests.push({row:r,amount});continue;}
       incomeTax+=payroll?payroll.deductions:amount-net;
       income+=net;incomeByOwner[person.id]+=net;sources[r.type in sources?r.type:'other']+=net;
       if(r.frequency==='once')events.push({age,label:r.label});
     }
+    for(const person of input.people){if(person.assumeFutureNI!==false&&person.assumeFutureNI!=='false'&&year>(person.niReferenceYear??input.year-1)&&input.incomes.some(r=>r.owner===person.id&&r.type==='salary'&&r.amount>0&&Array.from({length:12},(_,m)=>employed(r,person,person.age+offset,year,m+1,workEnd(person),(input.employment??[]).find(e=>e.owner===person.id&&actions[person.id==='primary'?'job':'jobPartner']))).some(Boolean)))niYearsByOwner[person.id]++;}
     for(const e of input.employment??[]){if(!actions[e.owner==='primary'?'job':'jobPartner']||e.year!==year)continue;const person=personFor(input,e.owner);if(!input.incomes.some(r=>r.owner===e.owner&&['salary','bonus'].includes(r.type)&&r.amount>0&&employed(r,person,person.age+offset,year,e.month,workEnd(person))))continue;const net=afterTax(e.severance,e);incomeTax+=e.severance-net;income+=net;incomeByOwner[e.owner]+=net;sources.severance+=net;events.push({age,label:personFor(input,e.owner).name+' redundancy'});}
     // A distribution/sale is an internal asset-to-cash transfer, not new income.
     let released=0;const releasesByCash={};
@@ -189,15 +215,25 @@ export function simulateHousehold(input, actions={}, stress=false) {
     const fundedSpending=Math.min(spending,Math.max(0,available-debtPaid));
     for(const purchase of purchases){const vehicle=assets.find(a=>a.id===purchase.assetId);if(!vehicle)throw Error('Select a vehicle asset for the car purchase.');const value=purchase.amount*(spending>0?fundedSpending/spending:0);vehicle.balance+=value;assetPurchased+=value;}
     const gap=Math.max(0,need-debtPaid-fundedSpending);cumulativeGap+=gap;
-    const surplus=Math.max(0,income-need),pensionSaving=Math.min(surplus,savingGoal);
+    const surplus=Math.max(0,income-need);let pensionSaving=Math.min(surplus,savingGoal);
     const pensionSavingByOwner={};
     for(const person of input.people){const saving=savingGoal>0?pensionSaving*savingGoals[person.id]/savingGoal:0;pensionSavingByOwner[person.id]=saving;const pot=assets.find(a=>a.type==='pension'&&a.owner===person.id);if(saving>0&&!pot)throw Error(`Enter a ${person.name} pension pot to receive pension saving.`);if(pot)pot.balance+=saving;}
-    const remainingSurplus=surplus-pensionSaving;for(const person of input.people){const account=assets.find(a=>a.type==='cash'&&a.owner===person.id)??cash;account.balance+=remainingSurplus*(income>0?incomeByOwner[person.id]/income:0);}
+    const surplusRouting={cash:0,isa:0,trading:0,pension:0};let remainingSurplus=surplus-pensionSaving;
+    const routeCash=amount=>{for(const person of input.people){const account=assets.find(a=>a.type==='cash'&&a.owner===person.id)??cash;account.balance+=amount*(income>0?incomeByOwner[person.id]/income:0);}surplusRouting.cash+=amount;remainingSurplus-=amount;};
+    const routePension=()=>{if(!input.savings?.maxPension)return;const budget=remainingSurplus;for(const person of input.people){const pot=assets.find(a=>a.type==='pension'&&a.owner===person.id);const earnings=incomeByOwner[person.id];const headroom=Math.max(0,input.savings.pensionLimit-payrollEmployeeByOwner[person.id]-payrollEmployerByOwner[person.id]-(pensionSavingByOwner[person.id]??0));const eligible=eligiblePayByOwner[person.id]>0;const amount=pot&&eligible?Math.min(budget*(income>0?earnings/income:0),headroom,Math.max(0,eligiblePayByOwner[person.id]-payrollEmployeeByOwner[person.id]-(pensionSavingByOwner[person.id]??0))):0;if(pot)pot.balance+=amount;pensionSavingByOwner[person.id]+=amount;pensionSaving+=amount;remainingSurplus-=amount;surplusRouting.pension+=amount;}};
+    if(input.savings){
+      if(input.savings.priority==='pension')routePension();
+      routeCash(Math.min(remainingSurplus,Math.max(0,input.savings.cashTarget-sum(assets.filter(a=>a.type==='cash').map(a=>a.balance)))));
+      if(input.savings.priority==='liquidity')routePension();
+      const budget=remainingSurplus;
+      for(const person of input.people){let amount=budget*(income>0?incomeByOwner[person.id]/income:0);const isa=assets.find(a=>a.type==='investment'&&a.wrapper==='isa'&&a.owner===person.id&&availableAt(input,a,offset));const intoIsa=isa?Math.min(amount,input.savings.isaLimit):0;if(isa)isa.balance+=intoIsa;surplusRouting.isa+=intoIsa;amount-=intoIsa;let trading=assets.find(a=>a.type==='investment'&&a.wrapper!=='isa'&&a.owner===person.id&&availableAt(input,a,offset));if(amount>0&&!trading){trading={id:'surplus-'+person.id,label:person.name+' trading',owner:person.id,type:'investment',wrapper:'taxable',rate:5,balance:0,accessAge:0,taxBasis:'excluded',withdrawalTaxBasis:'excluded'};assets.push(trading);}if(trading)trading.balance+=amount;surplusRouting.trading+=amount;}
+    }else routeCash(remainingSurplus);
+    const cashReserve=sum(assets.filter(a=>a.type==='cash').map(a=>a.balance));
     sources.assetRelease=sum(Object.entries(releasesByCash).map(([id,value])=>Math.min(value,(netWithdrawalsByAccount[id]??0)-(previousNetWithdrawals[id]??0))));sources.withdrawals=funded-sources.assetRelease;
     const closingAssets=sum(assets.map(a=>a.balance)),closingDebt=sum(debts.map(d=>d.balance));
-    const pensionByOwner=Object.fromEntries(input.people.map(p=>[p.id,{opening:pensionOpening[p.id],growth:pensionGrowth[p.id],marketLoss:pensionMarketLoss[p.id],employee:payrollEmployeeByOwner[p.id],employer:payrollEmployerByOwner[p.id],voluntary:pensionSavingByOwner[p.id],withdrawals:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>withdrawalsByAccount[a.id]??0)),closing:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>a.balance))}]));
+    const pensionByOwner=Object.fromEntries(input.people.map(p=>[p.id,{opening:pensionOpening[p.id],growth:pensionGrowth[p.id],marketLoss:pensionMarketLoss[p.id],employee:payrollEmployeeByOwner[p.id],employer:payrollEmployerByOwner[p.id],voluntary:pensionSavingByOwner[p.id],withdrawals:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>(withdrawalsByAccount[a.id]??0)+(movedPensions[a.id]??0))),closing:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>a.balance))}]));
     const balancesByType=Object.fromEntries(['cash','investment','pension','property','car','bonds'].map(type=>[type,sum(assets.filter(a=>a.type===type).map(a=>a.balance))]));
-    rows.push({balancesByType,pensionByOwner,payrollEmployeeByOwner,payrollEmployerByOwner,spendingByCategory,accountLabels:Object.fromEntries(assets.map(a=>[a.id,a.label])),withdrawalsByOwner,withdrawalsByAccount,withdrawalTax,assetPurchased,incomeTax:incomeTax+distributionTax,growthTax,debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>(liquid(a)||a.type==='pension')&&availableAt(input,a,offset)).map(a=>a.balance)),financialAssets:sum(assets.filter(a=>liquid(a)||a.type==='pension').map(a=>a.balance)),vehicleValue:sum(assets.filter(a=>a.type==='car').map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash+sum(Object.values(payrollEmployeeByOwner))+sum(Object.values(payrollEmployerByOwner)),withdrawals:sum(Object.values(withdrawalsByAccount))+distributionTax,transfer});
+    rows.push({moneyMoves,surplusRouting,cashReserve,niYearsByOwner:{...niYearsByOwner},balancesByType,pensionByOwner,payrollEmployeeByOwner,payrollEmployerByOwner,spendingByCategory,accountLabels:Object.fromEntries(assets.map(a=>[a.id,a.label])),withdrawalsByOwner,withdrawalsByAccount,withdrawalTax,assetPurchased,incomeTax:incomeTax+distributionTax,growthTax,debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>(liquid(a)||a.type==='pension')&&availableAt(input,a,offset)).map(a=>a.balance)),financialAssets:sum(assets.filter(a=>liquid(a)||a.type==='pension').map(a=>a.balance)),vehicleValue:sum(assets.filter(a=>a.type==='car').map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash+sum(Object.values(payrollEmployeeByOwner))+sum(Object.values(payrollEmployerByOwner)),withdrawals:sum(Object.values(withdrawalsByAccount))+distributionTax,transfer});
   }
   return {rows,events,warnings,firstGap:rows.find(r=>r.gap>0.01)??null,final:rows.at(-1),opening:openingPicture(input)};
 }

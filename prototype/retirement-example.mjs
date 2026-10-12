@@ -12,8 +12,8 @@ export function householdBaseExample(){
   incomes:[
    flow('salary-a','Alex’s gross salary','salary','primary',10000,'month',43,110,{growth:1,taxBasis:'payslip',takeHomeAmount:6500,pension:{employeeMode:'percent',employerMode:'percent',employeePercent:5,employerPercent:5,employeeAnnual:0,employerAnnual:0,method:'included',basis:'full',pensionableAnnual:120000,assetId:'alex-pot'}}),
    flow('salary-j','Jemma’s gross salary','salary','partner',100000/12,'month',42,110,{growth:3,taxBasis:'payslip',takeHomeAmount:5500,pension:{employeeMode:'percent',employerMode:'percent',employeePercent:5,employerPercent:5,employeeAnnual:0,employerAnnual:0,method:'included',basis:'full',pensionableAnnual:100000,assetId:'jemma-pot'}}),
-   flow('bonus-a','Alex’s March bonus','bonus','primary',50000,'year',43,110,{growth:1,paymentMonth:3,taxBasis:'excluded'}),
-   flow('bonus-j','Jemma’s March bonus','bonus','partner',25000,'year',42,110,{growth:3,paymentMonth:3,taxBasis:'excluded'}),
+   flow('bonus-a','Alex’s March bonus','bonus','primary',50000,'year',43,110,{salaryId:'salary-a',growth:1,paymentMonth:3,taxBasis:'excluded'}),
+   flow('bonus-j','Jemma’s March bonus','bonus','partner',25000,'year',42,110,{salaryId:'salary-j',growth:3,paymentMonth:3,taxBasis:'excluded'}),
    flow('rent','Rental income','rent','primary',100,'month',43,110,{propertyId:'rental',taxBasis:'excluded'}),
    flow('inheritance','Expected inheritance','inheritance','primary',100000,'once',53,53,{paymentMonth:1}),
    flow('state-a','Alex’s State Pension','state','primary',0,'year',68,110,{growth:2}),

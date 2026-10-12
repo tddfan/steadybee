@@ -650,3 +650,27 @@ body[data-workspace-screen="flows"] .experience, body[data-workspace-screen="pla
 @media(min-width:1000px){.plan-workbench .plan-charts {grid-template-columns:repeat(2,minmax(0,1fr))}.plan-workbench #chart-panel-estate {grid-column:1/-1}.plan-workbench .year-summary {grid-template-columns:repeat(3,minmax(0,1fr))}.primary-changes {grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(min-width:1200px){.plan-workbench {grid-template-columns:minmax(0,1fr) 340px;align-items:start}.scenario-controls {position:sticky;top:20px;max-height:calc(100dvh - 40px);overflow:auto;scrollbar-gutter:stable}.scenario-controls .section-heading {flex-wrap:wrap}.scenario-controls .section-heading h3 {font-size:22px}}
 @media(max-width:560px){.primary-changes {grid-template-columns:repeat(2,minmax(0,1fr))}.scenario-toolbar {gap:8px}.scenario-toolbar select {flex-basis:180px}.scenario-controls {padding:16px}.tweak-exact {width:100px}.scenario-controls .section-heading {flex-wrap:wrap}}
+/* The Plan ledger uses the same compact card pattern for every change. */
+body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax(0,1fr) minmax(340px,420px)}
+.scenario-controls .cashflow-summary {grid-template-columns:1fr;gap:8px;margin:12px 0}
+.scenario-controls .cashflow-summary > div {display:flex;justify-content:space-between;gap:8px}
+.scenario-controls .cashflow-summary strong {font-size:18px}
+.scenario-controls .ledger-row {grid-template-columns:28px minmax(0,1fr) auto;gap:8px;padding:14px 0}
+.scenario-controls .ledger-row .tweak-field {grid-column:1 / -1}
+.scenario-controls .ledger-row .timing-chip {grid-column:2}
+.scenario-controls .ledger-row .more-button {grid-column:3;grid-row:2}
+.scenario-controls .stream-title {width:100%;min-width:0}
+.scenario-controls .flow-section {border-top:1px solid var(--border,#d6dfd9);padding-top:16px;margin-top:20px}
+.work-person,.money-move {padding:12px 0;border-bottom:1px solid #d6dfd9}
+.work-person h4 {margin:0 0 8px}
+.work-person button[aria-pressed="true"] {background:#d8ece5;color:#14665f}
+.money-move > input {width:100%;min-height:44px;font-size:18px;margin:12px 0}
+.surplus-toggle {display:flex;align-items:center;gap:10px;font-size:18px;min-height:44px}
+.surplus-toggle input {width:22px;height:22px}
+@media(max-width:1000px){body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax(0,1fr)} .scenario-controls {position:static}}
+.scenario-controls .ledger-row .ledger-amount {grid-column:2 / 4;grid-row:2;justify-content:flex-start;flex-wrap:wrap}
+.scenario-controls .ledger-row .timing-chip {grid-column:2;grid-row:3;justify-self:start;max-width:100%;white-space:normal}
+.scenario-controls .ledger-row .more-button {grid-column:3;grid-row:3}
+.scenario-controls .ledger-row .tweak-field {grid-row:4}
+.scenario-controls .ledger-row > svg {grid-column:1;grid-row:1}
+.scenario-controls .ledger-row .stream-name,.scenario-controls .ledger-row > .stream-title {grid-column:2 / 4;grid-row:1}
