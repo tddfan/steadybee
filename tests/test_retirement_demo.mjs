@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { retirementDemo, fundingFacts, scenarioOverrides, displayNames } from '../prototype/retirement-demo.mjs';
+import { retirementDemo, fundingFacts, scenarioOverrides, displayNames, estateFlows } from '../prototype/retirement-demo.mjs';
 
 test('landing presentation uses the mixed household ledger and explicit display aliases', () => {
   const demo = retirementDemo();
@@ -90,6 +90,18 @@ test('stressed ledgers reconcile annual flows without negative assets or hidden 
       const expected = row.openingAccessible + row.openingPension + row.accessibleGrowth + row.pensionGrowth - (row.pensionMarketLoss ?? 0) + row.contributions + row.income + row.homeCashReleased - row.mortgagePayoff - covered;
       assert.ok(Math.abs(expected - row.closingTotal) < 0.05, `${id} ${row.year} reconciles`);
       assert.ok(row.closingAccessible >= 0 && row.closingPension >= 0 && row.annualGap >= 0);
+    }
+  }
+});
+
+test('estate flows reconcile deposits and actual withdrawals separately from growth and unpaid spending', () => {
+  for (const overrides of [...Object.values(scenarioOverrides), {retirementAge:57,partnerRetirementAge:55,monthlySpending:5500}]) {
+    for (const row of retirementDemo(overrides).current.rows) {
+      const flow = estateFlows(row);
+      const closing = row.openingAccessible + row.openingPension + flow.additions - flow.withdrawals + flow.growth - flow.marketLoss;
+      assert.ok(Math.abs(closing - row.closingTotal) < 0.05, `Estate flows reconcile in ${row.year}`);
+      assert.ok(flow.additions >= 0 && flow.withdrawals >= 0);
+      assert.equal(flow.withdrawals, row.withdrawalsAccessible + row.withdrawalsPension + row.mortgagePayoff);
     }
   }
 });

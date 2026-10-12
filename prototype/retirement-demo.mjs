@@ -46,3 +46,13 @@ export function retirementDemo(overrides = {}) {
     assumptions: current.assumptions.map(displayNames),
   };
 }
+
+export function estateFlows(row) {
+  const surplus = Math.max(0, row.income - row.spending - row.majorCost);
+  return {
+    additions: row.contributions + surplus + row.homeCashReleased,
+    withdrawals: row.withdrawalsAccessible + row.withdrawalsPension + row.mortgagePayoff,
+    growth: row.accessibleGrowth + row.pensionGrowth,
+    marketLoss: row.pensionMarketLoss ?? 0,
+  };
+}

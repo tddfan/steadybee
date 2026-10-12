@@ -50,71 +50,72 @@
           <div class="slide-body">
             <div class="slide-heading"><h3 id="stage-heading" tabindex="-1">Your money, together.</h3><span class="example-label">Alex &amp; Jemma · fictional example</span></div>
             <div data-panel="situation" id="panel-situation">
-              <p id="household-story" class="household-story"></p>
               <div class="wealth-scene">
                 <div class="source-stack">
-                  <div class="money-source pension"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-pension" /></svg></span><span>Pensions</span></div>
-                  <div class="money-source saving"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-savings" /></svg></span><span>Savings</span></div>
-                  <div class="money-source investment optional" role="group" aria-label="Investments, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-investment" /></svg></span><span>Investments</span></div>
+                  <div class="money-source pension"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-pension" /></svg></span><span>Pensions</span><small id="pension-icon-total"></small></div>
+                  <div class="money-source saving"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-savings" /></svg></span><span>Savings</span><small id="savings-icon-total"></small></div>
+                  <div class="money-source investment optional" role="group" aria-label="Investments, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-investment" /></svg></span><span>Investments</span><small>Not entered</small></div>
                 </div>
-                <div class="wealth-centre"><div id="wealth-donut" class="wealth-donut" role="img" aria-label="Fictional opening pensions and savings"><div><span>Financial assets</span><strong id="current-total">—</strong><span>Pensions + savings</span></div></div></div>
+                <div class="wealth-centre"><div id="wealth-donut" class="wealth-donut" role="img" aria-label="Fictional opening pensions and savings"><div><span>Recorded estate</span><strong id="current-total">—</strong><span>Pensions + savings</span></div></div></div>
                 <div class="source-stack secondary-sources">
-                  <div class="money-source home optional" role="group" aria-label="Home, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-home" /></svg></span><span>Home</span></div>
-                  <div class="money-source mortgage optional" role="group" aria-label="Mortgage, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-mortgage" /></svg></span><span>Mortgage</span></div>
-                  <div class="money-source spending"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-spending" /></svg></span><span>Income &amp; spending</span></div>
+                  <div class="money-source home optional" role="group" aria-label="Home, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-home" /></svg></span><span>Home</span><small>Not entered</small></div>
+                  <div class="money-source mortgage optional" role="group" aria-label="Mortgage, not entered in this example"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-mortgage" /></svg></span><span>Mortgage</span><small>Not entered</small></div>
+                  <div class="money-source spending"><span class="source-icon"><svg aria-hidden="true"><use href="#icon-spending" /></svg></span><span>Income &amp; spending</span><small id="income-icon-total"></small></div>
                 </div>
               </div>
-              <dl class="asset-breakdown"><div><dt><span class="asset-dot pension-dot" aria-hidden="true"></span>Pension pots</dt><dd id="pension-breakdown">—</dd></div><div><dt><span class="asset-dot savings-dot" aria-hidden="true"></span>Accessible savings</dt><dd id="savings-breakdown">—</dd></div></dl>
-              <p class="small asset-note">Home, mortgage and separate investments aren’t entered in this example.</p>
+
             </div>
             <div id="demo-workspace" class="demo-workspace" role="region" aria-labelledby="stage-heading">
-              <div class="scenario-menu">
-                <p class="scenario-prompt">What would you like to explore?</p>
-                <div id="scenario-shortcuts" class="scenario-shortcuts" aria-label="Try a scenario"></div>
-              </div>
               <div class="chart-column">
                 <div class="outlook-head"><span id="result-label">Spending covered</span><strong id="result-value">—</strong></div>
-                <div class="chart-switch" id="chart-mode" aria-label="Chart view"><button type="button" data-chart="assets" aria-pressed="true">Money left</button><button type="button" data-chart="funding" aria-pressed="false">Spending</button></div>
+                <div class="chart-switch" id="chart-mode" aria-label="Chart view"><button type="button" data-chart="assets" aria-pressed="true">Estate</button><button type="button" data-chart="funding" aria-pressed="false">Spending</button></div>
                 <h4 id="chart-title" class="sr-only">Money remaining</h4>
                 <div class="retirement-chart"><svg id="demo-chart" role="img" aria-label="Calculated fictional retirement example"></svg></div>
                 <p id="chart-legend" class="small chart-legend"></p>
+                <div class="estate-flow"><label for="year-select">Year</label><select id="year-select"></select><span class="flow-addition" id="estate-additions"></span><span class="flow-withdrawal" id="estate-withdrawals"></span></div>
                 <p id="scenario-impact" class="scenario-impact"></p>
                 <p id="comparison-copy" class="comparison-copy"></p>
+              </div>
+              <div class="scenario-menu">
+                <p class="scenario-prompt">Try a change</p>
+                <div id="scenario-shortcuts" class="scenario-shortcuts" aria-label="Try a scenario"></div>
               </div>
               <aside class="scenario-column" aria-label="Change this example">
                 <div class="controls-heading"><h4>Adjust the example</h4><button type="button" id="reset-demo">Reset</button></div>
                 <form id="scenario-editor" class="scenario-editor" hidden>
-                  <h4 id="scenario-editor-title"></h4><p id="scenario-editor-note" class="small"></p>
-                  <div id="scenario-fields"></div><button type="submit" class="button primary apply-scenario">Update scenario</button>
+                  <h4 id="scenario-editor-title"></h4>
+                  <div id="scenario-fields"></div><button type="submit" class="button primary apply-scenario">Apply</button><details class="scenario-note"><summary>Assumptions</summary><p id="scenario-editor-note" class="small"></p></details>
                 </form>
+                <details class="baseline-controls"><summary>Retirement &amp; spending</summary><div class="baseline-sliders">
                 <div class="slider-control"><label for="retirement-age">Alex retires at <output id="retirement-output" for="retirement-age">60</output></label><input id="retirement-age" type="range" min="57" max="70" step="1" value="60" /></div>
                 <div class="slider-control"><label for="partner-age">Jemma retires at <output id="partner-output" for="partner-age">62</output></label><input id="partner-age" type="range" min="55" max="70" step="1" value="62" /></div>
                 <div class="slider-control"><label for="monthly-spending">Monthly spending <output id="spending-output" for="monthly-spending">£3,800</output></label><input id="monthly-spending" type="range" min="0" max="10000" step="100" value="3800" /></div>
+                </div></details>
               </aside>
             </div>
             <section data-panel="tracking" id="panel-tracking" class="tracking-panel" hidden aria-label="Tracking and yearly choices">
-              <p class="tracking-intro">See what changed. Revisit your choices for the year.</p>
-              <p class="small tracking-preview">Planned experience · no accounts or actual progress are tracked in this preview.</p>
+              <p class="tracking-intro">Your progress. Your next choices.</p>
+              <p class="small tracking-preview">Planned · no live account data.</p>
               <div class="tracking-cards">
-                <article><svg aria-hidden="true"><use href="#icon-investment" /></svg><h4>Investments &amp; risk</h4><p>Follow balances, contributions and growth. Understand exposure and concentration alongside your household goals.</p><span class="small">Planned</span></article>
-                <article><svg aria-hidden="true"><use href="#icon-spending" /></svg><h4>Spending &amp; costs</h4><p>Compare actual spending with your plan. Review recurring costs and see how a change affects retirement.</p><button type="button" class="review-link" data-open-scenario="spend-less">Try spending less →</button></article>
-                <article><svg aria-hidden="true"><use href="#icon-plan" /></svg><h4>Progress &amp; changes</h4><p>Keep the dated plan beside your latest outlook. Separate contributions, market moves and changes you actually made.</p><span class="small">Planned</span></article>
+                <article><svg aria-hidden="true"><use href="#icon-investment" /></svg><h4>Investments &amp; risk</h4><p>Growth, contributions and exposure.</p><span class="small">Planned</span></article>
+                <article><svg aria-hidden="true"><use href="#icon-spending" /></svg><h4>Spending &amp; costs</h4><p>Actual spending against your plan.</p><button type="button" class="review-link" data-open-scenario="spend-less">Try spending less →</button></article>
+                <article><svg aria-hidden="true"><use href="#icon-plan" /></svg><h4>Progress &amp; changes</h4><p>What changed, and why.</p><span class="small">Planned</span></article>
               </div>
               <div class="yearly-review">
-                <h4>Your yearly review</h4><p class="small">A preview checklist, not personal tax advice. Ticks record review topics for this visit only; they do not confirm financial actions.</p>
+                <h4>Your yearly review</h4><p class="small">Review topics · for this visit only.</p>
                 <div class="review-topics">
-                  <label><input type="checkbox" /> <span><strong>Pensions &amp; ISAs</strong><span>Check contributions, access needs and eligibility under the current tax year’s rules.</span></span></label>
-                  <label><input type="checkbox" /> <span><strong>Realised gains &amp; allowances</strong><span>Review transaction records, realised gains and relevant allowances. Holdings alone cannot calculate capital gains tax.</span></span></label>
-                  <label><input type="checkbox" /> <span><strong>Household costs</strong><span>Revisit regular costs, planned family expenses and the spending you want to support.</span></span></label>
-                  <label><input type="checkbox" /> <span><strong>Mortgage &amp; cash access</strong><span>Compare a supplied payoff quote with keeping payments and accessible money.</span></span></label>
+                  <label><input type="checkbox" /> <span><strong>Pensions &amp; ISAs</strong><span>Contributions, access and eligibility.</span></span></label>
+                  <label><input type="checkbox" /> <span><strong>Realised gains &amp; allowances</strong><span>Transaction records and available allowances.</span></span></label>
+                  <label><input type="checkbox" /> <span><strong>Household costs</strong><span>Recurring costs and family commitments.</span></span></label>
+                  <label><input type="checkbox" /> <span><strong>Mortgage &amp; cash access</strong><span>Payoff cost versus accessible money.</span></span></label>
                 </div>
-                <p class="review-note small">Personal suggestions, allowance reminders and explanations of actual changes are planned. Compare a choice below using the fictional household.</p>
+                <p class="review-note small">Personal suggestions and reminders are planned. Illustration, not tax advice.</p>
                 <div class="review-actions"><button type="button" class="review-link" data-open-scenario="save-more">Save more →</button><button type="button" class="review-link" data-open-scenario="mortgage">Pay off mortgage →</button><button type="button" class="review-link" data-open-scenario="help-family">Help family →</button></div>
               </div>
             </section>
             <details id="demo-details" class="demo-details"><summary>Show details</summary>
-              <div class="current-details"><dl><div><dt>Pensions</dt><dd id="current-pension">—</dd></div><div><dt>Savings</dt><dd id="current-savings">—</dd></div></dl><p id="current-caption">Pensions and savings only; other values aren’t entered.</p></div>
-              <div class="projection-details"><p id="result-context"></p><p id="chart-caption"></p><p id="scenario-context"></p><div class="year-details"><label for="year-select">Look at a year</label><select id="year-select"></select><div id="year-summary"></div></div></div>
+              <div class="current-details">              <dl class="asset-breakdown"><div><dt><span class="asset-dot pension-dot" aria-hidden="true"></span>Pension pots</dt><dd id="pension-breakdown">—</dd></div><div><dt><span class="asset-dot savings-dot" aria-hidden="true"></span>Accessible savings</dt><dd id="savings-breakdown">—</dd></div></dl><p id="household-story" class="household-story"></p><dl><div><dt>Pensions</dt><dd id="current-pension">—</dd></div><div><dt>Savings</dt><dd id="current-savings">—</dd></div></dl><p id="current-caption">Pensions and savings only; other values aren’t entered.</p></div>
+              <div class="projection-details"><p id="result-context"></p><p id="chart-caption"></p><p id="scenario-context"></p><div class="year-details"><div id="year-summary"></div></div></div>
               <details class="workings" id="workings"><summary>Inputs and assumptions</summary><div id="input-summary"></div><div id="assumption-inputs"></div><ul id="assumption-list"></ul><details class="provenance"><summary>Example source and version</summary><p id="fixture-source"></p></details></details>
             </details>
             <p id="demo-error" class="demo-error" role="alert" hidden></p>
@@ -126,7 +127,7 @@
         <p class="projection-note">Illustration, not advice. Current rules, subject to change.</p>
       </section>
     </div>
-    <section class="start-section wrap"><h2>Start with your own retirement question.</h2><p class="draft-context">Bring your household figures together in a draft. Personal forecasts are planned.</p><a class="button primary" href="app.html">Start my draft <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a><p class="small">Free draft. No account connection needed.</p><details class="preview-details"><summary>About this preview</summary><p>The example is fictional. The draft workspace is available now. Personal forecasts, live account updates, inflation feeds and actual progress tracking are planned.</p></details></section>
+    <section class="start-section wrap"><h2>Start with your own retirement question.</h2><p class="draft-context">Your figures, together. Personal forecasts are planned.</p><a class="button primary" href="app.html">Start my draft <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a><p class="small">Free draft. No account connection needed.</p><details class="preview-details"><summary>About this preview</summary><p>The example is fictional. The draft workspace is available now. Personal forecasts, live account updates, inflation feeds and actual progress tracking are planned.</p></details></section>
   </main>
   <footer class="site-footer wrap"><a class="wordmark" href="retirement.html"><img src="favicon.svg" alt="" width="26" height="26" />steadybee<span aria-hidden="true">.</span></a><span>Retirement, with perspective.</span></footer>
 </body>

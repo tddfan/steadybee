@@ -325,3 +325,37 @@ select { font-size: 16px; border: 1px solid #d7dfda; border-radius: 8px; padding
 .review-actions { display: flex; flex-wrap: wrap; gap: 10px 30px; margin-top: 12px; }
 .review-note { max-width: 760px; }
 @media (max-width: 720px) { .tracking-cards, .review-topics { grid-template-columns: 1fr; } .tracking-cards { gap: 16px; } }
+
+/* The picture and graph lead; explanations open on demand. */
+.money-source small { font-size: 16px; line-height: 1.3; color: var(--quiet); }
+.money-source { gap: 5px; }
+.source-stack { gap: 18px; }
+.demo-workspace { display: flex; flex-direction: column; gap: 24px; }
+.chart-column { width: 100%; max-width: 940px; margin-inline: auto; }
+#demo[data-stage="choices"] .outlook-head { flex-direction: row; justify-content: center; align-items: baseline; gap: 10px; }
+#result-value { font-size: 24px; font-weight: 500; }
+.chart-column > .chart-switch { margin-top: 10px; }
+.scenario-menu { margin-bottom: 0; max-width: none; }
+.scenario-prompt { font-size: 16px; margin-bottom: 12px; }
+.scenario-column { border: 0; padding: 0; width: 100%; align-self: stretch; }
+.controls-heading { justify-content: flex-end; }
+.controls-heading h4 { display: none; }
+.scenario-editor { padding: 0; border: 0; background: transparent; margin-top: 0; }
+#scenario-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; }
+.scenario-field { margin-top: 0; }
+.scenario-editor h4 { margin-bottom: 16px; }
+.apply-scenario { width: auto; min-width: 120px; margin-top: 16px; }
+.scenario-note { display: inline-block; vertical-align: top; margin: 16px 0 0 20px; max-width: 620px; }
+.scenario-note[open] { display: block; margin-left: 0; }
+.scenario-note p { margin-top: 8px; }
+.baseline-controls { margin-top: 12px; }
+.baseline-sliders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.estate-flow { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 16px; font-size: 16px; margin-top: 16px; }
+.estate-flow select { max-width: 255px; }
+.flow-addition { color: #245d40; }
+.flow-withdrawal { color: #8a4a2c; }
+.scenario-impact { text-align: center; color: #8a4a2c; margin-top: 10px; }
+.scenario-impact:empty { display: none; }
+.comparison-copy { margin-top: 10px; }
+@media (max-width: 720px) { #scenario-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .baseline-sliders { grid-template-columns: 1fr; gap: 8px; } }
+@media (max-width: 390px) { #scenario-fields { grid-template-columns: 1fr; } .estate-flow { gap: 8px 12px; } }

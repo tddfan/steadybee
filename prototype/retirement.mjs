@@ -1,4 +1,4 @@
-import { retirementDemo, scenarioOverrides, fundingFacts, displayNames, scenarioDefinitions, scenarioInputs } from './retirement-demo.mjs';
+import { retirementDemo, scenarioOverrides, fundingFacts, displayNames, scenarioDefinitions, scenarioInputs, estateFlows } from './retirement-demo.mjs';
 
 const money = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
 const root = document.querySelector('#demo');
@@ -7,7 +7,7 @@ if (root) {
   const put = (id, text) => { if ($(id)) $(id).textContent = text; };
   let overrides = {}, stage = 'situation', mode = 'assets', selectedScenario = null, model = retirementDemo();
   const stages = ['situation', 'choices', 'tracking'];
-  const headings = { situation: 'Your money, together.', picture: 'See the years ahead.', choices: 'Explore your retirement plan.', tracking: 'Keep your plan moving.' };
+  const headings = { situation: 'Your money, together.', choices: 'Your estate through retirement.', tracking: 'Keep your plan moving.' };
   const setStage = (value, userTriggered = false) => {
     if (!stages.includes(value)) return;
     stage = value; root.dataset.stage = stage;
@@ -44,15 +44,39 @@ if (root) {
     svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('role', 'img'); svg.setAttribute('aria-labelledby', 'calculated-chart-title calculated-chart-description');
     function node(name, attrs, text) { const n = document.createElementNS(ns, name); for (const [k,v] of Object.entries(attrs)) n.setAttribute(k,String(v)); if (text) n.textContent=text; svg.append(n); return n; }
-    const title = mode === 'assets' ? 'Money through retirement' : 'Spending and funding';
+    const title = mode === 'assets' ? 'Recorded estate through retirement' : 'Spending and funding';
     const stateStart = model.current.events.find(event => event.type === 'income-start' && event.owner === 'primary' && event.label.includes('State Pension'));
     const retirement = model.current.events.find(event => event.type === 'retirement' && event.owner === 'primary');
     const partnerRetirement = model.current.events.find(event => event.type === 'retirement' && event.owner === 'partner');
     const annotations = [
-      retirement && {icon:'icon-sun',year:retirement.year,age:retirement.primaryAge,label:`Retire ${retirement.primaryAge}`,context:`Alex retires at ${retirement.primaryAge} in ${retirement.year}.`},
-      stateStart && {icon:'icon-pension',year:stateStart.year,age:stateStart.primaryAge,label:`State Pension ${stateStart.primaryAge}`,context:`Alex’s fictional State Pension starts at ${stateStart.primaryAge} in ${stateStart.year}.`},
-      {icon:'icon-plan',year:current.at(-1).year,age:current.at(-1).primaryAge,label:`Age ${current.at(-1).primaryAge}`,context:`Illustration ends at Alex age ${current.at(-1).primaryAge} in ${current.at(-1).year}; this is a modelling horizon, not a lifespan or guarantee.`},
+      retirement && {icon:'icon-sun',year:retirement.year,age:retirement.primaryAge,label:`Retire · ${retirement.primaryAge}`,context:`Alex retires at ${retirement.primaryAge} in ${retirement.year}.`},
+      stateStart && {icon:'icon-pension',year:stateStart.year,age:stateStart.primaryAge,label:`State Pension · ${stateStart.primaryAge}`,context:`Alex’s fictional State Pension starts at ${stateStart.primaryAge} in ${stateStart.year}.`},
+      {icon:'icon-plan',year:current.at(-1).year,age:current.at(-1).primaryAge,label:`Horizon · ${current.at(-1).primaryAge}`,context:`Illustration ends at Alex age ${current.at(-1).primaryAge} in ${current.at(-1).year}; this is a modelling horizon, not a lifespan or guarantee.`},
     ].filter(Boolean);
+    for (const event of model.current.events.filter(event => width >= 420 && event.type === 'income-start' && event !== stateStart)) {
+      const owner = event.owner === 'primary' ? 'Alex' : 'Jemma';
+      const label = event.label.includes('State Pension') ? `${owner} State` : `${owner} pension`;
+      annotations.splice(1, 0, {icon:'icon-pension',year:event.year,age:event.primaryAge,label:`${label} · ${event.primaryAge}`,context:`${displayNames(event.label)} in ${event.year}. Alex age ${event.primaryAge}.`});
+    }
+    if (partnerRetirement && width >= 420) annotations.splice(1,0,{icon:'icon-sun',year:partnerRetirement.year,age:partnerRetirement.primaryAge,label:`Jemma retires · ${partnerRetirement.primaryAge}`,context:`${displayNames(partnerRetirement.label)} in ${partnerRetirement.year}; Alex age ${partnerRetirement.primaryAge}.`});
+    const p = model.current.profile;
+    const scenarioEvent = model.current.events.find(event =>
+      selectedScenario === 'mortgage' ? event.type === 'mortgage-payoff' :
+      selectedScenario === 'downsize' ? event.type === 'home-move' :
+      selectedScenario === 'school-fees' || selectedScenario === 'help-family' ? event.type === 'major-cost' :
+      selectedScenario === 'market-falls' ? event.type === 'market-loss' : false);
+    if (scenarioEvent) {
+      const row = current.find(row => row.year === scenarioEvent.year);
+      const compact = value => new Intl.NumberFormat('en-GB', {style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:0}).format(value);
+      const labels = {
+        mortgage: `Mortgage −${compact(row.mortgagePayoff)}`,
+        downsize: `Downsize +${compact(row.homeCashReleased)}`,
+        'school-fees': `Fees ${compact(row.majorCost)}`,
+        'help-family': `Gift ${compact(row.majorCost)}`,
+        'market-falls': `Market −${p.pensionLossPercent}%`,
+      };
+      annotations.splice(1, 0, {icon:`icon-${scenarioDefinitions[selectedScenario].icon}`,year:scenarioEvent.year,age:scenarioEvent.primaryAge,label:labels[selectedScenario],context:`${displayNames(scenarioEvent.label)} in ${scenarioEvent.year}. Alex age ${scenarioEvent.primaryAge}. Costs are budgets; the year view shows actual estate withdrawals and unpaid spending.`});
+    }
     node('title', {id:'calculated-chart-title'}, title);
     node('desc', {id:'calculated-chart-description'}, `${title}, from Alex age ${current[0].primaryAge} to ${current.at(-1).primaryAge}, in today’s pounds. Dashed line shows the starting example; teal line shows the current scenario. ${mode === 'funding' ? 'Grey shows annual spending; gold shading marks unpaid spending. Earlier gaps remain unpaid even when later years are covered.' : 'Gold markers below the chart identify years with unpaid spending. Closing assets can remain positive despite earlier unpaid spending.'} ${model.legacyTarget > 0 && mode === 'assets' ? `Dotted plum line is the ${money(model.legacyTarget)} end-horizon target, not a withdrawal or reserved asset.` : ''} ${annotations.map(event=>event.context).join(' ')} ${partnerRetirement ? displayNames(partnerRetirement.label) + ` in ${partnerRetirement.year}; Alex is ${partnerRetirement.primaryAge}.` : ''} Use Look at a year for the calculated values.`);
     node('text',{x:0,y:top-13,fill:'#536568','font-size':16},'Today’s £');
@@ -111,9 +135,11 @@ if (root) {
       const circle=document.createElementNS(ns,'circle');for(const [k,v] of Object.entries({cx:badgeX,cy:badgeY,r:13,fill:'#fff',stroke:'#d7dfda'}))circle.setAttribute(k,v);badge.append(circle);
       const icon=document.createElementNS(ns,'svg');for(const [k,v] of Object.entries({class:'chart-event-icon',x:badgeX-9,y:badgeY-9,width:18,height:18,viewBox:'0 0 32 32',fill:'none',stroke:'#536568','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))icon.setAttribute(k,v);
       const use=document.createElementNS(ns,'use');use.setAttribute('href',`#${event.icon}`);icon.append(use);badge.append(icon);
-      const labelCandidates=[[0,-24],[0,30],[30,5],[-30,5],[0,-43],[0,49]].map(([dx,dy])=>({x:Math.max(16,Math.min(width-16,badgeX+dx)),y:Math.max(18,Math.min(top+plotH-2,badgeY+dy))}));
-      const labelPosition=labelCandidates.find(label=>{
-        const box={left:label.x-12,right:label.x+12,top:label.y-15,bottom:label.y+3};
+      const halfWidth = Math.min((event.label.length * 8 + 6) / 2, (width - 12) / 2);
+      const labelCandidates=[[0,-24],[0,30],[30,5],[-30,5],[0,-43],[0,49]].map(([dx,dy])=>({x:Math.max(halfWidth+6,Math.min(width-halfWidth-6,badgeX+dx)),y:Math.max(18,Math.min(top+plotH-2,badgeY+dy))}));
+      const moreCandidates = Array.from({length:Math.ceil(plotH / 24)}, (_,index)=>({x:Math.max(halfWidth+6,Math.min(width-halfWidth-6,badgeX)),y:18+index*24}));
+      const labelPosition=[...labelCandidates,...moreCandidates].find(label=>{
+        const box={left:label.x-halfWidth,right:label.x+halfWidth,top:label.y-15,bottom:label.y+3};
         const clearBadges=placedBadges.every(other=>{
           const closestX=Math.max(box.left,Math.min(other.x,box.right));
           const closestY=Math.max(box.top,Math.min(other.y,box.bottom));
@@ -122,8 +148,9 @@ if (root) {
         const clearLabels=labelBoxes.every(other=>box.left>other.right+3 || box.right+3<other.left || box.top>other.bottom+3 || box.bottom+3<other.top);
         return clearBadges && clearLabels;
       }) ?? labelCandidates.at(-1);
-      labelBoxes.push({left:labelPosition.x-12,right:labelPosition.x+12,top:labelPosition.y-15,bottom:labelPosition.y+3});
-      node('text',{x:labelPosition.x,y:labelPosition.y,fill:'#182e32','font-size':16,'text-anchor':'middle'},String(event.age));
+      labelBoxes.push({left:labelPosition.x-halfWidth,right:labelPosition.x+halfWidth,top:labelPosition.y-15,bottom:labelPosition.y+3});
+      node('rect', {x:labelPosition.x-halfWidth,y:labelPosition.y-15,width:halfWidth*2,height:20,fill:'#f6f5f0',rx:3});
+      node('text',{class:'event-label',x:labelPosition.x,y:labelPosition.y,fill:'#182e32','font-size':16,'text-anchor':'middle'},event.label);
     });
     put('chart-title', title);
     put('chart-caption', 'Today’s pounds. Fixed real growth except any selected one-off market loss; price stress changes real spending. Earlier gaps remain unpaid.');
@@ -138,7 +165,9 @@ if (root) {
   function renderYear() {
     const row = model.current.rows.find(r=>r.year === Number($('year-select')?.value)) || model.current.rows[0];
     const summary=$('year-summary'); if(!summary) return;
-    const facts=[['Year / ages',`${row.year} / Alex ${row.primaryAge}, Jemma ${row.partnerAge}`],['Income',money(row.income)],['Spending',money(row.spending)],['Savings withdrawals',money(row.withdrawalsAccessible)],['Pension withdrawals',money(row.withdrawalsPension)],['One-off cost',money(row.majorCost)],['Pension market loss',money(row.pensionMarketLoss ?? 0)],['Cash mortgage payoff',money(row.mortgagePayoff)],['Net home-sale cash',money(row.homeCashReleased)],['Unpaid spending',money(row.annualGap)],['Earlier and current unpaid spending',money(row.cumulativeGap)],['Locked pension money',money(row.closingLockedPension)],['Money remaining',money(row.closingTotal)]];
+    const flows = estateFlows(row);
+    put('estate-additions', `+${money(flows.additions)} added`); put('estate-withdrawals', `−${money(flows.withdrawals)} withdrawn`);
+    const facts=[['Year / ages',`${row.year} / Alex ${row.primaryAge}, Jemma ${row.partnerAge}`],['Estate additions',money(flows.additions)],['Estate withdrawals',money(flows.withdrawals)],['Growth (separate from additions)',money(flows.growth)],['Income',money(row.income)],['Spending',money(row.spending)],['Savings withdrawals',money(row.withdrawalsAccessible)],['Pension withdrawals',money(row.withdrawalsPension)],['One-off cost',money(row.majorCost)],['Pension market loss',money(row.pensionMarketLoss ?? 0)],['Cash mortgage payoff',money(row.mortgagePayoff)],['Net home-sale cash',money(row.homeCashReleased)],['Unpaid spending',money(row.annualGap)],['Earlier and current unpaid spending',money(row.cumulativeGap)],['Locked pension money',money(row.closingLockedPension)],['Money remaining',money(row.closingTotal)]];
     const dl=document.createElement('dl');
     for(const [label,value] of facts) { const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;dl.append(dt,dd); }
     summary.replaceChildren(dl);
@@ -171,11 +200,11 @@ if (root) {
     put('result-label',model.firstGap ? 'First spending gap' : 'Spending covered');
     put('result-context', model.firstGap ? `First gap in ${model.firstGap.year}; earlier gaps remain unpaid.` : 'No spending gap under these example assumptions.');
     const diff = model.finalMoney-model.baseline.summary.finalTotal;
-    put('scenario-impact', `${selectedScenario ? scenarioDefinitions[selectedScenario].title + ': ' : Object.keys(overrides).length ? effect + ' ' : ''}${model.firstGap ? `Spending first falls short at Alex age ${model.firstGap.primaryAge} (${model.firstGap.year}): ${money(model.firstGap.annualGap)} unpaid that year. Earlier gaps remain unpaid.` : `Spending is covered through Alex age ${p.horizonAge} under these assumptions.`}`);
-    put('comparison-copy', `${diff === 0 ? 'Same money as the original' : `${money(Math.abs(diff))} ${diff<0?'less':'more'} than the original`} at age ${p.horizonAge}. ${money(model.finalMoney)} remaining${model.firstGap ? '; this does not erase unpaid spending' : ''}.`);
+    put('scenario-impact', model.firstGap ? `${money(model.firstGap.annualGap)} unpaid in ${model.firstGap.year}. Earlier gaps remain unpaid.` : '');
+    put('comparison-copy', `${money(model.finalMoney)} at age ${p.horizonAge}${diff ? ` · ${money(Math.abs(diff))} ${diff < 0 ? 'less' : 'more'} than original` : ''}.`);
     if (model.legacyTarget > 0) {
       const difference = model.finalMoney - model.legacyTarget;
-      put('comparison-copy', `${money(model.finalMoney)} remaining at Alex age ${p.horizonAge}: ${money(Math.abs(difference))} ${difference >= 0 ? 'above' : 'below'} your ${money(model.legacyTarget)} target. ${model.firstGap ? 'Unpaid spending means this is not a funded legacy.' : 'Illustrative assets only; inheritance tax and death benefits are not modelled.'}`);
+      put('comparison-copy', `${money(model.finalMoney)} at age ${p.horizonAge} · ${money(Math.abs(difference))} ${difference >= 0 ? 'above' : 'below'} target${model.firstGap ? ' · earlier gaps unpaid' : ''}.`);
     }
     const pensionTotal = p.primary.pensionPot + p.partner.pensionPot;
     const savingsTotal = p.primary.savings + p.partner.savings;
@@ -184,8 +213,10 @@ if (root) {
     put('household-story', `Alex (${base.primary.age}) and Jemma (${base.partner.age}) are exploring retirement at ${base.primary.retirementAge} and ${base.partner.retirementAge}, with ${money(base.monthlySpending)} monthly household spending.`);
     put('pension-breakdown', `${money(pensionTotal)} · ${Math.round(pensionTotal / openingTotal * 100)}%`);
     put('savings-breakdown', `${money(savingsTotal)} · ${Math.round(savingsTotal / openingTotal * 100)}%`);
+    put('pension-icon-total',money(pensionTotal)); put('savings-icon-total',money(savingsTotal));
+    put('income-icon-total', `${money(p.primary.employmentAnnualNet+p.partner.employmentAnnualNet)}/year`);
     put('current-total',money(openingTotal));put('current-pension',money(pensionTotal));put('current-savings',money(savingsTotal));
-    const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#14665f 0% ${percent}%, #b5cfc2 ${percent}% 100%)`;donut.setAttribute('aria-label',`Opening financial assets ${money(openingTotal)}: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
+    const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#14665f 0% ${percent}%, #b5cfc2 ${percent}% 100%)`;donut.setAttribute('aria-label',`Recorded estate subtotal ${money(openingTotal)}, pensions and savings only: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
     put('current-caption','Pensions and savings only; other values aren’t entered.');
     const inputDetails = `${inputsText()} Opening pension pots: Alex ${money(p.primary.pensionPot)}, Jemma ${money(p.partner.pensionPot)}. Opening accessible savings: Alex ${money(p.primary.savings)}, Jemma ${money(p.partner.savings)}. Annual employment income while working: Alex ${money(p.primary.employmentAnnualNet)}, Jemma ${money(p.partner.employmentAnnualNet)}. Monthly pension contributions while working: Alex ${money(p.primary.monthlyContributions)}, Jemma ${money(p.partner.monthlyContributions)}.`;
     put('input-summary',inputDetails);
@@ -227,6 +258,7 @@ if (root) {
     const use = document.createElementNS(icon.namespaceURI, 'use'); use.setAttribute('href', `#icon-${definition.icon}`); icon.append(use);
     button.append(icon, document.createTextNode(definition.title)); shortcuts.append(button);
     button.addEventListener('click', () => {
+      if (selectedScenario === id) { $('reset-demo').click(); return; }
       selectedScenario = id; mode = 'assets'; overrides = {...scenarioOverrides[id]};
       const editor = $('scenario-editor'); editor.hidden = false;
       put('scenario-editor-title', definition.title); put('scenario-editor-note', definition.description);
