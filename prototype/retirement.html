@@ -46,8 +46,7 @@
           <button type="button" data-screen="today" aria-pressed="true" aria-controls="screen-today">Today</button>
           <button type="button" data-screen="plan" aria-pressed="false" aria-controls="screen-plan">Plan</button>
         </nav>
-        <div class="household-caption"><span>Alex &amp; Jemma · fictional, editable example</span><button type="button" id="reset-household">Reset example</button></div>
-        <div id="household-error" role="alert" hidden></div><p id="tax-warning" class="small tax-warning" role="status"></p><details id="example-notes" class="model-notes"></details>
+        <div id="household-error" role="alert" hidden></div>
         <section id="screen-today" class="household-screen" aria-label="Your household today">
           <div class="household-intro"><h2>Your starting point.</h2><span class="small">Tap a figure to edit.</span></div>
           <div class="household-people" id="people-fields"></div>
@@ -58,16 +57,13 @@
           <div class="screen-next"><button type="button" class="button primary" data-next="plan">Build your plan →</button></div>
         </section>
         <section id="screen-plan" class="household-screen" hidden aria-label="Your household simulation">
-          <div class="household-intro"><h2>Your plan.</h2><button type="button" id="assets-only" class="quiet-button">Start with assets only</button></div>
           <div id="plan-people" hidden></div>
-          <div class="scenario-toolbar"><label for="scenario-preset">Scenario</label><select id="scenario-preset"></select><button type="button" id="new-scenario" class="quiet-button">+ New</button><button type="button" id="save-scenario" class="button primary">Save scenario</button><button type="button" id="jump-controls" class="quiet-button">Edit plan ↓</button></div><div id="saved-scenarios" class="saved-scenarios"></div><div class="plan-workbench"><div id="plan-visuals" class="plan-visuals"><div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
+          <div class="plan-workbench"><div id="plan-visuals" class="plan-visuals">
           <div class="chart-tabs" role="tablist" aria-label="Plan charts">
             <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="true">Estate</button>
             <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="false" tabindex="-1">Income</button>
             <button type="button" role="tab" id="chart-tab-spending" aria-controls="chart-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
           </div>
-          <div class="plan-year"><label for="inspect-year">Inspect a year</label><select id="inspect-year"></select><span id="year-income"></span><span id="year-withdrawals"></span></div>
-          <label class="year-slider"><span class="sr-only">Year for all plan views</span><input type="range" id="inspect-year-range" aria-label="Year for all plan views" min="2026" max="2074" step="1" value="2026" /></label>
           <div class="two-charts plan-charts">
             <section class="graph-panel" id="chart-panel-estate" role="tabpanel" aria-labelledby="chart-tab-estate">
               <div class="section-heading"><h3>Estate &amp; accounts</h3><label class="chart-mode"><span class="sr-only">Estate view</span><select id="estate-view" aria-label="Estate view"><option value="composition">Accounts</option><option value="total">Totals</option></select></label></div>
@@ -82,6 +78,10 @@
               <div class="section-heading"><h3>Spending &amp; commitments</h3><span class="small">£ / year</span></div><svg id="spending-chart" role="img" aria-label="Annual costs by category against spendable income"></svg><div id="spending-legend" class="chart-legend small"></div><p class="small">Costs include scheduled debt payments. Pension transfers are shown separately.</p>
             </section>
           </div>
+          <div class="plan-year"><label for="inspect-year">Inspect a year</label><select id="inspect-year"></select><span id="year-income"></span><span id="year-withdrawals"></span></div>
+          <label class="year-slider"><span class="sr-only">Year for all plan views</span><input type="range" id="inspect-year-range" aria-label="Year for all plan views" min="2026" max="2074" step="1" value="2026" /></label>
+          <div class="plan-result" id="plan-result" role="status"></div><details id="estate-composition" class="estate-composition"></details>
+          <details class="scenario-management"><summary>Scenarios &amp; saving</summary><div class="scenario-toolbar"><label for="scenario-preset">Scenario</label><select id="scenario-preset"></select><button type="button" id="new-scenario" class="quiet-button">+ New</button><button type="button" id="save-scenario" class="button primary">Save scenario</button><button type="button" id="jump-controls" class="quiet-button">Edit plan ↓</button></div><div id="saved-scenarios" class="saved-scenarios"></div><button type="button" id="assets-only" class="quiet-button">Start with assets only</button></details>
           <div class="after-chart-actions"><p id="scenario-state" class="small scenario-state" role="status"></p><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div></div>
           <div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
           <details class="pension-details"><summary>Pension growth: contributions &amp; returns</summary><div id="pension-breakdown"></div></details>
@@ -107,6 +107,9 @@
           <details class="model-notes"><summary>Year details &amp; assumptions</summary><div id="household-year-details"></div><p>Future pounds, not inflation-adjusted purchasing power. Return defaults are authored nominal total-return assumptions. Tax-excluded amounts use the whole figure; user deduction estimates are flat assumptions, not UK tax calculations. ISA and pension headroom use entered annual limits, not a legal eligibility check. Limits apply to model calendar years; tapering, MPAA, carry-forward, existing contributions elsewhere and statutory tax relief are not calculated. NI years add one assumed qualifying year for a year with salary; this does not establish entitlement. Quoted future budgets do not also receive inflation; today’s-price budgets grow with inflation. Employment salary uses active months and bonuses require employment in the payment month; other income/expenses and asset growth remain annual. The model starts January2026 and cannot show within-month shortages.</p><p>Withdrawals follow your selected owner/order and optional net ceiling; each account’s deduction assumption determines gross assets needed. Mortgage payoff respects the same account owner, order, deduction assumptions and annual withdrawal ceiling. Payroll employee/employer contributions follow employment and go to owned pots at year end; new contributions start earning the modelled return next year. Employee deductions are not repeated when already included in take-home. Salary sacrifice/net-pay options only change the base for a user deduction estimate; NI, statutory relief, matching and allowance limits are user-entered planning assumptions. Extra saving goals are funded only from income surplus. Main-home debt is linked to the home; rental income/costs are entered separately. Monthly home-mortgage interest/payment calculations assume a constant rate and annual cash funding. Named debt prepayments can include an entered fee and reduce payments or shorten the term; refinancing is not calculated. A vehicle purchase adds the funded portion to vehicle value.</p><p>The stress path lowers investment/pension/bond growth by two points, applies a 20% investment/pension loss (5% bonds) at Alex60 or later, and adds two points to expense growth. It is a declared scenario, not a probability estimate. Planning horizons are endpoints, not death predictions. Both people remain in the model through the shared horizon; survivor benefits, statutory tax relief, inheritance tax, vesting tax and death-benefit rules are not calculated. Remaining estate includes property. Saved copies last only for this page session; account connections and tracking remain planned.</p></details>
           <p class="projection-note">Fictional illustration, not advice. Assumptions are editable; current rules are subject to change.</p>
         </section>
+        <details class="example-context"><summary>Example &amp; assumptions</summary>        <div class="household-caption"><span>Alex &amp; Jemma · fictional, editable example</span><button type="button" id="reset-household">Reset example</button></div>
+        <p id="tax-warning" class="small tax-warning" role="status"></p><details id="example-notes" class="model-notes"></details>
+</details>
         <div id="household-status" class="sr-only" aria-live="polite"></div>
       </div>
     </section>

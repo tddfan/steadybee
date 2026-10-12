@@ -791,3 +791,14 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
  .scenario-controls .ledger-row.compact-income {grid-template-rows:44px 28px;padding-block:0}
  .scenario-controls .compact-income > .tweak-field > input[type="range"] {height:28px;min-height:28px}
 }
+/* Plan opens directly on the charts; management and context follow. */
+body[data-workspace-screen="plan"] .hero {display:none}
+body[data-workspace-screen="plan"] .site-header {position:static;transform:none;min-height:52px}
+body[data-workspace-screen="plan"] .slide-nav {margin-bottom:8px}
+body[data-workspace-screen="plan"] .plan-workbench {margin-top:0}
+.scenario-management,.example-context {margin:8px 0;font-size:14px;color:var(--quiet)}
+.scenario-management > summary,.example-context > summary {min-height:44px;display:flex;align-items:center;cursor:pointer}
+.scenario-management[open] > summary::before,.example-context[open] > summary::before {content:'▾';margin-right:6px}
+.scenario-management:not([open]) > summary::before,.example-context:not([open]) > summary::before {content:'▸';margin-right:6px}
+.plan-result {margin:10px 0}
+.plan-result strong {font-size:18px}
