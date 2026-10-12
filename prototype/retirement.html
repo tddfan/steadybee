@@ -47,10 +47,10 @@
         <div class="household-caption"><span>Alex &amp; Jemma · fictional, editable example</span><button type="button" id="reset-household">Reset example</button></div>
         <div id="household-error" role="alert" hidden></div>
         <section id="screen-today" class="household-screen" aria-label="Your household today">
-          <div class="household-intro"><h2>Your starting point.</h2><span class="small">Edit a figure. Keep the whole picture.</span></div>
+          <div class="household-intro"><h2>Your starting point.</h2><span class="small">Tap a figure to edit.</span></div>
           <div class="household-people" id="people-fields"></div>
           <div class="balance-picture"><div class="balance-total"><span>Net household wealth</span><strong id="net-total">—</strong><span id="opening-equation"></span><div class="accessible-total"><span>Accessible now</span><strong id="accessible-total">—</strong></div></div><div class="asset-orbit" id="asset-cards"></div></div>
-          <div class="section-heading"><h3>What you owe</h3><button type="button" class="quiet-button" id="add-debt">+ Add debt</button></div>
+          <div class="section-heading"><h3>Debts</h3><button type="button" class="quiet-button" id="add-debt">+ Add debt</button></div>
           <div id="debt-cards" class="debt-grid"></div>
           <div class="section-heading"><button type="button" class="quiet-button" id="add-asset">+ Add an asset</button><span class="small">Illustrative rates · editable, not live market data.</span></div>
           <div class="screen-next"><button type="button" class="button primary" data-next="flows">Next: income &amp; spending →</button></div>
@@ -59,15 +59,15 @@
           <div class="household-intro"><h2>Money in. Money out.</h2><span class="small">Amounts are assumed spendable. Tax is not calculated.</span></div>
           <div class="cashflow-summary"><div><span>Income now</span><strong id="income-now">—</strong></div><div><span>Spending &amp; debt payments</span><strong id="spending-now">—</strong></div><div><span>Available for saving</span><strong id="surplus-now">—</strong></div></div>
           <p id="saving-goal-warning" class="small stress-warning"></p>
-          <div class="flow-section"><div class="section-heading"><h3>Income streams</h3><div class="add-stream"><label class="sr-only" for="income-type">Income type to add</label><select id="income-type"><option value="salary">Salary / self-employment</option><option value="rent">Rent, after costs</option><option value="support">Benefits / support</option><option value="pension">DB / other pension income</option><option value="state">State Pension</option><option value="dividend">Dividend from investments</option><option value="sale">Investment sale</option><option value="other">Other income</option></select><button type="button" class="quiet-button" id="add-income">+ Add</button></div></div><div id="income-rows" class="stream-list"></div></div>
-          <div class="flow-section"><div class="section-heading"><h3>Spending &amp; saving</h3><div class="add-stream"><label class="sr-only" for="expense-type">Expense type to add</label><select id="expense-type"><option value="regular">Regular spending</option><option value="lease">Car lease</option><option value="oneoff">One-off cost</option><option value="saving">Pension saving from income</option></select><button type="button" class="quiet-button" id="add-expense">+ Add</button></div></div><div id="expense-rows" class="stream-list"></div></div>
+          <div class="flow-section"><div class="section-heading"><h3>Income</h3><div class="add-stream"><label class="sr-only" for="income-type">Income type to add</label><select id="income-type"><option value="salary">Salary / self-employment</option><option value="rent">Rent, after costs</option><option value="support">Benefits / support</option><option value="pension">DB / other pension income</option><option value="state">State Pension</option><option value="dividend">Dividend from investments</option><option value="sale">Investment sale</option><option value="other">Other income</option></select><button type="button" class="quiet-button" id="add-income">+ Add</button></div></div><div id="income-rows" class="stream-list"></div></div>
+          <div class="flow-section"><div class="section-heading"><h3>Spending</h3><div class="add-stream"><label class="sr-only" for="expense-type">Expense type to add</label><select id="expense-type"><option value="regular">Regular spending</option><option value="lease">Car lease</option><option value="oneoff">One-off cost</option><option value="saving">Pension saving from income</option></select><button type="button" class="quiet-button" id="add-expense">+ Add</button></div></div><div id="expense-rows" class="stream-list"></div></div>
           <p class="small flow-footnote">Debt payments come from Today. Dividends and investment sales release existing assets; they do not create new wealth.</p>
           <details class="model-notes"><summary>State Pension &amp; timing assumptions</summary><p>The example starts work-end dates at the editable State Pension ages. Pension amounts, access dates and growth are authored assumptions, not checked entitlements. Stream dates use the owner’s age; end ages are exclusive. One-offs occur once at the start age. Annual timing cannot show a shortage within a month.</p></details>
-          <div class="screen-next"><button type="button" class="button primary" id="run-plan">Use these figures &amp; see the plan →</button></div>
+          <div class="screen-next"><button type="button" class="button primary" id="run-plan">See the plan →</button></div>
         </section>
         <section id="screen-plan" class="household-screen" hidden aria-label="Your household simulation">
           <div class="household-intro"><h2>See the years ahead.</h2><span class="small">Baseline, your choices, and a declared stress path.</span></div>
-          <div class="plan-controls" id="plan-people"></div>
+          <div class="baseline-chips"><span class="small">Baseline dates</span><div id="plan-people"></div></div>
           <div class="plan-result" id="plan-result" role="status"></div>
           <div class="two-charts">
             <section class="graph-panel"><div class="section-heading"><h3>Household wealth</h3><span class="small">Future £</span></div><svg id="wealth-chart" role="img" aria-label="Household wealth over the planning horizon"></svg><div class="chart-legend small"><span><i class="legend-swatch original"></i>Baseline</span><span><i class="legend-swatch"></i>Your choices</span><span><i class="legend-swatch stress-line"></i>Stress path</span></div></section>
@@ -85,5 +85,11 @@
       </div>
     </section>
   </div><section class="start-section wrap"><a class="button primary" href="app.html">Open my draft →</a><p class="small">Personal forecasts and account connections are planned.</p></section></main>
+  <dialog id="quick-editor" class="quick-editor" aria-labelledby="quick-editor-title">
+    <div class="quick-editor-heading"><h3 id="quick-editor-title"></h3><button type="button" id="close-editor" aria-label="Close editor">×</button></div>
+    <p id="quick-editor-error" role="alert" hidden></p>
+    <div id="quick-editor-fields" class="quick-fields"></div>
+    <div class="quick-editor-footer"><div id="quick-editor-actions"></div><button type="button" id="done-editor" class="button primary">Done</button></div>
+  </dialog>
   <footer class="site-footer wrap"><a class="wordmark" href="retirement.html">steadybee<span>.</span></a><span>Retirement, with perspective.</span></footer>
 </body></html>
