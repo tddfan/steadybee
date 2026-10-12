@@ -758,3 +758,13 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 .plan-result strong {font-size:20px}
 .scenario-shortcuts button {font-size:15px;padding:6px 10px}
 @media(max-width:560px){.wrap {width:calc(100% - 28px)}.hero {padding-block:80px 12px}.household-caption {flex-direction:row;flex-wrap:wrap;justify-content:center}.household-intro {margin-bottom:8px}#screen-today .balance-total > strong {font-size:28px}}
+/* Separate total wealth from the money available today. */
+#screen-today .balance-total {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:stretch;padding:16px 20px;gap:20px}
+.net-wealth-summary {display:flex;flex-direction:column;gap:4px;min-width:0}
+.net-wealth-summary > span:first-child {font-size:14px;color:var(--quiet)}
+.net-wealth-summary > strong {font-size:30px;font-weight:500;line-height:1.2;font-variant-numeric:tabular-nums}
+#opening-equation {font-size:14px;color:var(--quiet)}
+#screen-today .accessible-total {grid-column:2;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;margin:0;padding:0 0 0 20px;border-top:0;border-left:1px solid var(--line);font-size:14px;color:var(--quiet)}
+#screen-today .accessible-total > strong {font-size:24px;font-weight:500;color:var(--blue);line-height:1.2;font-variant-numeric:tabular-nums}
+.accessible-caption {font-size:13px}
+@media(max-width:560px){#screen-today .balance-total {grid-template-columns:1fr;gap:12px;padding:14px 16px}#screen-today .accessible-total {grid-column:1;display:grid;grid-template-columns:1fr auto;gap:2px 12px;border-left:0;border-top:1px solid var(--line);padding:10px 0 0}#screen-today .accessible-total > strong {grid-column:2;grid-row:1 / 3;font-size:22px}#screen-today .accessible-caption {grid-column:1;grid-row:2}.net-wealth-summary > strong {font-size:28px}}
