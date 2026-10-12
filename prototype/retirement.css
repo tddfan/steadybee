@@ -707,3 +707,9 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 .asset-edit svg {width:16px;height:16px}
 .owner-assets {padding:12px}
 @media(max-width:360px){#screen-today .asset-tile {grid-template-columns:20px minmax(0,1fr) auto auto 14px;gap:4px}.asset-edit svg {width:14px;height:14px}}
+#screen-today .asset-tile {grid-template-columns:24px minmax(0,1fr) auto 16px}
+#screen-today .asset-tile > .asset-name-rate {display:flex;align-items:baseline;gap:8px;min-width:0;overflow:visible}
+.asset-name-rate > span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.asset-name-rate > small {flex-shrink:0;font-size:16px;font-weight:400;color:#697b76;white-space:nowrap}
+#screen-today .asset-tile > .asset-edit {grid-column:4}
+@media(max-width:360px){#screen-today .asset-tile {grid-template-columns:20px minmax(0,1fr) auto 14px}.asset-name-rate {gap:4px}}
