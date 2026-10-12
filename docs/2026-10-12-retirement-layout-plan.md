@@ -10,4 +10,8 @@ Improve the existing retirement preview without changing the household model.
 
 Density follow-up: combine tabs/year selection and slider/ages into two compact rows, align chart titles and amounts on one line, move chart explanations into the keys, group year workings behind one disclosure, and use a shorter chart frame. Preserve 18px main text and 44px controls.
 
+Controls-below follow-up: make the graph full width and move Adjust your plan below it. Close individual control sections by default and show concise, computed summaries in their collapsed rows. Keep starting-year averages distinct from the chart's selected year. Use the extra desktop width for single-line ledger editing, preserve mobile readability, and verify live edits, scenario changes and invalid-input handling.
+
+Salary-editor follow-up: open pay and pension settings directly from salary/bonus Edit, with pension contributions expanded. Preserve owner, amount conversion, growth, duplication/removal and payment-month controls; refresh the owned pension pot when the owner changes. Verify desktop/mobile editing and the payroll regressions without changing the calculation model.
+
 Preserve the existing edits to retirement.html. Retain fictional-example labelling, tax/transfer explanations and auditable figures. Production deployment requires the user's explicit instruction.

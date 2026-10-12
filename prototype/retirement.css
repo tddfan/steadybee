@@ -920,3 +920,47 @@ body[data-workspace-screen="plan"] .slide-nav {margin-bottom:0}
 }
 @media(max-width:390px){.chart-details .chart-legend {column-gap:16px}.year-summary {grid-template-columns:1fr 1fr}.control-summary {float:none;display:block;margin-left:20px}}
 @media(max-width:360px){.chart-toolbar {flex-wrap:wrap}.chart-toolbar .chart-tabs {flex-basis:100%}.chart-toolbar .plan-year {margin-left:auto}.timeline-inspector {gap:8px}}
+
+/* Full-width charts, followed by scan-friendly settings rather than a sidebar. */
+body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax(0,1fr);gap:12px}
+.analytical-drilldowns > details {max-width:none}
+.plan-workbench .scenario-controls {position:static;top:auto;max-height:none;overflow:visible;scrollbar-gutter:auto;padding:0 16px;background:var(--paper)}
+.scenario-controls > summary,.scenario-controls > .control-section > summary {display:grid;grid-template-columns:16px minmax(220px,.35fr) minmax(0,1fr);align-items:baseline;column-gap:10px;min-height:48px;padding:10px 0;list-style:none;font-size:18px;font-weight:500;line-height:1.5}
+.scenario-controls > summary::-webkit-details-marker,.scenario-controls > .control-section > summary::-webkit-details-marker {display:none}
+.scenario-controls > summary::before,.scenario-controls > .control-section > summary::before {content:'›';color:var(--blue);font-size:22px;line-height:1.2;transform-origin:center}
+.scenario-controls[open] > summary::before,.scenario-controls > .control-section[open] > summary::before {transform:rotate(90deg)}
+.scenario-controls > .adjustment-heading {font-size:20px}
+.collapsed-preview {font-size:16px;font-weight:400;line-height:1.5;color:var(--quiet);overflow-wrap:anywhere}
+.scenario-controls[open] > summary > .collapsed-preview,.scenario-controls > details[open] > summary > .collapsed-preview {display:none}
+.scenario-controls[open] > summary > span:first-of-type,.scenario-controls > details[open] > summary > span:first-of-type {grid-column:2/-1}
+.scenario-controls .control-summary {float:none;display:inline;margin-left:8px;white-space:nowrap}
+.scenario-controls > .control-section {margin:0;padding:0;border-top:1px solid var(--line)}
+.scenario-controls > .control-section[open] {padding-bottom:12px}
+.scenario-controls > .section-heading {margin:0 0 8px;gap:8px 16px}
+.scenario-controls .section-heading > .scenario-live {margin:0;flex:1;min-width:0}
+.scenario-controls #saving-goal-warning:empty {display:none}
+.scenario-controls > #view-graphs {margin-bottom:8px}
+@media(min-width:800px){
+ #plan-retirement {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+ .control-section .work-person {border:0}
+ .scenario-controls .ledger-row,.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(180px,1.2fr) 190px minmax(80px,1fr) minmax(100px,.7fr) 44px;grid-template-rows:auto;gap:10px;padding:4px 0}
+ .scenario-controls .ledger-row > .stream-name,.scenario-controls .ledger-row > .stream-title {grid-column:1;grid-row:1}
+ .scenario-controls .ledger-row > .ledger-amount {grid-column:2;grid-row:1;max-width:none}
+ .scenario-controls .ledger-row > .tweak-field {grid-column:3;grid-row:1}
+ .scenario-controls .ledger-row > .timing-chip {grid-column:4;grid-row:1;justify-self:stretch;max-width:none}
+ .scenario-controls .ledger-row > .more-button {grid-column:5;grid-row:1}
+ .scenario-controls .primary-changes {grid-template-columns:repeat(4,minmax(0,1fr))}
+ .scenario-controls .action-fields,.scenario-controls .quick-fields {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px}
+ #plan-assumptions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px}
+}
+@media(max-width:700px){
+ .scenario-controls > summary,.scenario-controls > .control-section > summary {grid-template-columns:14px minmax(0,1fr);column-gap:8px;padding-block:8px}
+ .scenario-controls > summary > .collapsed-preview,.scenario-controls > .control-section > summary > .collapsed-preview {grid-column:2}
+ .plan-workbench .scenario-controls {padding-inline:12px}
+}
+.quick-editor[data-editor="payroll"] {width:min(780px,calc(100% - 32px))}
+.quick-editor[data-editor="payroll"] .quick-editor-heading h3 {font-family:inherit}
+.quick-editor[data-editor="payroll"] .payroll-settings {border-block:1px solid var(--line);padding-bottom:12px}
+.quick-editor[data-editor="payroll"] .payroll-settings > summary {font-size:18px;font-weight:500}
+.quick-editor[data-editor="payroll"] .quick-editor-heading {position:sticky;top:-24px;z-index:1;background:var(--bg);padding-block:12px;margin-top:-12px;margin-bottom:12px}
+@media(max-width:560px){.quick-editor[data-editor="payroll"] .quick-editor-heading {top:-20px}}

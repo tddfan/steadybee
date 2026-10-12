@@ -109,11 +109,11 @@
               </div>
             </div>
 
-            <aside id="scenario-controls" class="scenario-controls" tabindex="-1" aria-label="Scenario sliders and changes">
-              <div class="section-heading"><h3>Adjust your plan</h3><button type="button" class="quiet-button" id="reset-actions">Reset changes</button></div>
-              <p id="scenario-live" class="scenario-live" role="status"></p>
+            <details id="scenario-controls" class="scenario-controls" open>
+              <summary class="adjustment-heading"><span>Adjust your plan</span><span id="adjustment-summary" class="collapsed-preview"></span></summary>
+              <div class="section-heading"><p id="scenario-live" class="scenario-live" role="status"></p><button type="button" class="quiet-button" id="reset-actions">Reset changes</button></div>
               <details class="scenario-management control-section">
-                <summary>Saved scenarios</summary>
+                <summary><span>Saved scenarios</span><span id="saved-scenario-summary" class="collapsed-preview"></span></summary>
                 <div class="plan-status-pills"><span id="scenario-state" class="scenario-state" role="status"></span><span id="scenario-feedback" class="scenario-feedback" role="status"></span></div>
                 <div class="scenario-toolbar">
                   <label for="scenario-preset">Scenario</label>
@@ -126,17 +126,16 @@
                 <button type="button" id="assets-only" class="quiet-button">Start with assets only</button>
               </details>
               <p id="saving-goal-warning" class="small stress-warning"></p>
-              <details class="control-section" open><summary>Work &amp; retirement</summary><div id="plan-retirement"></div></details>
-              <details class="control-section"><summary>Income <span id="income-now" class="control-summary">—</span></summary><div class="section-heading"><p class="small">Starting year · monthly average</p><button type="button" class="quiet-button" id="add-income">+ Income</button></div><div id="income-rows" class="stream-list"></div></details>
-              <details class="control-section"><summary>Spending <span id="spending-now" class="control-summary">—</span></summary><div class="section-heading"><p class="small">Starting year · includes debt payments</p><button type="button" class="quiet-button" id="add-expense">+ Spending</button></div><div id="expense-rows" class="stream-list"></div></details>
-              <details class="control-section"><summary>Try a change</summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details></details>
-              <div id="action-editors"></div>
-              <details class="control-section"><summary>Transfers &amp; surplus</summary><div class="cashflow-summary"><div><span>Starting income surplus · monthly average</span><strong id="surplus-now">—</strong></div></div><button id="add-money-move" type="button" class="quiet-button">+ Move money</button><div id="money-moves"></div><div id="surplus-policy"></div></details>
+              <details class="control-section"><summary><span>Work &amp; retirement</span><span id="work-settings-summary" class="collapsed-preview"></span></summary><div id="plan-retirement"></div></details>
+              <details class="control-section"><summary><span>Income <span id="income-now" class="control-summary">—</span></span><span id="income-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · monthly average</p><button type="button" class="quiet-button" id="add-income">+ Income</button></div><div id="income-rows" class="stream-list"></div></details>
+              <details class="control-section"><summary><span>Spending <span id="spending-now" class="control-summary">—</span></span><span id="spending-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · includes debt payments</p><button type="button" class="quiet-button" id="add-expense">+ Spending</button></div><div id="expense-rows" class="stream-list"></div></details>
+              <details class="control-section"><summary><span>Try a change</span><span id="changes-summary" class="collapsed-preview"></span></summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details><div id="action-editors"></div></details>
+              <details class="control-section"><summary><span>Transfers &amp; surplus</span><span id="transfers-summary" class="collapsed-preview"></span></summary><div class="cashflow-summary"><div><span>Starting income surplus · monthly average</span><strong id="surplus-now">—</strong></div></div><button id="add-money-move" type="button" class="quiet-button">+ Move money</button><div id="money-moves"></div><div id="surplus-policy"></div></details>
               <div id="plan-pay" hidden></div><div id="plan-spending" hidden></div>
-              <details class="plan-tweak-group"><summary>Rates &amp; planning ages</summary><div id="plan-assumptions"></div></details>
-              <details class="withdrawal-settings"><summary>Withdrawal settings</summary><div id="withdrawal-policy" class="quick-fields"></div></details>
+              <details class="plan-tweak-group control-section"><summary><span>Rates &amp; planning ages</span><span id="assumptions-summary" class="collapsed-preview"></span></summary><div id="plan-assumptions"></div></details>
+              <details class="withdrawal-settings control-section"><summary><span>Withdrawal settings</span><span id="withdrawal-summary" class="collapsed-preview"></span></summary><div id="withdrawal-policy" class="quick-fields"></div></details>
               <button type="button" id="view-graphs" class="quiet-button">View updated graphs ↑</button>
-            </aside>
+            </details>
           </div>
 
           <details class="assumptions-explainer">
