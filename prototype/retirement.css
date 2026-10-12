@@ -619,3 +619,15 @@ body[data-workspace-screen="flows"] .experience, body[data-workspace-screen="pla
 .withdrawal-settings {font-size:16px;margin:16px 0}.withdrawal-settings summary {min-height:44px;cursor:pointer;padding:12px 0}.withdrawal-settings .quick-fields {margin-top:12px}
 .action-fields > p {grid-column:1/-1}.action-fields [hidden] {display:none}
 @media(max-width:560px){.ledger-row > .ledger-amount {max-width:180px}.ledger-row > .timing-chip {align-self:start;margin-top:0}.quick-fields {grid-template-columns:1fr}.scenario-toolbar select {max-width:none}.asset-tile {min-height:155px}}
+/* Pay and pension: details stay on demand; Plan views share one year. */
+.stream-name {min-width:0}.pension-chip {min-height:44px;border:0;background:transparent;color:var(--blue);font-size:16px;padding:4px 0;text-align:left;text-decoration:underline;text-underline-offset:3px}
+.payroll-settings {grid-column:1/-1;font-size:16px}.payroll-settings summary {cursor:pointer;min-height:44px;padding:10px 0}.payroll-settings .quick-fields {margin-top:12px}
+.chart-tabs {display:flex;gap:4px;border-bottom:1px solid var(--line);margin:20px 0 8px}.chart-tabs button {flex:1;min-height:48px;background:transparent;border:0;font:inherit;color:var(--quiet)}.chart-tabs button[aria-selected="true"] {color:var(--blue);border-bottom:3px solid var(--blue)}
+.plan-charts {grid-template-columns:1fr;gap:24px}.plan-charts svg {width:100%;height:auto;display:block}
+.chart-mode select {max-width:150px;min-height:44px;font-size:16px}.plan-charts .section-heading h3 {font-size:24px}
+.year-slider {display:block;margin:4px 0 20px}.year-slider input {width:100%;min-height:44px;accent-color:var(--blue)}
+.plan-year {justify-content:flex-start;margin:12px 0 0}.year-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 28px;padding:16px 0;border-block:1px solid var(--line)}
+.year-summary span {display:block;font-size:16px;color:var(--quiet);margin-bottom:4px}.year-summary strong {font-size:20px;font-weight:500}
+.pension-details {font-size:16px;margin:16px 0}.pension-details summary {cursor:pointer;min-height:44px;padding:12px 0}.pension-table {width:100%;border-collapse:collapse;font-size:16px;table-layout:fixed}.pension-table caption {text-align:left;padding:12px 0}.pension-table td,.pension-table th {padding:10px 6px;border-bottom:1px solid var(--line);text-align:right;overflow-wrap:anywhere}.pension-table th:first-child {text-align:left;font-weight:500}
+@media(max-width:560px){.ledger-row > .stream-name {grid-column:2;grid-row:1}.ledger-row > .more-button {align-self:start}.year-summary {grid-template-columns:repeat(2,minmax(0,1fr))}.chart-mode select {max-width:125px}.plan-charts .section-heading h3 {font-size:22px}}
+@media(min-width:1000px){.chart-tabs {display:none}.plan-charts {grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.plan-charts > .graph-panel[hidden] {display:block!important}.year-summary {grid-template-columns:repeat(6,minmax(0,1fr))}}

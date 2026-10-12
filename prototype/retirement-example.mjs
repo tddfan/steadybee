@@ -10,8 +10,8 @@ export function householdBaseExample(){
   assets:[asset('cash','Alex’s cash','cash','primary',160000,4,{taxBasis:'excluded'}),asset('jemma-cash','Jemma’s cash','cash','partner',150000,4,{taxBasis:'excluded'}),asset('trading','Alex’s investments','investment','primary',230000,5),asset('jemma-isa','Jemma’s S&P ISA','investment','partner',160000,5),asset('alex-pot','Alex’s pension','pension','primary',490000,5),asset('jemma-pot','Jemma’s pension','pension','partner',220000,5),asset('employer','Alex’s employer shares','investment','primary',100000,5,{availableYear:2027,taxBasis:'excluded'}),asset('home','Home','property','joint',783000,2),asset('rental','Rental property','property','joint',200000,2),asset('other-property','Other property','property','joint',30000,2),asset('car','Car bought later','car','joint',0,-10),asset('bonds','Fixed-income assets','bonds','joint',0,3)],
   debts:[{id:'mortgage',label:'Home mortgage',type:'mortgage',propertyId:'home',balance:383000,rate:4.7,payment:monthlyDebtPayment(383000,4.7,21*12),monthly:true}],
   incomes:[
-   flow('salary-a','Alex’s take-home pay','salary','primary',6500,'month',43,110,{growth:1}),
-   flow('salary-j','Jemma’s take-home pay','salary','partner',5500,'month',42,110,{growth:3}),
+   flow('salary-a','Alex’s gross salary','salary','primary',10000,'month',43,110,{growth:1,taxBasis:'payslip',takeHomeAmount:6500,pension:{employeeMode:'percent',employerMode:'percent',employeePercent:5,employerPercent:5,employeeAnnual:0,employerAnnual:0,method:'included',basis:'full',pensionableAnnual:120000,assetId:'alex-pot'}}),
+   flow('salary-j','Jemma’s gross salary','salary','partner',100000/12,'month',42,110,{growth:3,taxBasis:'payslip',takeHomeAmount:5500,pension:{employeeMode:'percent',employerMode:'percent',employeePercent:5,employerPercent:5,employeeAnnual:0,employerAnnual:0,method:'included',basis:'full',pensionableAnnual:100000,assetId:'jemma-pot'}}),
    flow('bonus-a','Alex’s March bonus','bonus','primary',50000,'year',43,110,{growth:1,paymentMonth:3,taxBasis:'excluded'}),
    flow('bonus-j','Jemma’s March bonus','bonus','partner',25000,'year',42,110,{growth:3,paymentMonth:3,taxBasis:'excluded'}),
    flow('rent','Rental income','rent','primary',100,'month',43,110,{propertyId:'rental',taxBasis:'excluded'}),
@@ -38,7 +38,7 @@ export function householdBaseExample(){
    'Model year starts January2026. Alex redundancy is July2027; Jemma July2029 is an assumed month. Neither returns to work unless edited. Redundancy applies only in the selected scenario.',
    'School fees: £20k for2years, then £30k for5years; college £30k for5years. Quoted future prices do not also receive inflation. The lease ends when the £20k car is bought in2029.',
    'NI years16/17 are recorded, not converted into entitlement. State Pension amounts start at £0 until official forecasts are entered. State age68 and pension access57 are editable assumptions, not verified dates.',
-   'Starting authored nominal returns: investments/pensions5%, savings4%, property2%, fixed income3%. Edit each account. No extra pension contributions or property running costs are assumed.',
+   'Starting authored nominal returns: investments/pensions5%, savings4%, property2%, fixed income3%. Edit each account. Gross salary£120k/£100k and employee/employer pension5% each are provisional inputs. Supplied take-home£6.5k/£5.5k stays unchanged and already includes employee deductions. Bonus pension contributions initially0%. No statutory tax relief, limits or property running costs are assumed.',
   ],
  };
 }
