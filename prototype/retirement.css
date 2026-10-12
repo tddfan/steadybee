@@ -770,3 +770,15 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 @media(max-width:560px){#screen-today .balance-total {grid-template-columns:1fr;gap:12px;padding:14px 16px}#screen-today .accessible-total {grid-column:1;display:grid;grid-template-columns:1fr auto;gap:2px 12px;border-left:0;border-top:1px solid var(--line);padding:10px 0 0}#screen-today .accessible-total > strong {grid-column:2;grid-row:1 / 3;font-size:22px}#screen-today .accessible-caption {grid-column:1;grid-row:2}.net-wealth-summary > strong {font-size:28px}}
 .after-chart-actions {margin:12px 0}
 .after-chart-actions .scenario-state {margin:0 0 6px}
+/* Income: one shared line for amount, slider and timing. */
+.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(55px,1fr) 104px minmax(45px,.7fr) 48px 44px;gap:4px;padding:4px 0;align-items:center}
+.scenario-controls .compact-income > .stream-title {grid-column:1;grid-row:1;font-size:14px;text-overflow:ellipsis;padding:4px 0}
+.scenario-controls .compact-income > .ledger-amount {grid-column:2;grid-row:1;display:flex;flex-wrap:nowrap;gap:2px;max-width:none}
+.compact-income .inline-number input {font-size:16px;padding:4px 0}
+.compact-income .amount-unit {font-size:13px;min-width:26px;padding:4px 0}
+.scenario-controls .compact-income > .tweak-field {grid-column:3;grid-row:1;margin:0}
+.compact-income .tweak-heading,.compact-income .tweak-hint {display:none}
+.scenario-controls .compact-income > .timing-chip {grid-column:4;grid-row:1;font-size:13px;padding:0;white-space:nowrap;margin:0;min-width:44px}
+.scenario-controls .compact-income > .more-button {grid-column:5;grid-row:1;display:grid;place-items:center}
+.compact-income .more-button svg {width:16px;height:16px}
+@media(max-width:560px){.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(60px,1fr) 104px 48px 44px}.scenario-controls .compact-income > .timing-chip {grid-column:3}.scenario-controls .compact-income > .more-button {grid-column:4}.scenario-controls .compact-income > .tweak-field {grid-column:1 / -1;grid-row:2}.compact-income .tweak-field input[type="range"] {height:44px}}
