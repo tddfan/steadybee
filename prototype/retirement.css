@@ -713,3 +713,48 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 .asset-name-rate > small {flex-shrink:0;font-size:16px;font-weight:400;color:#697b76;white-space:nowrap}
 #screen-today .asset-tile > .asset-edit {grid-column:4}
 @media(max-width:360px){#screen-today .asset-tile {grid-template-columns:20px minmax(0,1fr) auto 14px}.asset-name-rate {gap:4px}}
+/* Compact prototype density: less scrolling, with 44px interaction targets. */
+:root {font-size:16px;line-height:1.4}
+.hero {padding-block:88px 16px}
+.hero h1 {font-size:clamp(28px,4vw,40px)}
+.hero p {font-size:16px;margin-top:8px}
+.site-header {min-height:60px}
+.wordmark {font-size:21px}
+.preview-label {font-size:13px;padding:3px 8px}
+.slide-nav {gap:24px}
+.slide-nav button {font-size:16px;min-height:44px;padding:6px 8px}
+.household-caption {margin:8px 0 12px;font-size:14px;gap:4px}
+.household-caption button,.quiet-button,.remove-row {font-size:14px;padding:4px 8px}
+.household-intro {margin-bottom:10px;gap:6px}
+.household-intro h2 {font-size:24px}
+.small,.model-notes,.flow-footnote,.projection-note {font-size:14px;line-height:1.4}
+.model-notes {margin:8px 0}
+.model-notes p {margin-top:8px}
+#screen-today .balance-total {padding:12px 16px;margin-bottom:12px;gap:2px 16px}
+#screen-today .balance-total > strong {font-size:28px}
+#screen-today .balance-total > span {font-size:14px}
+#screen-today .accessible-total {margin-top:4px;padding-top:6px}
+#screen-today .accessible-total strong {font-size:18px}
+#screen-today .asset-orbit {gap:10px}
+.owner-assets {padding:8px 12px}
+.owner-heading {padding-bottom:6px}
+.owner-heading h3 {font-size:18px}
+.owner-heading > span,.empty-accounts summary {font-size:14px}
+#screen-today .asset-tile {min-height:44px;padding:4px 0}
+#screen-today .asset-tile > span:not(.asset-edit),#screen-today .asset-tile > strong {font-size:15px}
+.asset-name-rate > small {font-size:13px}
+.section-heading {margin-block:8px}
+.section-heading h3,.scenario-controls .section-heading h3 {font-size:20px}
+.screen-next {margin:14px 0}
+.start-section {padding-block:12px}
+.site-footer {padding-block:12px;font-size:14px}
+.scenario-controls {padding:12px}
+.scenario-controls .ledger-row {padding:8px 0;gap:4px 8px}
+.scenario-controls .flow-section {padding-top:8px;margin-top:12px;margin-bottom:12px}
+.tweak-field {margin:6px 0}
+.tweak-heading > span,.tweak-hint,.scenario-live {font-size:14px}
+.active-change-heading h4 {font-size:17px}
+.scenario-controls .action-editor {padding:10px;margin:8px 0}
+.plan-result strong {font-size:20px}
+.scenario-shortcuts button {font-size:15px;padding:6px 10px}
+@media(max-width:560px){.wrap {width:calc(100% - 28px)}.hero {padding-block:80px 12px}.household-caption {flex-direction:row;flex-wrap:wrap;justify-content:center}.household-intro {margin-bottom:8px}#screen-today .balance-total > strong {font-size:28px}}
