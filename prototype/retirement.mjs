@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
 const compact=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:1}).format(value);
 let input=householdBaseExample(),actions={},current=null,baseline=null,stressed=null,screen='today',selectedYear=2026,chartView='estate',estateView='composition',sequence=0,savedScenarios=[],householdDefaults=structuredClone(input),draftScenario=null,activeScenarioId='continue';
-const icons={cash:'savings',investment:'investment',pension:'pension',property:'home',car:'work',bonds:'coins'};
+const icons={cash:'savings',investment:'investment',pension:'pension',property:'home',car:'car',bonds:'coins'};
 const definitions={
  jobPartner:{title:'Jemma redundancy',icon:'pause',group:'work',note:'Stops Jemma’s employment-linked pay and bonus at the entered month. Severance is paid once; future employment is optional.',fields:[]},
  allocate:{title:'Cash / investment mix',icon:'investment',group:'stress',note:'A user-chosen transfer between owned accounts. Investment returns are editable assumptions, with losses in the stress path. This is not an allocation recommendation.',fields:[]},
@@ -117,7 +117,7 @@ function openEditor(title,fields,buttons=[]) {
 $('close-editor').addEventListener('click',()=>dialog.close());
 $('done-editor').addEventListener('click',()=>dialog.close());
 dialog.addEventListener('click',event=>{const rect=dialog.getBoundingClientRect();if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();});
-dialog.addEventListener('close',()=>{if(screen==='plan')renderPlanControls();if(restoreTarget?.isConnected)restoreTarget.focus({preventScroll:true});else {const data=restoreTarget?.dataset??{};const target=data.planPay?document.querySelector(`[data-plan-pay="${data.planPay}"]`):data.assetButton?document.querySelector(`[data-asset-button="${data.assetButton}"]`):data.editRow?document.querySelector(`[data-edit-row="${data.editRow}"]`):data.timing?document.querySelector(`[data-timing="${data.timing}"]`):null;(target??document.querySelector(`[data-screen="${screen}"]`))?.focus({preventScroll:true});}});
+dialog.addEventListener('close',()=>{if(screen==='today'){renderAssets();calculate();}if(screen==='plan')renderPlanControls();if(restoreTarget?.isConnected)restoreTarget.focus({preventScroll:true});else {const data=restoreTarget?.dataset??{};const target=data.planPay?document.querySelector(`[data-plan-pay="${data.planPay}"]`):data.assetButton?document.querySelector(`[data-asset-button="${data.assetButton}"]`):data.editRow?document.querySelector(`[data-edit-row="${data.editRow}"]`):data.timing?document.querySelector(`[data-timing="${data.timing}"]`):null;(target??document.querySelector(`[data-screen="${screen}"]`))?.focus({preventScroll:true});}});
 function inlineAmount(label,object,key,unit='') {
  const field=numberField(label,object,key,{step:.01});field.classList.add('inline-number');field.querySelector('input').value=String(Math.round(object[key]*100)/100);
  const wrapper=node('div',{class:'ledger-amount'},[node('span',{class:'currency-mark',text:'£'}),field]);
@@ -136,8 +136,8 @@ function renderPeople() {
  }));
 }
 function renderAssets() {
- $('asset-cards').replaceChildren(...input.assets.map(asset=>{
-  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id},[icon(icons[asset.type]),node('span',{text:asset.label}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)}),node('small',{'data-asset-rate':asset.id,text:`${asset.rate}% / year${asset.availableYear?` · available ${asset.availableYear}`:''}`})]);
+ const tiles=input.assets.map(asset=>{
+  const button=node('button',{type:'button',class:'asset-tile','data-asset-button':asset.id},[icon(asset.wrapper==='isa'?'isa':icons[asset.type]),node('span',{text:asset.label.replace(/^(Alex|Jemma)(’s|’)?\s+/,'')}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)}),node('small',{'data-asset-rate':asset.id,text:`${asset.rate}% / yr`})]);
   button.addEventListener('click',()=>{
    asset.availableYear??=input.year;asset.wrapper??=asset.type==='pension'?'pension':'taxable';
    const fields=[numberField('Balance / value (£)',asset,'balance'),numberField(asset.type==='car'?'Value change / year (%)':'Total return assumption / year (%)',asset,'rate',{min:-50,max:30,step:.5})];
@@ -150,6 +150,13 @@ function renderAssets() {
    if(!['cash','bonds'].includes(asset.id)){const remove=node('button',{type:'button',class:'remove-row',text:'Remove asset'});remove.addEventListener('click',()=>{dialog.close();input.assets=input.assets.filter(a=>a!==asset);renderAssets();calculate();});buttons.push(remove);}
    openEditor(asset.label,fields,buttons);
   });return button;
+ });
+ $('asset-cards').replaceChildren(...[...input.people.map(p=>[p.id,p.name]),['joint','Shared']].map(([owner,name])=>{
+  const owned=input.assets.filter(a=>a.owner===owner);const visible=owned.filter(a=>a.balance!==0),empty=owned.filter(a=>a.balance===0);
+  const heading=node('div',{class:'owner-heading'},[node('h3',{text:name}),node('span',{text:'Assets · '+compact(owned.reduce((total,a)=>total+a.balance,0))})]);
+  const children=[heading,...visible.map(a=>tiles[input.assets.indexOf(a)])];
+  if(empty.length)children.push(node('details',{class:'empty-accounts'},[node('summary',{text:`${empty.length} empty account${empty.length===1?'':'s'}`}),...empty.map(a=>tiles[input.assets.indexOf(a)])]));
+  return node('section',{class:'owner-assets','aria-label':name+' assets'},children);
  }));
 }
 function renderDebts() {
@@ -168,7 +175,7 @@ function renderDebts() {
   meta.addEventListener('click',edit);
   const timing=node('button',{type:'button',class:'timing-chip','data-debt-timing':debt.id,text:'Estimated end'});timing.addEventListener('click',edit);
   const more=node('button',{type:'button',class:'more-button','aria-label':`More settings for ${debt.label}`,text:'⋯'});more.addEventListener('click',edit);
-  return node('div',{class:'debt-row'},[node('strong',{text:debt.label}),inlineAmount(`${debt.label} balance (£)`,debt,'balance'),meta,timing,more]);
+  return node('div',{class:'debt-row'},[node('strong',{},[icon('mortgage'),node('span',{text:debt.label})]),inlineAmount(`${debt.label} balance (£)`,debt,'balance'),meta,timing,more]);
  }));
 }
 function streamRow(row,list) {
@@ -261,7 +268,7 @@ function calculate() {
   $('tax-warning').textContent=current.warnings.some(w=>w.includes('tax excluded'))?'Tax excluded in some figures · check the example assumptions.':'';
   $('example-notes').replaceChildren(node('summary',{text:'Starting example & tax assumptions'}),...(input.assumptionNotes??[]).map(text=>node('p',{class:'small',text})),node('p',{class:'small',text:current.warnings.join(' ')}));
   const opening=openingPicture(input);$('net-total').textContent=money(opening.net);$('accessible-total').textContent=money(opening.accessible);$('opening-equation').textContent=`${compact(opening.assets)} assets − ${compact(opening.debt)} debts`;
-  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);const rate=document.querySelector(`[data-asset-rate="${asset.id}"]`);if(rate)rate.textContent=`${asset.rate}% / year${asset.availableYear&&asset.availableYear>input.year?` · available ${asset.availableYear}`:''}`;}
+  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);const rate=document.querySelector(`[data-asset-rate="${asset.id}"]`);if(rate)rate.textContent=`${asset.rate}% / yr${asset.availableYear&&asset.availableYear>input.year?` · ${asset.availableYear}`:''}`;}
   for(const person of input.people){const chip=document.querySelector(`[data-person-chip="${person.id}"]`);if(chip)chip.textContent=`${person.name} · ${person.age}`;const planChip=document.querySelector(`[data-plan-person="${person.id}"]`);if(planChip)planChip.textContent=`${person.name} · work ends ${person.retireAge}`;}
   if($('inflation-chip'))$('inflation-chip').textContent=`Inflation ${input.inflation}%`;
   for(const debt of input.debts){const meta=document.querySelector(`[data-debt-meta="${debt.id}"]`);if(meta)meta.textContent=`${debt.rate}% · ${money(debt.payment)}/mo`;const timing=document.querySelector(`[data-debt-timing="${debt.id}"]`);const end=baseline.rows.find(r=>r.debtBalances[debt.id]<.01);if(timing)timing.textContent=debt.balance===0?'Paid off':end?`Ends ~${end.year}`:'Beyond plan';}
