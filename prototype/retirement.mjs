@@ -1,291 +1,144 @@
-import { retirementDemo, scenarioOverrides, fundingFacts, displayNames, scenarioDefinitions, scenarioInputs, estateFlows } from './retirement-demo.mjs';
-
-const money = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
-const root = document.querySelector('#demo');
-if (root) {
-  const $ = (id) => document.getElementById(id);
-  const put = (id, text) => { if ($(id)) $(id).textContent = text; };
-  let overrides = {}, stage = 'situation', mode = 'assets', selectedScenario = null, model = retirementDemo();
-  const stages = ['situation', 'choices', 'tracking'];
-  const headings = { situation: 'Your money, together.', choices: 'Your estate through retirement.', tracking: 'Keep your plan moving.' };
-  const setStage = (value, userTriggered = false) => {
-    if (!stages.includes(value)) return;
-    stage = value; root.dataset.stage = stage;
-    root.querySelectorAll('[data-stage]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.stage === stage)));
-    root.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== stage; });
-    put('step-label', `${stages.indexOf(stage) + 1} of 3`); put('stage-heading', headings[stage]);
-    if(stage === 'picture' || stage === 'choices') drawChart();
-    put('demo-status', `${headings[stage]}. Step ${stages.indexOf(stage) + 1} of 3.`);
-    root.querySelectorAll('[data-step]').forEach((button) => { button.disabled = button.dataset.step === 'prev' ? stage === stages[0] : stage === stages.at(-1); });
-    if (userTriggered) { $('stage-heading')?.focus({preventScroll:true}); root.scrollIntoView({behavior:'instant',block:'start'}); }
-  };
-  function inputsText() {
-    const p = model.current.profile;
-    return `Alex steps back at ${p.primary.retirementAge}; Jemma at ${p.partner.retirementAge}. Spending ${money(p.monthlySpending)} a month. ${p.partTimeAnnual ? `Alex has ${money(p.partTimeAnnual)} annual part-time income until age ${p.partTimeEndAge}.` : 'No part-time income.'}`;
-  }
-  function drawChart() {
-    let svg = $('demo-chart'); if (!svg) return;
-    const ns = 'http://www.w3.org/2000/svg';
-    if (svg.namespaceURI !== ns) {
-      const container = svg;
-      svg = document.createElementNS(ns, 'svg');
-      container.replaceChildren(svg);
-    }
-    const width = Math.max(220, svg.parentElement.clientWidth || 720);
-    const left = 60, top = 46, plotW = width - left - 22, plotH = 250, height = 350;
-    const current = model.current.rows, baseline = model.baseline.rows;
-    const all = [...current, ...baseline];
-    const rawMax = Math.max(1, mode === 'assets' ? model.legacyTarget : 0, ...all.map((r) => mode === 'assets' ? r.closingTotal : fundingFacts(r).need));
-    const unit = 10 ** Math.floor(Math.log10(rawMax));
-    const max = Math.ceil(rawMax / unit) * unit;
-    const x = (i) => left + i / (current.length - 1) * plotW;
-    const y = (v) => top + plotH - v / max * plotH;
-    const path = (rows, get) => rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(2)},${y(get(r)).toFixed(2)}`).join(' ');
-    svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.setAttribute('role', 'img'); svg.setAttribute('aria-labelledby', 'calculated-chart-title calculated-chart-description');
-    function node(name, attrs, text) { const n = document.createElementNS(ns, name); for (const [k,v] of Object.entries(attrs)) n.setAttribute(k,String(v)); if (text) n.textContent=text; svg.append(n); return n; }
-    const title = mode === 'assets' ? 'Recorded estate through retirement' : 'Spending and funding';
-    const stateStart = model.current.events.find(event => event.type === 'income-start' && event.owner === 'primary' && event.label.includes('State Pension'));
-    const retirement = model.current.events.find(event => event.type === 'retirement' && event.owner === 'primary');
-    const partnerRetirement = model.current.events.find(event => event.type === 'retirement' && event.owner === 'partner');
-    const annotations = [
-      retirement && {icon:'icon-sun',year:retirement.year,age:retirement.primaryAge,label:`Retire · ${retirement.primaryAge}`,context:`Alex retires at ${retirement.primaryAge} in ${retirement.year}.`},
-      stateStart && {icon:'icon-pension',year:stateStart.year,age:stateStart.primaryAge,label:`State Pension · ${stateStart.primaryAge}`,context:`Alex’s fictional State Pension starts at ${stateStart.primaryAge} in ${stateStart.year}.`},
-      {icon:'icon-plan',year:current.at(-1).year,age:current.at(-1).primaryAge,label:`Horizon · ${current.at(-1).primaryAge}`,context:`Illustration ends at Alex age ${current.at(-1).primaryAge} in ${current.at(-1).year}; this is a modelling horizon, not a lifespan or guarantee.`},
-    ].filter(Boolean);
-    for (const event of model.current.events.filter(event => width >= 420 && event.type === 'income-start' && event !== stateStart)) {
-      const owner = event.owner === 'primary' ? 'Alex' : 'Jemma';
-      const label = event.label.includes('State Pension') ? `${owner} State` : `${owner} pension`;
-      annotations.splice(1, 0, {icon:'icon-pension',year:event.year,age:event.primaryAge,label:`${label} · ${event.primaryAge}`,context:`${displayNames(event.label)} in ${event.year}. Alex age ${event.primaryAge}.`});
-    }
-    if (partnerRetirement && width >= 420) annotations.splice(1,0,{icon:'icon-sun',year:partnerRetirement.year,age:partnerRetirement.primaryAge,label:`Jemma retires · ${partnerRetirement.primaryAge}`,context:`${displayNames(partnerRetirement.label)} in ${partnerRetirement.year}; Alex age ${partnerRetirement.primaryAge}.`});
-    const p = model.current.profile;
-    const scenarioEvent = model.current.events.find(event =>
-      selectedScenario === 'mortgage' ? event.type === 'mortgage-payoff' :
-      selectedScenario === 'downsize' ? event.type === 'home-move' :
-      selectedScenario === 'school-fees' || selectedScenario === 'help-family' ? event.type === 'major-cost' :
-      selectedScenario === 'market-falls' ? event.type === 'market-loss' : false);
-    if (scenarioEvent) {
-      const row = current.find(row => row.year === scenarioEvent.year);
-      const compact = value => new Intl.NumberFormat('en-GB', {style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:0}).format(value);
-      const labels = {
-        mortgage: `Mortgage −${compact(row.mortgagePayoff)}`,
-        downsize: `Downsize +${compact(row.homeCashReleased)}`,
-        'school-fees': `Fees ${compact(row.majorCost)}`,
-        'help-family': `Gift ${compact(row.majorCost)}`,
-        'market-falls': `Market −${p.pensionLossPercent}%`,
-      };
-      annotations.splice(1, 0, {icon:`icon-${scenarioDefinitions[selectedScenario].icon}`,year:scenarioEvent.year,age:scenarioEvent.primaryAge,label:labels[selectedScenario],context:`${displayNames(scenarioEvent.label)} in ${scenarioEvent.year}. Alex age ${scenarioEvent.primaryAge}. Costs are budgets; the year view shows actual estate withdrawals and unpaid spending.`});
-    }
-    node('title', {id:'calculated-chart-title'}, title);
-    node('desc', {id:'calculated-chart-description'}, `${title}, from Alex age ${current[0].primaryAge} to ${current.at(-1).primaryAge}, in today’s pounds. Dashed line shows the starting example; teal line shows the current scenario. ${mode === 'funding' ? 'Grey shows annual spending; gold shading marks unpaid spending. Earlier gaps remain unpaid even when later years are covered.' : 'Gold markers below the chart identify years with unpaid spending. Closing assets can remain positive despite earlier unpaid spending.'} ${model.legacyTarget > 0 && mode === 'assets' ? `Dotted plum line is the ${money(model.legacyTarget)} end-horizon target, not a withdrawal or reserved asset.` : ''} ${annotations.map(event=>event.context).join(' ')} ${partnerRetirement ? displayNames(partnerRetirement.label) + ` in ${partnerRetirement.year}; Alex is ${partnerRetirement.primaryAge}.` : ''} Use Look at a year for the calculated values.`);
-    node('text',{x:0,y:top-13,fill:'#536568','font-size':16},'Today’s £');
-    for (let tick=0; tick<=4; tick++) {
-      const value=max*tick/4;
-      node('line',{x1:left,x2:width-22,y1:y(value),y2:y(value),stroke:'#d7dfda','stroke-width':1});
-      node('text',{x:left-8,y:y(value)+5,fill:'#536568','font-size':16,'text-anchor':'end'},new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:1}).format(value));
-    }
-    const tickCount=width < 420 ? 3 : 5;
-    for(let tick=0;tick<tickCount;tick++) {
-      const index=Math.round(tick/(tickCount-1)*(current.length-1));
-      node('text',{x:x(index),y:height-27,fill:'#536568','font-size':16,'text-anchor':'middle'},String(current[index].primaryAge));
-    }
-    node('text',{x:left+plotW/2,y:height-4,fill:'#536568','font-size':16,'text-anchor':'middle'},'Alex’s age');
-    current.forEach((row,i) => {
-      if (row.annualGap <= 0) return;
-      const barWidth = Math.max(2, plotW / current.length);
-      const barX = Math.min(width - 22 - barWidth, Math.max(left, x(i) - barWidth / 2));
-      node('rect',{x:barX,y:mode === 'funding' ? y(fundingFacts(row).need) : top + plotH + 4,width:barWidth,height:mode === 'funding' ? Math.max(1,y(fundingFacts(row).covered)-y(fundingFacts(row).need)) : 6,fill:'#dfbe72'});
-    });
-    if (partnerRetirement) {
-      const index=current.findIndex(row=>row.year===partnerRetirement.year);
-      if(index>=0) {
-        const guide=node('line',{x1:x(index),x2:x(index),y1:top,y2:top+plotH,stroke:'#b5cfc2','stroke-width':1,'stroke-dasharray':'2 5'});
-        const title=document.createElementNS(ns,'title');title.textContent=displayNames(partnerRetirement.label);guide.append(title);
-      }
-    }
-    if (mode === 'assets' && model.legacyTarget > 0) {
-      node('line', {x1:left,x2:width-22,y1:y(model.legacyTarget),y2:y(model.legacyTarget),stroke:'#79548b','stroke-width':2,'stroke-dasharray':'3 4'});
-      node('text', {x:left+8,y:y(model.legacyTarget)-8,fill:'#79548b','font-size':16}, 'Legacy target');
-    }
-    node('path',{d:path(baseline,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#536568','stroke-width':3,'stroke-dasharray':'7 5'});
-    if (mode==='funding') node('path',{d:path(current,r=>fundingFacts(r).need),fill:'none',stroke:'#536568','stroke-width':2});
-    node('path',{d:path(current,r=>mode==='assets'?r.closingTotal:fundingFacts(r).covered),fill:'none',stroke:'#14665f','stroke-width':4});
-    const annotationPoints = annotations.map(event=>{
-      const index=current.findIndex(row=>row.year===event.year);
-      return {event,index,px:x(index),py:index>=0 ? y(mode==='assets' ? current[index].closingTotal : fundingFacts(current[index]).covered) : 0};
-    }).filter(point=>point.index>=0);
-    const placedBadges=[];
-    const labelBoxes=[];
-    const offsets=[[0,0],[0,-36],[0,36],[-36,0],[36,0],[-36,-36],[36,-36],[-36,36],[36,36],[0,-72],[0,72],[-72,0],[72,0]];
-    annotationPoints.forEach(point=>{
-      const {event,px,py}=point;
-      const candidates=offsets.map(([dx,dy])=>({x:Math.max(14,Math.min(width-14,px+dx)),y:Math.max(16,Math.min(top+plotH-18,py+dy))}));
-      const position=candidates.find(candidate=>placedBadges.every(other=>Math.hypot(candidate.x-other.x,candidate.y-other.y)>=34)) ?? candidates.at(-1);
-      placedBadges.push(position);point.badge=position;
-    });
-    annotationPoints.forEach(point=>{
-      const {event,px,py,badge:position}=point;
-      const badgeX=position.x,badgeY=position.y;
-      node('line',{x1:px,x2:px,y1:py,y2:top+plotH,stroke:'#b5cfc2','stroke-width':1,'stroke-dasharray':'2 5'});
-      node('circle',{cx:px,cy:py,r:2.5,fill:'#14665f'});
-      if(Math.hypot(badgeX-px,badgeY-py)>1)node('line',{x1:px,x2:badgeX,y1:py,y2:badgeY,stroke:'#536568','stroke-width':1});
-      const badge=node('g',{role:'group','aria-label':event.context});
-      const title=document.createElementNS(ns,'title');title.textContent=event.context;badge.append(title);
-      const circle=document.createElementNS(ns,'circle');for(const [k,v] of Object.entries({cx:badgeX,cy:badgeY,r:13,fill:'#fff',stroke:'#d7dfda'}))circle.setAttribute(k,v);badge.append(circle);
-      const icon=document.createElementNS(ns,'svg');for(const [k,v] of Object.entries({class:'chart-event-icon',x:badgeX-9,y:badgeY-9,width:18,height:18,viewBox:'0 0 32 32',fill:'none',stroke:'#536568','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))icon.setAttribute(k,v);
-      const use=document.createElementNS(ns,'use');use.setAttribute('href',`#${event.icon}`);icon.append(use);badge.append(icon);
-      const halfWidth = Math.min((event.label.length * 8 + 6) / 2, (width - 12) / 2);
-      const labelCandidates=[[0,-24],[0,30],[30,5],[-30,5],[0,-43],[0,49]].map(([dx,dy])=>({x:Math.max(halfWidth+6,Math.min(width-halfWidth-6,badgeX+dx)),y:Math.max(18,Math.min(top+plotH-2,badgeY+dy))}));
-      const moreCandidates = Array.from({length:Math.ceil(plotH / 24)}, (_,index)=>({x:Math.max(halfWidth+6,Math.min(width-halfWidth-6,badgeX)),y:18+index*24}));
-      const labelPosition=[...labelCandidates,...moreCandidates].find(label=>{
-        const box={left:label.x-halfWidth,right:label.x+halfWidth,top:label.y-15,bottom:label.y+3};
-        const clearBadges=placedBadges.every(other=>{
-          const closestX=Math.max(box.left,Math.min(other.x,box.right));
-          const closestY=Math.max(box.top,Math.min(other.y,box.bottom));
-          return Math.hypot(other.x-closestX,other.y-closestY)>15;
-        });
-        const clearLabels=labelBoxes.every(other=>box.left>other.right+3 || box.right+3<other.left || box.top>other.bottom+3 || box.bottom+3<other.top);
-        return clearBadges && clearLabels;
-      }) ?? labelCandidates.at(-1);
-      labelBoxes.push({left:labelPosition.x-halfWidth,right:labelPosition.x+halfWidth,top:labelPosition.y-15,bottom:labelPosition.y+3});
-      node('rect', {x:labelPosition.x-halfWidth,y:labelPosition.y-15,width:halfWidth*2,height:20,fill:'#f6f5f0',rx:3});
-      node('text',{class:'event-label',x:labelPosition.x,y:labelPosition.y,fill:'#182e32','font-size':16,'text-anchor':'middle'},event.label);
-    });
-    put('chart-title', title);
-    put('chart-caption', 'Today’s pounds. Fixed real growth except any selected one-off market loss; price stress changes real spending. Earlier gaps remain unpaid.');
-    const legend=$('chart-legend');if(legend) {
-      const unchangedOutlook = stage === 'picture' && Object.keys(overrides).length === 0;
-      const lines = unchangedOutlook ? [['current',mode === 'assets' ? 'Money remaining' : 'Spending covered']] : [['original','Original'],['current','What if']];
-      const keys = [...(mode === 'assets' && model.legacyTarget > 0 ? [['legacy', 'Legacy target']] : []),...(mode==='funding' ? [['need','Spending']] : []),...lines,...(current.some(row=>row.annualGap>0) ? [['gap','Gap']] : [])];
-      legend.replaceChildren(...keys.map(([type,label])=>{ const key=document.createElement('span');key.className='legend-key';const swatch=document.createElement('span');swatch.className=`legend-swatch ${type}`;swatch.setAttribute('aria-hidden','true');key.append(swatch,document.createTextNode(label));return key;}));
-    }
-    root.querySelectorAll('[data-chart]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.chart===mode)));
-  }
-  function renderYear() {
-    const row = model.current.rows.find(r=>r.year === Number($('year-select')?.value)) || model.current.rows[0];
-    const summary=$('year-summary'); if(!summary) return;
-    const flows = estateFlows(row);
-    put('estate-additions', `+${money(flows.additions)} added`); put('estate-withdrawals', `−${money(flows.withdrawals)} withdrawn`);
-    const facts=[['Year / ages',`${row.year} / Alex ${row.primaryAge}, Jemma ${row.partnerAge}`],['Estate additions',money(flows.additions)],['Estate withdrawals',money(flows.withdrawals)],['Growth (separate from additions)',money(flows.growth)],['Income',money(row.income)],['Spending',money(row.spending)],['Savings withdrawals',money(row.withdrawalsAccessible)],['Pension withdrawals',money(row.withdrawalsPension)],['One-off cost',money(row.majorCost)],['Pension market loss',money(row.pensionMarketLoss ?? 0)],['Cash mortgage payoff',money(row.mortgagePayoff)],['Net home-sale cash',money(row.homeCashReleased)],['Unpaid spending',money(row.annualGap)],['Earlier and current unpaid spending',money(row.cumulativeGap)],['Locked pension money',money(row.closingLockedPension)],['Money remaining',money(row.closingTotal)]];
-    const dl=document.createElement('dl');
-    for(const [label,value] of facts) { const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;dl.append(dt,dd); }
-    summary.replaceChildren(dl);
-  }
-  function announce() {
-    put('demo-status', `Example updated. ${model.firstGap ? `First spending gap at Alex age ${model.firstGap.primaryAge}.` : `Spending covered through Alex age ${model.current.profile.horizonAge}.`}`);
-  }
-  function render(shouldAnnounce = true) {
-    try { model = retirementDemo(overrides); } catch (error) { put('demo-error', `${error.message} The graph still shows the last valid calculation.`); $('demo-error').hidden=false; return; }
-    if ($('demo-error')) $('demo-error').hidden=true;
-    const p = model.current.profile;
-    $('monthly-spending').max = selectedScenario === 'save-more' ? model.baseline.profile.monthlySpending : 10000;
-    for (const [id,value] of [['retirement-age',p.primary.retirementAge],['partner-age',p.partner.retirementAge],['monthly-spending',p.monthlySpending]]) if ($(id)) $(id).value=value;
-    for (const input of $('scenario-fields').querySelectorAll('input')) {
-      const value = input.name === 'retirementAge' ? p.primary.retirementAge : input.name === 'partnerRetirementAge' ? p.partner.retirementAge : input.name === 'savingReduction' ? model.baseline.profile.monthlySpending - p.monthlySpending : input.name === 'extraInflationPercent' ? p.extraRealSpendingRate * 100 : input.name === 'legacyTarget' ? model.legacyTarget : p[input.name];
-      if (value !== undefined) input.value = value;
-    }
-    put('retirement-output',p.primary.retirementAge); put('partner-output',p.partner.retirementAge); put('spending-output',money(p.monthlySpending));
-    const effect = p.partTimeAnnual
-      ? `Alex has ${money(p.partTimeAnnual)} annual net-assumed part-time income from age ${p.primary.retirementAge} until the beginning of age ${p.partTimeEndAge}.`
-      : selectedScenario === 'income-stops'
-        ? 'Alex permanently stops work now at 57: employment income and pension contributions end immediately.'
-        : selectedScenario === 'spend-less'
-          ? `Monthly spending falls from ${money(model.baseline.profile.monthlySpending)} to ${money(p.monthlySpending)}: ${money(model.baseline.profile.monthlySpending - p.monthlySpending)} less each month.`
-          : p.primary.retirementAge !== model.baseline.profile.primary.retirementAge || p.partner.retirementAge !== model.baseline.profile.partner.retirementAge
-            ? `Alex stops work at ${p.primary.retirementAge}; Jemma at ${p.partner.retirementAge}, compared with ${model.baseline.profile.primary.retirementAge} and ${model.baseline.profile.partner.retirementAge} originally. Employment income and contributions end at those dates.`
-            : 'Explore a change to compare with the starting example.';
-    put('scenario-context', selectedScenario ? scenarioDefinitions[selectedScenario].description : p.partTimeAnnual ? effect : 'DB and State Pension start ages stay fixed.');
-    put('result-value',model.firstGap ? `Age ${model.firstGap.primaryAge}` : `Through age ${p.horizonAge}`);
-    put('result-label',model.firstGap ? 'First spending gap' : 'Spending covered');
-    put('result-context', model.firstGap ? `First gap in ${model.firstGap.year}; earlier gaps remain unpaid.` : 'No spending gap under these example assumptions.');
-    const diff = model.finalMoney-model.baseline.summary.finalTotal;
-    put('scenario-impact', model.firstGap ? `${money(model.firstGap.annualGap)} unpaid in ${model.firstGap.year}. Earlier gaps remain unpaid.` : '');
-    put('comparison-copy', `${money(model.finalMoney)} at age ${p.horizonAge}${diff ? ` · ${money(Math.abs(diff))} ${diff < 0 ? 'less' : 'more'} than original` : ''}.`);
-    if (model.legacyTarget > 0) {
-      const difference = model.finalMoney - model.legacyTarget;
-      put('comparison-copy', `${money(model.finalMoney)} at age ${p.horizonAge} · ${money(Math.abs(difference))} ${difference >= 0 ? 'above' : 'below'} target${model.firstGap ? ' · earlier gaps unpaid' : ''}.`);
-    }
-    const pensionTotal = p.primary.pensionPot + p.partner.pensionPot;
-    const savingsTotal = p.primary.savings + p.partner.savings;
-    const openingTotal = pensionTotal + savingsTotal;
-    const base = model.baseline.profile;
-    put('household-story', `Alex (${base.primary.age}) and Jemma (${base.partner.age}) are exploring retirement at ${base.primary.retirementAge} and ${base.partner.retirementAge}, with ${money(base.monthlySpending)} monthly household spending.`);
-    put('pension-breakdown', `${money(pensionTotal)} · ${Math.round(pensionTotal / openingTotal * 100)}%`);
-    put('savings-breakdown', `${money(savingsTotal)} · ${Math.round(savingsTotal / openingTotal * 100)}%`);
-    put('pension-icon-total',money(pensionTotal)); put('savings-icon-total',money(savingsTotal));
-    put('income-icon-total', `${money(p.primary.employmentAnnualNet+p.partner.employmentAnnualNet)}/year`);
-    put('current-total',money(openingTotal));put('current-pension',money(pensionTotal));put('current-savings',money(savingsTotal));
-    const donut=$('wealth-donut');if(donut) {const percent=pensionTotal/openingTotal*100;donut.style.background=`conic-gradient(#14665f 0% ${percent}%, #b5cfc2 ${percent}% 100%)`;donut.setAttribute('aria-label',`Recorded estate subtotal ${money(openingTotal)}, pensions and savings only: pension pots ${money(pensionTotal)}; savings ${money(savingsTotal)}.`);}
-    put('current-caption','Pensions and savings only; other values aren’t entered.');
-    const inputDetails = `${inputsText()} Opening pension pots: Alex ${money(p.primary.pensionPot)}, Jemma ${money(p.partner.pensionPot)}. Opening accessible savings: Alex ${money(p.primary.savings)}, Jemma ${money(p.partner.savings)}. Annual employment income while working: Alex ${money(p.primary.employmentAnnualNet)}, Jemma ${money(p.partner.employmentAnnualNet)}. Monthly pension contributions while working: Alex ${money(p.primary.monthlyContributions)}, Jemma ${money(p.partner.monthlyContributions)}.`;
-    put('input-summary',inputDetails);
-    root.querySelectorAll('[data-scenario]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.scenario===selectedScenario)));
-    const incomeText = p.incomeStreams.map(stream => `${displayNames(stream.label)}: ${money(stream.annualNet)} annual net-assumed income, starts at ${stream.owner === 'primary' ? 'Alex' : 'Jemma'} age ${stream.startAge}${stream.endAge === null ? ', no end age supplied' : `, ends at age ${stream.endAge}`}.`).join(' ');
-    const assumptionRows = [
-      ['Work and spending', inputsText()],
-      ['Opening pension pots', `Alex ${money(p.primary.pensionPot)}; Jemma ${money(p.partner.pensionPot)}.`],
-      ['Opening accessible savings', `Alex ${money(p.primary.savings)}; Jemma ${money(p.partner.savings)}.`],
-      ['Employment income', `Annual net-assumed income: Alex ${money(p.primary.employmentAnnualNet)}; Jemma ${money(p.partner.employmentAnnualNet)}. Ends at each person’s work-end age.`],
-      ['Pension contributions', `Monthly while working: Alex ${money(p.primary.monthlyContributions)}; Jemma ${money(p.partner.monthlyContributions)}.`],
-      ['Pension access', `Alex age ${p.primary.pensionAccessAge}; Jemma age ${p.partner.pensionAccessAge}. Authored example dates.`],
-      ['Fixed real growth', `Savings ${p.realAccessibleReturn * 100}% a year; pension pots ${p.realPensionReturn * 100}% a year. Authored assumptions, not forecasts.`],
-      ['DB and State Pension income', incomeText],
-      ['Purchasing power and tax', 'Today’s pounds. Income is assumed spendable; UK tax is not calculated.'],
-      ['Scenario assumptions', selectedScenario ? scenarioDefinitions[selectedScenario].description : 'Original fictional household unless adjusted.'],
-      ['Extra real spending growth', `${p.extraRealSpendingRate * 100}% per year from year two.`],
-      ['Market loss', `${p.pensionLossPercent}% of pension pots once at Alex age ${p.pensionLossAge}.`],
-      ['Planning horizon', `Alex age ${p.horizonAge}. A modelling endpoint, not a lifespan or guarantee.`],
-    ];
-    const assumptions = $('assumption-inputs');
-    if (assumptions) {
-      const dl = document.createElement('dl'); dl.className = 'assumptions-table';
-      for (const [label, value] of assumptionRows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = label; dd.textContent = value; dl.append(dt, dd); }
-      assumptions.replaceChildren(dl);
-    }
-    put('fixture-source',`Source: existing mixed-household fictional ledger, version ${model.current.provenance.fixtureVersion}, source date ${model.current.provenance.sourceDate}. Alex (57) is Morgan and Jemma (55) is Sam in the underlying fixture. Display aliases only; original fixture inputs are retained. Selected overrides and stress assumptions are calculated by model ${model.current.provenance.modelVersion}.`);
-    const list=$('assumption-list'); if(list) { list.replaceChildren(...model.assumptions.map(text=>{const li=document.createElement('li');li.textContent=text;return li;})); }
-    const select=$('year-select'); if(select) { const value=select.value; select.replaceChildren(...model.current.rows.map(row=>{const option=document.createElement('option');option.value=row.year;option.textContent=`${row.year} — Alex ${row.primaryAge}, Jemma ${row.partnerAge}`;return option;})); if(value) select.value=value; if(!select.value) select.selectedIndex=0; }
-    put('choice-status','No scenario kept yet. Kept for this visit only.'); put('review-choice','No scenario chosen for this visit.');
-    drawChart();renderYear();if(shouldAnnounce) announce();
-  }
-  root.querySelectorAll('[data-stage]').forEach(b=>b.addEventListener('click',()=>setStage(b.dataset.stage,true)));
-  root.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>setStage(stages[Math.max(0,Math.min(stages.length-1,stages.indexOf(stage)+(b.dataset.step==='next'?1:-1)))],true)));
-  const shortcuts = $('scenario-shortcuts');
-  for (const [id, definition] of Object.entries(scenarioDefinitions)) {
-    const button = document.createElement('button'); button.type = 'button'; button.dataset.scenario = id; button.dataset.group = definition.group; button.setAttribute('aria-pressed','false');
-    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); icon.setAttribute('aria-hidden', 'true');
-    const use = document.createElementNS(icon.namespaceURI, 'use'); use.setAttribute('href', `#icon-${definition.icon}`); icon.append(use);
-    button.append(icon, document.createTextNode(definition.title)); shortcuts.append(button);
-    button.addEventListener('click', () => {
-      if (selectedScenario === id) { $('reset-demo').click(); return; }
-      selectedScenario = id; mode = 'assets'; overrides = {...scenarioOverrides[id]};
-      const editor = $('scenario-editor'); editor.hidden = false;
-      put('scenario-editor-title', definition.title); put('scenario-editor-note', definition.description);
-      const fields = $('scenario-fields'); fields.replaceChildren();
-      for (const [key, label, value, min, max, step] of definition.fields) {
-        const wrapper = document.createElement('div'); wrapper.className = 'scenario-field';
-        const caption = document.createElement('label'); caption.htmlFor = `scenario-${key}`; caption.textContent = label;
-        const input = document.createElement('input'); input.id = `scenario-${key}`; input.name = key; input.type = 'number'; input.value = value; input.min = min; input.max = max; input.step = step; input.required = true;
-        wrapper.append(caption, input); fields.append(wrapper);
-      }
-      render();
-    });
-  }
-  $('scenario-editor').addEventListener('submit', event => {
-    event.preventDefault(); if (!selectedScenario) return;
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-    overrides = {...overrides, ...scenarioInputs(selectedScenario, Object.fromEntries(Object.entries(values).map(([key,value])=>[key,Number(value)])))};
-    render();
-  });
-  for(const [id,key] of [['retirement-age','retirementAge'],['partner-age','partnerRetirementAge'],['monthly-spending','monthlySpending']]) $(id)?.addEventListener('input',()=>{overrides[key]=Number($(id).value);if(overrides.partTimeAnnual && key === 'retirementAge') overrides.partTimeEndAge=Math.max(65,(overrides.retirementAge??60)+3);render(false);});
-  $('reset-demo')?.addEventListener('click',()=>{selectedScenario=null;mode='assets';overrides={};$('scenario-editor').hidden=true;render();});
-  for(const id of ['retirement-age','partner-age','monthly-spending']) $(id)?.addEventListener('change',announce);
-  window.addEventListener('resize',drawChart);
-  root.querySelectorAll('[data-chart]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.chart;drawChart();}));
-  root.querySelectorAll('[data-open-scenario]').forEach(button => button.addEventListener('click', () => { setStage('choices', true); root.querySelector(`[data-scenario="${button.dataset.openScenario}"]`).click(); $('scenario-editor-title').scrollIntoView({block:'center',behavior:'instant'}); $('scenario-fields').querySelector('input')?.focus({preventScroll:true}); }));
-  $('tracking-nav').addEventListener('click', event => { event.preventDefault(); setStage('tracking', true); });
-  $('year-select')?.addEventListener('change',renderYear);
-  $('keep-scenario')?.addEventListener('click',()=>{const text=`Chosen for this visit: ${inputsText()} This records an illustrative choice in this page only; no financial action has taken place.`;put('choice-status',text);put('review-choice',text);put('demo-status','Scenario chosen for this visit.');});
-  setStage(stage);render();
+import { householdExample, simulateHousehold, openingPicture } from './retirement-household.mjs';
+const $=id=>document.getElementById(id);
+const money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
+const compact=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',notation:'compact',maximumFractionDigits:1}).format(value);
+let input=householdExample(),actions={},current=null,baseline=null,stressed=null,screen='today',selectedYear=2026,sequence=0;
+const icons={cash:'savings',investment:'investment',pension:'pension',property:'home',car:'work',bonds:'coins'};
+const definitions={
+ early:{title:'Stop work earlier',icon:'sun',group:'work',note:'Salary stops at each work-end age. DB and State Pension dates stay separate.',fields:[['earlyPrimary','Alex stops at',57,100,1],['earlyPartner','Jemma stops at',55,100,1]]},
+ job:{title:'Income interruption',icon:'pause',group:'work',note:'Alex’s salaries stop for this period, then resume their declared growth path. No benefits are invented.',fields:[['jobAge','Alex age at interruption',57,100,1],['jobYears','Years without salary',1,20,1]]},
+ parttime:{title:'Part-time work',icon:'work',group:'work',note:'Alex’s combined salary is capped at the entered annual amount from the step-back age until work ends.',fields:[['earlyPrimary','Alex steps back at',57,100,1],['partTimeAnnual','Spendable pay / year (£)',0,100000,1000]]},
+ downsize:{title:'Downsize',icon:'home',group:'home',note:'Sell the modelled home, buy a replacement, settle the mortgage and pay costs. Only the remainder becomes cash.',fields:[['downsizeAge','Move at Alex age',57,100,1],['replacementPercent','Replacement / sale value (%)',0,100,5],['movingCosts','Moving / transaction costs (£)',0,1000000,1000]]},
+ lease:{title:'Lower car costs',icon:'work',group:'home',note:'Caps declared lease costs; car finance is still modelled separately.',fields:[['leaseMonthly','Lease budget / month (£)',0,10000,50]]},
+ payoff:{title:'Repay mortgage',icon:'mortgage',group:'home',note:'Uses accessible assets to repay the modelled balance including that year’s interest. This is not a lender payoff quote.',fields:[['payoffAge','Pay off at Alex age',57,100,1]]},
+ spend:{title:'Spend less',icon:'spending',group:'money',note:'Reduces regular spending. Debt payments, one-offs and saving goals remain separate.',fields:[['spendPercent','Regular spending reduction (%)',0,100,5]]},
+ pension:{title:'Save into pension',icon:'pension',group:'money',note:'Adds a pension-saving goal funded only from surplus income while Alex works. It is an internal transfer, not new wealth; tax relief is not calculated.',fields:[['pensionMonthly','Extra saving / month (£)',0,10000,100]]},
+ withdraw:{title:'One-off spending',icon:'family',group:'family',note:'A budget for school fees, family help or another dated cost. Income funds it first, then available assets; any remaining gap is explicit.',fields:[['withdrawAge','Spend at Alex age',57,100,1],['withdrawAmount','One-off budget (£)',0,10000000,1000]]},
+ growth:{title:'Change growth',icon:'investment',group:'stress',note:'A hypothetical increase to the trading-account return assumption, not an allocation recommendation or expected return. Compare the stress path too.',fields:[['growthExtra','Extra assumed growth / year (%)',0,10,.5]]},
+ fixed:{title:'Fixed-income mix',icon:'coins',group:'stress',note:'Moves a chosen part of trading assets into the declared fixed-income account. This does not guarantee safety; the stress path includes a bond loss.',fields:[['fixedAge','Change mix at Alex age',57,100,1],['fixedPercent','Trading assets moved (%)',0,100,5]]},
+ market:{title:'Market setback',icon:'investment',group:'stress',note:'One loss across trading and pension assets; bonds lose 5%. Returns resume on reduced balances. Cash and property are unchanged.',fields:[['marketAge','Loss at Alex age',57,100,1],['marketPercent','Trading / pension loss (%)',0,100,5]]},
+ inflation:{title:'Higher costs',icon:'inflation',group:'stress',note:'Adds two percentage points to declared expense growth. Income growth is unchanged. This is a price stress, not a complete inflation model.',fields:[]},
+ legacy:{title:'Resources left',icon:'legacy',group:'family',note:'Compare remaining net wealth with a target. Property may not be spendable; inheritance tax and death benefits are not calculated.',fields:[['legacyTarget','End-horizon target (£)',0,100000000,10000]]},
+};
+function node(tag,attributes={},children=[]) {const element=document.createElement(tag);for(const [key,value] of Object.entries(attributes)){if(key==='text')element.textContent=value;else if(key==='class')element.className=value;else if(key==='checked')element.checked=value;else element.setAttribute(key,value);}for(const child of children)element.append(typeof child==='string'?document.createTextNode(child):child);return element;}
+function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href',`#icon-${name}`);svg.append(use);return svg;}
+function numberField(label,object,key,{min=0,max=1e8,step=100,range=false,change}={}) {
+ const control=node('input',{type:range?'range':'number',min,max,step,value:object[key],'aria-label':label});
+ const caption=node('span',{text:label});const output=range?node('output',{text:object[key]}):null;
+ control.addEventListener('input',()=>{object[key]=control.value===''?NaN:Number(control.value);if(output)output.textContent=object[key];change?.();calculate();});
+ return node('label',{class:range?'range-field':'number-field'},[caption,...(output?[output]:[]),control]);
 }
+function selectField(label,object,key,choices,onChange) {
+ const control=node('select',{'aria-label':label});for(const [value,text] of choices)control.append(node('option',{value,text}));control.value=object[key];
+ control.addEventListener('change',()=>{object[key]=control.value;onChange?.();calculate();});return node('label',{class:'select-field'},[node('span',{text:label}),control]);
+}
+function owners(){return input.people.map(p=>[p.id,p.name]);}
+function show(next) {screen=next;document.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.screen===next)));for(const id of ['today','flows','plan'])$('screen-'+id).hidden=id!==next;if(next==='plan')drawCharts();$('demo').scrollIntoView({block:'start',behavior:'instant'});}
+function renderPeople() {
+ $('people-fields').replaceChildren(...input.people.map(person=>{
+  const change=()=>{for(const stream of input.incomes.filter(r=>r.type==='state'&&r.owner===person.id))stream.startAge=person.stateAge;renderStreams();renderPlanPeople();};
+  return node('div',{class:'person-card'},[node('strong',{text:person.name}),numberField('Age now',person,'age',{min:18,max:85,step:1,change}),numberField('State Pension age',person,'stateAge',{min:50,max:100,step:1,change:()=>{person.retireAge=person.stateAge;change();}})]);
+ }));
+}
+function renderAssets() {
+ $('asset-cards').replaceChildren(...input.assets.map(asset=>{
+  const edit=node('details',{class:'asset-edit'});edit.append(node('summary',{},[icon(icons[asset.type]),node('span',{text:asset.label}),node('strong',{'data-asset-total':asset.id,text:money(asset.balance)})]));
+  const fields=node('div',{class:'asset-edit-fields'},[...(!['cash','bonds'].includes(asset.id)?[selectField('Asset type',asset,'type',[['cash','Savings'],['investment','Trading / ISA'],['pension','Pension pot'],['property','Property'],['car','Vehicle'],['bonds','Fixed income']],()=>renderAssets())]:[]),numberField('Balance / value (£)',asset,'balance'),numberField(asset.type==='car'?'Value change / year (%)':'Net total growth / year (%)',asset,'rate',{min:-50,max:30,step:.5}),selectField('Owner',asset,'owner',[...owners(),['joint','Household']])]);
+  if(asset.type==='pension')fields.append(numberField('Access at owner age',asset,'accessAge',{min:18,max:100,step:1}));
+  if(!['cash','bonds'].includes(asset.type)){const remove=node('button',{type:'button',class:'remove-row',text:'Remove asset'});remove.addEventListener('click',()=>{input.assets=input.assets.filter(a=>a!==asset);renderAssets();calculate();});fields.append(remove);}
+  edit.append(fields);return edit;
+ }));
+}
+function renderDebts() {
+ $('debt-cards').replaceChildren(...input.debts.map(debt=>{
+  const remove=node('button',{type:'button',class:'remove-row','aria-label':`Remove ${debt.label}`,text:'Remove'});remove.addEventListener('click',()=>{input.debts=input.debts.filter(d=>d!==debt);renderDebts();calculate();});
+  return node('div',{class:'debt-card'},[node('strong',{text:debt.label}),selectField('Debt type',debt,'type',[['mortgage','Mortgage'],['loan','Loan / credit']]),numberField('Balance (£)',debt,'balance'),numberField('Interest / year (%)',debt,'rate',{max:50,step:.5}),numberField('Payment / month (£)',debt,'payment',{step:50}),remove]);
+ }));
+}
+function streamRow(row,list) {
+ const title=node('input',{type:'text',value:row.label,'aria-label':`${list==='incomes'?'Income':'Expense'} name`,maxlength:70});title.addEventListener('input',()=>{row.label=title.value;});
+ const previousFrequency=row.frequency;
+ const frequency=selectField('Frequency',row,'frequency',[['month','Monthly'],['year','Yearly'],...(list==='expenses'?[['once','One-off']]:[])],()=>{if(previousFrequency!=='once'&&row.frequency!=='once')row.amount*= (previousFrequency==='month'?12:1)/(row.frequency==='month'?12:1);if(row.frequency==='once')row.endAge=row.startAge;else if(row.endAge<=row.startAge)row.endAge=row.startAge+1;renderStreams();});
+ const timing=node('details',{class:'stream-timing'});const timingText=node('span',{'data-timing':row.id,text:timingLabel(row)});timing.append(node('summary',{},[timingText]));
+ const timingFields=node('div',{class:'timing-fields'});
+ const startChange=()=>{if(row.type==='state'){const person=input.people.find(p=>p.id===row.owner);person.stateAge=row.startAge;renderPeople();renderPlanPeople();}if(row.frequency==='once')row.endAge=row.startAge;};
+ timingFields.append(numberField('Starts at owner age',row,'startAge',{min:18,max:105,step:1,range:true,change:startChange}));
+ if(row.frequency!=='once')timingFields.append(numberField('Ends before owner age',row,'endAge',{min:18,max:110,step:1,range:true}));
+ if(row.type==='salary'||row.type==='saving')timingFields.append(node('p',{class:'small',text:'The work-end age can end this stream sooner.'}));
+ timingFields.append(numberField(list==='expenses'&&['regular','oneoff'].includes(row.type)?'Growth above inflation (%)':'Annual growth (%)',row,'growth',{min:-20,max:20,step:.5}));timing.append(timingFields);
+ const copy=node('button',{type:'button',class:'row-icon','aria-label':`Copy ${row.label}`,text:'＋'});copy.addEventListener('click',()=>{input[list].push({...row,id:`copy-${++sequence}`,label:row.label+' copy'});renderStreams();calculate();});
+ const remove=node('button',{type:'button',class:'row-icon','aria-label':`Remove ${row.label}`,text:'×'});remove.addEventListener('click',()=>{input[list]=input[list].filter(r=>r!==row);renderStreams();calculate();});
+ const rowIcon=row.type==='salary'?'work':['state','pension','saving'].includes(row.type)?'pension':['dividend','sale'].includes(row.type)?'investment':row.frequency==='once'?'family':'spending';
+ return node('div',{class:'stream-row'},[icon(rowIcon),title,numberField('Amount (£)',row,'amount',{step:100}),frequency,selectField('Owner',row,'owner',owners(),()=>{if(row.type==='state'){row.startAge=personForRow(row).stateAge;renderStreams();}}),timing,node('div',{class:'row-actions'},[copy,remove])]);
+}
+function personForRow(row){return input.people.find(p=>p.id===row.owner);}
+function timingLabel(row) {const end=row.type==='salary'||row.type==='saving'?Math.min(row.endAge,personForRow(row).retireAge):row.endAge;return row.frequency==='once'?`Once · age ${row.startAge}`:`Age ${row.type==='state'?personForRow(row).stateAge:row.startAge}–${end}`;}
+function renderStreams() {$('income-rows').replaceChildren(...input.incomes.map(r=>streamRow(r,'incomes')));$('expense-rows').replaceChildren(...input.expenses.map(r=>streamRow(r,'expenses')));}
+function renderPlanPeople() {
+ $('plan-people').replaceChildren(...input.people.map(person=>node('div',{class:'plan-person'},[node('strong',{text:person.name}),numberField('Stop work at',person,'retireAge',{min:18,max:100,step:1,range:true}),numberField('Plan until age',person,'horizonAge',{min:person.age,max:105,step:1})])),numberField('Inflation assumption (%)',input,'inflation',{max:15,step:.5}));
+}
+function renderActions() {
+ $('household-actions').replaceChildren(...Object.entries(definitions).map(([key,definition])=>{
+  const button=node('button',{type:'button','data-action':key,'data-group':definition.group,'aria-pressed':String(Boolean(actions[key]))},[icon(definition.icon),definition.title]);
+  button.addEventListener('click',()=>{actions[key]=!actions[key];renderActions();calculate();});return button;
+ }));
+ $('action-editors').replaceChildren(...Object.entries(definitions).filter(([key])=>actions[key]).map(([key,definition])=>{
+  const note=node('details',{class:'scenario-note'},[node('summary',{text:'Assumptions'}),node('p',{text:definition.note})]);
+  return node('div',{class:'action-editor','data-editor':key},[node('h4',{text:definition.title}),node('div',{class:'action-fields'},definition.fields.map(([field,label,min,max,step])=>numberField(label,input.settings,field,{min:max<=1e6?min:0,max,step}))),note]);
+ }));
+}
+function calculate() {
+ try{
+  baseline=simulateHousehold(input);current=simulateHousehold(input,actions);stressed=simulateHousehold(input,actions,true);
+  $('household-error').hidden=true;document.querySelector('.two-charts').hidden=false;
+  const opening=openingPicture(input);$('net-total').textContent=money(opening.net);$('accessible-total').textContent=money(opening.accessible);$('opening-equation').textContent=`${compact(opening.assets)} assets − ${compact(opening.debt)} debts`;
+  for(const asset of input.assets){const display=document.querySelector(`[data-asset-total="${asset.id}"]`);if(display)display.textContent=money(asset.balance);}
+  for(const row of [...input.incomes,...input.expenses]){const label=document.querySelector(`[data-timing="${row.id}"]`);if(label)label.textContent=timingLabel(row);}
+  const now=baseline.rows[0];$('income-now').textContent=money(now.income/12)+'/mo';$('spending-now').textContent=money(now.spending/12)+'/mo';$('surplus-now').textContent=money(Math.max(0,now.income-now.spending)/12)+'/mo';$('saving-goal-warning').textContent=now.unfundedSaving>0.01?`${money(now.unfundedSaving/12)}/mo of the pension-saving goals is not funded by the current surplus.`:'';
+  const result=current.firstGap?`First funding gap at Alex age ${current.firstGap.primaryAge} · ${money(current.firstGap.gap)} that year.`:`Spending covered through Alex age ${current.final.primaryAge} under these assumptions.`;
+  $('plan-result').replaceChildren(node('strong',{text:result}),...(stressed.firstGap?[node('span',{class:'stress-warning',text:`Stress path: first unpaid spending at Alex age ${stressed.firstGap.primaryAge}. Property is not automatically sold to cover a gap.`})]:[]),node('span',{text:`${compact(current.final.netWealth)} net wealth at Alex ${current.final.primaryAge} / Jemma ${current.final.partnerAge}${actions.legacy?` · ${compact(Math.abs(current.final.netWealth-input.settings.legacyTarget))} ${current.final.netWealth>=input.settings.legacyTarget?'above':'below'} target`:''}${current.firstGap?' · earlier gaps remain unpaid':''}.`}));
+  const select=$('inspect-year');const values=current.rows.map(row=>node('option',{value:row.year,text:`${row.year} · Alex ${row.primaryAge}, Jemma ${row.partnerAge}`}));select.replaceChildren(...values);if(!current.rows.some(r=>r.year===selectedYear))selectedYear=current.rows[0].year;select.value=selectedYear;
+  renderYear();if(screen==='plan')drawCharts();$('household-status').textContent='Example recalculated. '+result;
+ }catch(error){current=null;baseline=null;stressed=null;$('household-year-details').replaceChildren();$('inspect-year').replaceChildren();$('household-error').textContent=error.message+' Complete the figures to run this illustration.';$('household-error').hidden=false;document.querySelector('.two-charts').hidden=true;$('plan-result').textContent='Check the highlighted message before using the plan.';$('saving-goal-warning').textContent='';for(const id of ['net-total','accessible-total','income-now','spending-now','surplus-now','year-income','year-withdrawals'])$(id).textContent='—';}
+}
+const ns='http://www.w3.org/2000/svg';
+function svgNode(svg,name,attributes,text){const e=document.createElementNS(ns,name);for(const [key,value]of Object.entries(attributes))e.setAttribute(key,String(value));if(text)e.textContent=text;svg.append(e);return e;}
+function chartFrame(id,title,max,min=0) {
+ const svg=$(id);svg.replaceChildren();const width=Math.max(260,svg.parentElement.clientWidth),height=400,left=64,right=16,top=120,bottom=342;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.setAttribute('aria-labelledby',id+'-title '+id+'-desc');svgNode(svg,'title',{id:id+'-title'},title);svgNode(svg,'desc',{id:id+'-desc'},title+'. Fictional annual model, future pounds. Use the year inspector for all calculated figures.');
+ const x=i=>left+(width-left-right)*i/(current.rows.length-1),y=v=>bottom-(v-min)/(max-min||1)*(bottom-top);
+ for(let i=0;i<5;i++){const value=min+(max-min)*i/4;svgNode(svg,'line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#d7dfda','stroke-width':1});svgNode(svg,'text',{x:left-7,y:y(value)+5,'text-anchor':'end',fill:'#536568','font-size':16},compact(value));}
+ for(let i=0;i<4;i++){const index=Math.round(i/3*(current.rows.length-1));svgNode(svg,'text',{x:x(index),y:369,'text-anchor':'middle',fill:'#536568','font-size':16},String(current.rows[index].primaryAge));}
+ svgNode(svg,'text',{x:(width+left-right)/2,y:394,'text-anchor':'middle',fill:'#536568','font-size':16},'Alex’s age');
+ return {svg,width,height,x,y,left,right,top,bottom};
+}
+const funding=[['salary','Work','#4775ac'],['rent','Rent','#ad863c'],['support','Support','#856399'],['pension','DB / pension','#548579'],['state','State Pension','#2b675e'],['other','Other','#85959c'],['assetRelease','Dividends / sales','#a080b3'],['withdrawals','Savings / pots','#d5ac60'],['gap','Unfunded','#b4563b']];
+function drawCharts() {
+ if(!current||!$('household-error').hidden)return;
+ const values=[...baseline.rows,...current.rows,...stressed.rows].map(r=>r.netWealth);const max=Math.max(1,actions.legacy?input.settings.legacyTarget:0,...values)*1.08,min=Math.min(0,...values);
+ const frame=chartFrame('wealth-chart','Net household wealth: baseline, chosen scenario and stress path',max,min);const {svg,x,y,width}=frame;
+ for(const [model,colour,dash] of [[stressed,'#ad633d','3 4'],[baseline,'#7b898b','7 5'],[current,'#14665f','']]){const path=model.rows.map((r,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(r.netWealth).toFixed(2)}`).join(' ');svgNode(svg,'path',{d:path,stroke:colour,'stroke-width':model===current?3.5:2.5,'stroke-dasharray':dash,fill:'none'});}
+ const eventList=current.events.filter(e=>e.age>=current.rows[0].primaryAge&&e.age<=current.final.primaryAge);const ordered=[...eventList.filter(e=>!e.label.includes('Alex')&&!e.label.includes('Jemma')),...eventList.filter(e=>e.label.includes('Alex')||e.label.includes('Jemma'))];const visible=width<420?ordered.filter(e=>!e.label.includes('Jemma')).slice(0,4):ordered.slice(0,6);
+ visible.forEach((event,i)=>{const index=event.age-current.rows[0].primaryAge,px=x(index);svgNode(svg,'line',{x1:px,x2:px,y1:120,y2:342,stroke:'#c3d7ce','stroke-width':1,'stroke-dasharray':'2 5'});const label=event.label.replace('State Pension','State').replace('stops work','work ends')+' · '+event.age;const labelWidth=Math.min(width-16,label.length*7.7);svgNode(svg,'text',{x:Math.max(labelWidth/2+5,Math.min(width-labelWidth/2-5,px)),y:18+i*19,'text-anchor':'middle',fill:'#536568','font-size':16},label);});
+ if(actions.legacy){const target=input.settings.legacyTarget;if(target<=max&&target>=min)svgNode(svg,'line',{x1:64,x2:width-16,y1:y(target),y2:y(target),stroke:'#79548b','stroke-width':2,'stroke-dasharray':'2 4'});}
+ const fundingMax=Math.max(1,...current.rows.map(r=>Math.max(r.spending+r.payoff,r.income+r.releasedFromInvestments+r.sources.withdrawals+r.payoff+r.gap)))*1.08;const bar=chartFrame('income-chart','Annual income and asset withdrawals against spending, with unpaid gaps',fundingMax);
+ const barWidth=Math.max(2,(bar.width-80)/current.rows.length*.8);
+ current.rows.forEach((row,index)=>{let used=0;for(const [key,,color]of funding){let amount=key==='gap'?row.gap:key==='assetRelease'?row.releasedFromInvestments:(row.sources[key]??0)+(key==='withdrawals'?row.payoff:0);if(amount<=0)continue;const top=bar.y(used+amount),height=bar.y(used)-top;const rect=svgNode(bar.svg,'rect',{x:bar.x(index)-barWidth/2,y:top,width:barWidth,height:Math.max(0,height),fill:color});const title=document.createElementNS(ns,'title');title.textContent=`${row.year}: ${key} ${money(amount)}`;rect.append(title);rect.addEventListener('click',()=>{selectedYear=row.year;$('inspect-year').value=selectedYear;renderYear();});used+=amount;}});
+ const expensePath=current.rows.map((r,i)=>`${i?'L':'M'}${bar.x(i)},${bar.y(r.spending+r.payoff)}`).join(' ');svgNode(bar.svg,'path',{d:expensePath,fill:'none',stroke:'#182e32','stroke-width':1.5});
+ $('income-legend').replaceChildren(...funding.filter(([key])=>current.rows.some(row=>key==='gap'?row.gap>0:key==='assetRelease'?row.releasedFromInvestments>0:(row.sources[key]??0)+(key==='withdrawals'?row.payoff:0)>0)).map(([,label,color])=>node('span',{},[node('i',{class:'funding-swatch',style:`background:${color}`}),label])),node('span',{},['— Spending']));
+}
+function renderYear() {
+ if(!current)return;const row=current.rows.find(r=>r.year===selectedYear)??current.rows[0];$('year-income').textContent=`${money(row.income)} income`;$('year-withdrawals').textContent=`${money(row.withdrawals)} from assets`;
+ const facts=[['Net wealth',row.netWealth],['Accessible assets',row.accessible],['Property',row.propertyValue],['Debt remaining',row.closingDebt],['New income (excluding asset sales)',row.income],['Internal dividends / sale releases',row.releasedFromInvestments],['Spending & scheduled debt payments',row.spending],['Cash mortgage payoff',row.payoff],['Added to financial assets',row.additions],['Withdrawn from assets',row.withdrawals],['Growth / value change',row.growth],['Market loss',row.marketLoss],['Debt interest',row.debtInterest],['Debt repaid',row.debtPaid+row.settlement],['Alex pension saving funded',row.pensionSavingByOwner.primary],['Jemma pension saving funded',row.pensionSavingByOwner.partner],['Saving goal not funded',row.unfundedSaving],['Unpaid spending',row.gap],['Earlier + current unpaid spending',row.cumulativeGap]];
+ $('household-year-details').replaceChildren(node('dl',{class:'assumptions-table'},facts.flatMap(([label,value])=>[node('dt',{text:label}),node('dd',{text:money(value)})])));
+}
+function addStream(list,type) {const person=input.people[0];const label={salary:'New salary',rent:'Rent after costs',support:'Support',pension:'Pension income',state:'State Pension',dividend:'Dividend distribution',sale:'Investment sale proceeds',other:'Other income',regular:'Regular spending',lease:'Car lease',oneoff:'One-off cost',saving:'Pension saving'}[type];input[list].push({id:`row-${++sequence}`,label,type,owner:'primary',amount:0,frequency:type==='oneoff'?'once':'month',startAge:type==='state'?person.stateAge:person.age,endAge:type==='oneoff'?person.age:101,growth:0});renderStreams();calculate();}
+$('add-income').addEventListener('click',()=>addStream('incomes',$('income-type').value));$('add-expense').addEventListener('click',()=>addStream('expenses',$('expense-type').value));
+$('add-debt').addEventListener('click',()=>{input.debts.push({id:`debt-${++sequence}`,label:'Additional debt',type:'loan',balance:0,rate:6,payment:0});renderDebts();calculate();});
+$('add-asset').addEventListener('click',()=>{input.assets.push({id:`asset-${++sequence}`,label:'Additional investment',type:'investment',owner:'joint',balance:0,rate:5,accessAge:0});renderAssets();calculate();});
+$('reset-household').addEventListener('click',()=>{input=householdExample();actions={};sequence=0;initialise();});$('reset-actions').addEventListener('click',()=>{actions={};renderActions();calculate();});
+$('run-plan').addEventListener('click',()=>{calculate();if($('household-error').hidden)show('plan');});
+$('inspect-year').addEventListener('change',()=>{selectedYear=Number($('inspect-year').value);renderYear();});
+for(const button of document.querySelectorAll('[data-screen],[data-next]'))button.addEventListener('click',()=>show(button.dataset.screen??button.dataset.next));
+window.addEventListener('resize',()=>{if(screen==='plan')drawCharts();});
+function initialise(){renderPeople();renderAssets();renderDebts();renderStreams();renderPlanPeople();renderActions();calculate();}
+initialise();
