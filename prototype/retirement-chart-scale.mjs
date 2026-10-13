@@ -13,3 +13,12 @@ export function chartScale(max, min = 0) {
   });
   return { ceiling, floor, ticks };
 }
+
+// Give sizeable changes in positive wealth room to be seen in the comparison view.
+export function estateComparisonRange(values) {
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const spread = high - low;
+  if (low <= 0 || spread < high * 0.2) return { min: Math.min(0, low), max: Math.max(1, high) * 1.08 };
+  return { min: Math.max(0, low - spread * 0.1), max: high + spread * 0.1 };
+}

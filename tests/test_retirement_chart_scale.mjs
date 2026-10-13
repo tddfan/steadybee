@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chartScale } from '../prototype/retirement-chart-scale.mjs';
+import { chartScale, estateComparisonRange } from '../prototype/retirement-chart-scale.mjs';
 
 test('annual income axes use round amounts and contain the modelled maximum', () => {
   const scale = chartScale(394100);
@@ -29,4 +29,17 @@ test('an empty portfolio retains a usable axis', () => {
   const scale = chartScale(1);
   assert.ok(scale.ceiling > scale.floor);
   assert.ok(scale.ticks.length <= 8);
+});
+
+test('comparison axis shows a substantial fall in positive assets', () => {
+  const range = estateComparisonRange([1000000, 600000, 300000]);
+  assert.ok(range.min > 0 && range.min < 300000);
+  assert.ok(range.max > 1000000);
+  const scale = chartScale(range.max, range.min);
+  assert.ok(scale.floor > 0 && scale.ceiling >= 1000000);
+});
+
+test('comparison axis includes zero for small changes and negative wealth', () => {
+  assert.equal(estateComparisonRange([1000000, 950000]).min, 0);
+  assert.ok(estateComparisonRange([1000000, -100000]).min <= -100000);
 });
