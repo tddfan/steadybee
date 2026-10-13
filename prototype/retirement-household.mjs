@@ -58,6 +58,13 @@ function validate(input) {
   for(const a of input.assets){numeric(a.balance,a.label+' balance');numeric(a.rate,a.label+' growth',-50,30);numeric(a.accessAge,a.label+' access age',0,100);}
   for(const d of input.debts){numeric(d.balance,d.label+' balance');numeric(d.rate,d.label+' interest',0,50);numeric(d.payment,d.label+' monthly payment');}
   for(const r of [...input.incomes,...input.expenses]){numeric(r.amount,r.label+' amount');numeric(r.startAge,r.label+' start',18,105);numeric(r.endAge,r.label+' end',r.startAge,110);numeric(r.growth,r.label+' growth',-20,20);if(!Number.isInteger(r.startAge)||!Number.isInteger(r.endAge))throw Error(`Use whole ages for ${r.label}.`);if(r.frequency!=='once'&&r.endAge===r.startAge)throw Error(`End ${r.label} after its start age.`);}
+  if(input.retirementBudget!==undefined){
+    const budget=input.retirementBudget;
+    if(!budget||typeof budget!=='object'||Array.isArray(budget))throw Error('Enter retirement monthly spending and a regular expense.');
+    numeric(budget.monthly,'retirement monthly spending');
+    const matches=input.expenses.filter(r=>r.id===budget.expenseId);
+    if(typeof budget.expenseId!=='string'||!budget.expenseId.trim()||matches.length!==1||matches[0].type!=='regular'||!['month','year'].includes(matches[0].frequency))throw Error('Choose one regular expense for the retirement spending target.');
+  }
   for(const r of input.expenses)for(const c of r.changes??[]){numeric(c.age,r.label+' change age',r.startAge,105);numeric(c.amount,r.label+' changed amount');if(!Number.isInteger(c.age))throw Error('Use whole ages for spending changes.');}
   for(const item of [...input.assets,...input.incomes,...(input.employment??[])]){if(item.taxBasis&&!['net','excluded','estimate','payslip'].includes(item.taxBasis))throw Error('Select an amount tax basis.');if(item.taxBasis==='estimate')numeric(item.taxRate,'assumed tax deduction (%)',0,100);if(item.withdrawalTaxBasis==='estimate')numeric(item.withdrawalTaxRate,'assumed withdrawal deduction (%)',0,99);}
   for(const e of input.employment??[]){numeric(e.year,'redundancy year',input.year,input.year+80);numeric(e.month,'redundancy month',1,12);numeric(e.severance,'redundancy payment');numeric(e.returnYears,'years until return',0,40);if(e.returnPayPercent!==undefined)numeric(e.returnPayPercent,'new job pay (%)',0,200);if(!Number.isInteger(e.year)||!Number.isInteger(e.month)||!Number.isInteger(e.returnYears))throw Error('Use whole dates and years for redundancy.');}
@@ -85,11 +92,17 @@ export function simulateHousehold(input, actions={}, stress=false) {
     .concat([...input.incomes,...(input.employment??[]).filter(e=>actions[e.owner==='primary'?'job':'jobPartner'])].filter(r=>r.taxBasis==='excluded').map(r=>`${r.label??personFor(input,r.owner).name+' severance'}: income tax excluded.`));
   for(const r of input.incomes.filter(r=>r.type==='state'&&r.amount===0))warnings.push(`${r.label}: official forecast not entered.`);
   const rows=[],events=[{age:input.people[0].age+horizon,label:'Planning horizon'}];
-  for(const a of input.assets)if(a.availableYear>input.year)events.push({age:input.people[0].age+a.availableYear-input.year,label:a.label+' available'});
-  for(const r of input.expenses.filter(r=>r.frequency!=='once')){const person=personFor(input,r.owner);if(r.startAge>person.age)events.push({age:input.people[0].age+r.startAge-person.age,label:r.label+' starts'});if(!r.ongoing)events.push({age:input.people[0].age+r.endAge-person.age,label:r.label+' ends'});}
-  for(const r of input.expenses)for(const c of r.changes??[])events.push({age:input.people[0].age+c.age-personFor(input,r.owner).age,label:r.label+' changes'});
-  for(const stream of input.incomes.filter(r=>r.type==='pension')){const owner=personFor(input,stream.owner);events.push({age:input.people[0].age+stream.startAge-owner.age,label:`${owner.name} DB / pension`});}let cumulativeGap=0;
   const workEnd=p=>actions.early? (p.id==='primary'?s.earlyPrimary:s.earlyPartner):p.retireAge;
+  const retirementStartYear=input.retirementBudget?Math.max(...input.people.map(p=>{
+    const plannedYear=input.year+Math.max(0,workEnd(p)-p.age);
+    const permanent=(input.employment??[]).find(e=>e.owner===p.id&&actions[p.id==='primary'?'job':'jobPartner']&&e.returnYears===0);
+    return Math.min(plannedYear,permanent?permanent.year+(permanent.month===1?0:1):Infinity);
+  })):null;
+  for(const a of input.assets)if(a.availableYear>input.year)events.push({age:input.people[0].age+a.availableYear-input.year,label:a.label+' available'});
+  for(const r of input.expenses.filter(r=>r.frequency!=='once')){const person=personFor(input,r.owner),target=r.id===input.retirementBudget?.expenseId,startYear=input.year+r.startAge-person.age,endYear=input.year+r.endAge-person.age;if(r.startAge>person.age&&(!target||startYear<retirementStartYear))events.push({age:input.people[0].age+r.startAge-person.age,label:r.label+' starts'});if(!r.ongoing&&(!target||endYear<retirementStartYear))events.push({age:input.people[0].age+r.endAge-person.age,label:r.label+' ends'});}
+  for(const r of input.expenses)for(const c of r.changes??[]){const person=personFor(input,r.owner);if(r.id!==input.retirementBudget?.expenseId||input.year+c.age-person.age<retirementStartYear)events.push({age:input.people[0].age+c.age-person.age,label:r.label+' changes'});}
+  for(const stream of input.incomes.filter(r=>r.type==='pension')){const owner=personFor(input,stream.owner);events.push({age:input.people[0].age+stream.startAge-owner.age,label:`${owner.name} DB / pension`});}let cumulativeGap=0;
+  if(retirementStartYear!==null&&retirementStartYear<=input.year+horizon)events.push({age:input.people[0].age+retirementStartYear-input.year,label:'Retirement spending target starts'});
   for(const p of input.people){events.push({age:input.people[0].age+workEnd(p)-p.age,label:`${p.name} stops work`});events.push({age:input.people[0].age+p.stateAge-p.age,label:`${p.name} State Pension`});}
   const niYearsByOwner=Object.fromEntries(input.people.map(p=>[p.id,p.niYears??0]));
   let withdrawalsByOwner={},withdrawalsByAccount={},netWithdrawalsByAccount={},withdrawalBudget=Infinity,withdrawalTax=0;
@@ -186,16 +199,18 @@ export function simulateHousehold(input, actions={}, stress=false) {
     // A distribution/sale is an internal asset-to-cash transfer, not new income.
     let released=0;const releasesByCash={};
     for(const request of releaseRequests){let remaining=request.amount;for(const a of assets.filter(a=>a.type==='investment'&&availableAt(input,a,offset)&&(!request.row.assetId||a.id===request.row.assetId)&&(a.owner===request.row.owner||a.owner==='joint'))){const moved=Math.min(a.balance,remaining),net=afterTax(moved,request.row);a.balance-=moved;const account=assets.find(c=>c.type==='cash'&&c.owner===request.row.owner)??cash;account.balance+=net;releasesByCash[account.id]=(releasesByCash[account.id]??0)+net;remaining-=moved;released+=net;distributionTax+=moved-net;}}
-    let spending=0,oneOff=0,savingGoal=0;const spendingByCategory={living:0,education:0,car:0,oneoff:0,other:0,debt:0};const purchases=[];const savingGoals={primary:0,partner:0};
+    let spending=0,oneOff=0,savingGoal=0,retirementLivingTarget=0;const spendingByCategory={living:0,education:0,car:0,oneoff:0,other:0,debt:0};const purchases=[];const savingGoals={primary:0,partner:0};
     for(const r of input.expenses) {
       const person=personFor(input,r.owner),ownAge=person.age+offset;
-      if(r.frequency==='once'?ownAge!==r.startAge:ownAge<r.startAge||(!r.ongoing&&ownAge>=r.endAge))continue;
-      const priceGrowth=r.priceBasis!=='future'&&['regular','oneoff','education','vehicle'].includes(r.type)?input.inflation:0;
-      const change=(r.changes??[]).filter(c=>c.age<=ownAge).sort((a,b)=>b.age-a.age)[0];
-      let amount=(change?change.amount*(r.frequency==='month'?12:1):annual(r))*(1+(r.growth+priceGrowth+(stress&&r.type!=='saving'?2:0)+(actions.inflation&&r.type!=='saving'?2:0))/100)**offset;
+      const retiredLiving=r.id===input.retirementBudget?.expenseId&&year>=retirementStartYear;
+      if(!retiredLiving&&(r.frequency==='once'?ownAge!==r.startAge:ownAge<r.startAge||(!r.ongoing&&ownAge>=r.endAge)))continue;
+      const priceGrowth=retiredLiving?input.inflation:r.priceBasis!=='future'&&['regular','oneoff','education','vehicle'].includes(r.type)?input.inflation:0;
+      const change=retiredLiving?null:(r.changes??[]).filter(c=>c.age<=ownAge).sort((a,b)=>b.age-a.age)[0];
+      let amount=(retiredLiving?input.retirementBudget.monthly*12:change?change.amount*(r.frequency==='month'?12:1):annual(r))*(1+(r.growth+priceGrowth+(stress&&r.type!=='saving'?2:0)+(actions.inflation&&r.type!=='saving'?2:0))/100)**offset;
       if(r.type==='saving'){if(ownAge<workEnd(person)){savingGoal+=amount;savingGoals[person.id]+=amount;}continue;}
       if(actions.lease&&r.type==='lease')amount=Math.min(amount,s.leaseMonthly*12);
       if(actions.spend&&r.type==='regular')amount*=1-s.spendPercent/100;
+      if(retiredLiving)retirementLivingTarget=amount;
       spending+=amount;spendingByCategory[r.type==='regular'?'living':r.type==='education'?'education':['lease','vehicle'].includes(r.type)?'car':r.frequency==='once'?'oneoff':'other']+=amount;if(r.frequency==='once'){oneOff+=amount;events.push({age,label:r.label});if(r.type==='vehicle')purchases.push({assetId:r.assetId,amount});}
     }
     if(actions.withdraw&&age===s.withdrawAge){spending+=s.withdrawAmount;spendingByCategory.oneoff+=s.withdrawAmount;oneOff+=s.withdrawAmount;events.push({age,label:'One-off withdrawal budget'});}
@@ -233,9 +248,9 @@ export function simulateHousehold(input, actions={}, stress=false) {
     const closingAssets=sum(assets.map(a=>a.balance)),closingDebt=sum(debts.map(d=>d.balance));
     const pensionByOwner=Object.fromEntries(input.people.map(p=>[p.id,{opening:pensionOpening[p.id],growth:pensionGrowth[p.id],marketLoss:pensionMarketLoss[p.id],employee:payrollEmployeeByOwner[p.id],employer:payrollEmployerByOwner[p.id],voluntary:pensionSavingByOwner[p.id],withdrawals:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>(withdrawalsByAccount[a.id]??0)+(movedPensions[a.id]??0))),closing:sum(assets.filter(a=>a.type==='pension'&&a.owner===p.id).map(a=>a.balance))}]));
     const balancesByType=Object.fromEntries(['cash','investment','pension','property','car','bonds'].map(type=>[type,sum(assets.filter(a=>a.type===type).map(a=>a.balance))]));
-    rows.push({moneyMoves,surplusRouting,cashReserve,niYearsByOwner:{...niYearsByOwner},balancesByType,pensionByOwner,payrollEmployeeByOwner,payrollEmployerByOwner,spendingByCategory,accountLabels:Object.fromEntries(assets.map(a=>[a.id,a.label])),withdrawalsByOwner,withdrawalsByAccount,withdrawalTax,assetPurchased,incomeTax:incomeTax+distributionTax,growthTax,debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>(liquid(a)||a.type==='pension')&&availableAt(input,a,offset)).map(a=>a.balance)),financialAssets:sum(assets.filter(a=>liquid(a)||a.type==='pension').map(a=>a.balance)),vehicleValue:sum(assets.filter(a=>a.type==='car').map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash+sum(Object.values(payrollEmployeeByOwner))+sum(Object.values(payrollEmployerByOwner)),withdrawals:sum(Object.values(withdrawalsByAccount))+distributionTax,transfer});
+    rows.push({moneyMoves,surplusRouting,cashReserve,niYearsByOwner:{...niYearsByOwner},balancesByType,pensionByOwner,payrollEmployeeByOwner,payrollEmployerByOwner,spendingByCategory,retirementLivingTarget,accountLabels:Object.fromEntries(assets.map(a=>[a.id,a.label])),withdrawalsByOwner,withdrawalsByAccount,withdrawalTax,assetPurchased,incomeTax:incomeTax+distributionTax,growthTax,debtBalances:Object.fromEntries(debts.map(d=>[d.id,d.balance])),year,primaryAge:age,partnerAge:input.people[1].age+offset,openingAssets,openingDebt,growth,marketLoss,propertyChange,homeCash,settlement: settlement+payoff,payoff,debtInterest,debtPaid,closingAssets,closingDebt,netWealth:closingAssets-closingDebt,accessible:sum(assets.filter(a=>(liquid(a)||a.type==='pension')&&availableAt(input,a,offset)).map(a=>a.balance)),financialAssets:sum(assets.filter(a=>liquid(a)||a.type==='pension').map(a=>a.balance)),vehicleValue:sum(assets.filter(a=>a.type==='car').map(a=>a.balance)),propertyValue:sum(assets.filter(a=>a.type==='property').map(a=>a.balance)),income,releasedFromInvestments:released,spending:need,oneOff,gap,cumulativeGap,sources,pensionSaving,pensionSavingByOwner,unfundedSaving:Math.max(0,savingGoal-pensionSaving),additions:surplus+homeCash+sum(Object.values(payrollEmployeeByOwner))+sum(Object.values(payrollEmployerByOwner)),withdrawals:sum(Object.values(withdrawalsByAccount))+distributionTax,transfer});
   }
-  return {rows,events,warnings,firstGap:rows.find(r=>r.gap>0.01)??null,final:rows.at(-1),opening:openingPicture(input)};
+  return {rows,events,warnings,retirementStartYear,firstGap:rows.find(r=>r.gap>0.01)??null,final:rows.at(-1),opening:openingPicture(input)};
 }
 
 /** Preserve annual budgets, including every future replacement amount. */

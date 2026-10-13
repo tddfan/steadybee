@@ -964,3 +964,118 @@ body[data-workspace-screen="plan"] .plan-workbench {grid-template-columns:minmax
 .quick-editor[data-editor="payroll"] .payroll-settings > summary {font-size:18px;font-weight:500}
 .quick-editor[data-editor="payroll"] .quick-editor-heading {position:sticky;top:-24px;z-index:1;background:var(--bg);padding-block:12px;margin-top:-12px;margin-bottom:12px}
 @media(max-width:560px){.quick-editor[data-editor="payroll"] .quick-editor-heading {top:-20px}}
+
+/* Projection first: a visible retirement target, a focused chart and the entered plan. */
+.plan-headline-card {display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 16px;padding:10px 18px}
+.projection-eyebrow {font-size:15px;font-weight:650;text-transform:uppercase;letter-spacing:.07em;color:var(--quiet)}
+.plan-headline-card .plan-result {flex:none}
+.plan-headline-card .estate-composition {justify-self:end}
+.plan-headline-card:has(.estate-composition[open]) .estate-composition {grid-column:1/-1}
+.retirement-goal,.plan-input-overview {background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:12px}
+.retirement-goal {background:#edf4ef}
+.retirement-goal-main {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 24px;align-items:center}
+.retirement-goal h2,.plan-input-overview h2 {font-size:23px;font-weight:650}
+.retirement-goal-main p {margin-top:4px;max-width:62ch}
+.retirement-goal-input {display:grid;gap:4px;font-size:16px;font-weight:600}
+.retirement-goal-input small {font-size:15px;font-weight:400;color:var(--quiet)}
+.currency-input {display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #aebeb5;border-radius:10px;padding:0 12px;min-width:180px}
+.currency-input > span {font-size:22px;color:var(--quiet)}
+.currency-input input {width:150px;min-width:0;min-height:50px;background:transparent;border:0;font-size:26px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
+.currency-input input:focus {outline:0}
+.currency-input:focus-within {outline:3px solid var(--blue);outline-offset:3px}
+.retirement-costs {margin-top:10px;font-size:18px;line-height:1.4;color:var(--ink)}
+.retirement-costs:empty {display:none}
+.retirement-funding {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:14px;border-block:1px solid #d1dfd6}
+.retirement-funding > div {display:grid;gap:3px;padding:12px 14px;border-right:1px solid #d1dfd6}
+.retirement-funding > div:first-child {padding-left:0}
+.retirement-funding > div:last-child {border:0}
+.retirement-funding span {font-size:16px;color:var(--quiet)}
+.retirement-funding strong {font-size:22px;font-weight:650;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.retirement-impact {margin-top:9px;font-size:18px;font-weight:600;color:var(--blue)}
+.retirement-impact:empty {display:none}
+.retirement-goal-footer {display:flex;justify-content:space-between;align-items:center;gap:8px 20px;padding-top:9px}
+.retirement-goal-footer p {font-size:18px;color:var(--quiet);line-height:1.4;max-width:68ch}
+.retirement-goal-footer > div {display:flex;flex-wrap:wrap;gap:4px 14px}
+.retirement-goal-footer .quiet-button {font-size:16px;white-space:nowrap}
+.chart-toolbar {flex-wrap:wrap;gap:0 16px}
+.chart-toolbar .chart-tabs {flex:1 1 360px}
+.chart-toolbar .chart-period {display:flex;align-items:center;gap:7px;font-size:16px;white-space:nowrap}
+.chart-toolbar .chart-period select {font-size:16px;min-height:44px;padding:5px 8px}
+.chart-headline .chart-mode {display:flex;align-items:center;gap:8px;margin-left:auto;font-size:16px;white-space:nowrap}
+.chart-headline .chart-mode select {max-width:150px}
+.plan-charts .visible-legend {justify-content:flex-start;gap:4px 17px;padding:7px 0 9px;font-size:16px;line-height:1.3}
+.plan-charts .visible-legend > span {min-height:28px}
+.plan-workbench .plan-visuals {padding:12px 20px}
+.plan-visuals > .year-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:6px 0 0;padding:0;border:1px solid var(--line);border-radius:10px}
+.plan-visuals > .year-summary > div {padding:10px 14px;border-right:1px solid var(--line)}
+.plan-visuals > .year-summary > div:last-child {border:0}
+.plan-visuals > .year-summary span {font-size:15px;margin:0}
+.plan-visuals > .year-summary strong {font-size:19px;font-weight:650;line-height:1.3;font-variant-numeric:tabular-nums}
+.input-overview-heading {display:flex;align-items:baseline;justify-content:space-between;gap:10px 20px}
+.input-overview-heading p {font-size:18px;color:var(--quiet)}
+.input-scenario {font-size:15px;color:var(--quiet);white-space:nowrap}
+.plan-input-cards {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.input-card {min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fcfcf9}
+.input-card-heading {display:flex;justify-content:space-between;align-items:center;gap:4px}
+.input-card h3 {font-size:17px;font-weight:650}
+.input-card-heading .quiet-button {font-size:16px;min-height:40px;padding:4px 6px}
+.input-card-value {display:block;font-size:21px;line-height:1.25;margin:3px 0 8px;font-variant-numeric:tabular-nums}
+.input-card ul {margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
+.input-card li {display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #e8ede9;padding:5px 0;font-size:18px;line-height:1.35}
+.input-card li:last-child {border-bottom:0}
+.input-card li span:first-child {min-width:0;overflow-wrap:anywhere}
+.input-card li span:last-child {text-align:right;white-space:normal;font-variant-numeric:tabular-nums}
+.input-card-more {color:var(--quiet)}
+.plan-input-extras {display:flex;align-items:center;justify-content:space-between;gap:8px 20px;padding-top:8px;font-size:16px;color:var(--quiet)}
+.plan-input-extras .quiet-button {font-size:16px;white-space:nowrap}
+.scenario-controls > .section-heading .scenario-live:empty {display:none}
+.scenario-controls .ledger-row,.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(180px,1.3fr) minmax(140px,.8fr) minmax(100px,.7fr) 44px;grid-template-rows:auto;gap:8px;padding:5px 0}
+.scenario-controls .ledger-row > .stream-name,.scenario-controls .ledger-row > .stream-title {grid-column:1;grid-row:1}
+.scenario-controls .ledger-row > .ledger-amount {grid-column:2;grid-row:1;max-width:none}
+.scenario-controls .ledger-row > .timing-chip {grid-column:3;grid-row:1;justify-self:stretch;max-width:none}
+.scenario-controls .ledger-row > .more-button {grid-column:4;grid-row:1}
+.scenario-controls .ledger-row > .tweak-field {display:none}
+.plan-starting {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px}
+.starting-balance-group {min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px 12px}
+.starting-balance-group h3 {grid-column:1/-1;font-size:18px;font-weight:650;margin:6px 0}
+.starting-balance-group .number-field {margin:0}
+.starting-balance-group .number-field span {line-height:1.35}
+.empty-starting-balances {grid-column:1/-1;border-top:1px solid var(--line)}
+.empty-starting-balances summary {color:var(--blue)}
+.empty-starting-balances .starting-balance-group {grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){
+ .plan-input-cards {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .retirement-funding {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .retirement-funding > div:nth-child(2) {border-right:0}
+ .retirement-funding > div:nth-child(-n+2) {border-bottom:1px solid #d1dfd6}
+ .retirement-funding > div:nth-child(3) {padding-left:0}
+}
+@media(max-width:700px){
+ .plan-starting {grid-template-columns:1fr}
+ .empty-starting-balances .starting-balance-group {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .plan-headline-card {grid-template-columns:minmax(0,1fr) auto}
+ .projection-eyebrow {grid-column:1/-1}
+ .retirement-goal-main {grid-template-columns:1fr}
+ .retirement-goal-input {max-width:240px}
+ .retirement-goal-footer {align-items:flex-start;flex-direction:column}
+ .chart-toolbar .chart-tabs {flex-basis:100%;order:0}
+ .chart-toolbar .chart-period {order:1}
+ .chart-toolbar .plan-year {order:2;margin-left:auto}
+ .scenario-controls .ledger-row,.scenario-controls .ledger-row.compact-income {grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:auto auto;gap:2px 8px;padding:7px 0}
+ .scenario-controls .ledger-row > .stream-name,.scenario-controls .ledger-row > .stream-title {grid-column:1;grid-row:1}
+ .scenario-controls .ledger-row > .ledger-amount {grid-column:1;grid-row:2;max-width:180px}
+ .scenario-controls .ledger-row > .timing-chip {grid-column:1;grid-row:3;justify-self:start}
+ .scenario-controls .ledger-row > .more-button {grid-column:2;grid-row:1}
+ .plan-visuals > .year-summary {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .plan-visuals > .year-summary > div:nth-child(2) {border-right:0}
+ .plan-visuals > .year-summary > div:nth-child(-n+2) {border-bottom:1px solid var(--line)}
+}
+@media(max-width:560px){
+ .retirement-goal,.plan-input-overview {padding:14px}
+ .plan-input-cards {grid-template-columns:1fr}
+ .retirement-funding strong {font-size:19px}
+ .plan-visuals > .year-summary strong {font-size:17px}
+ .chart-headline {flex-wrap:wrap}
+ .chart-headline .chart-mode {margin-left:0}
+ .input-overview-heading,.plan-input-extras {align-items:flex-start;flex-direction:column}
+}

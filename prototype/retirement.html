@@ -60,19 +60,37 @@
           <div id="plan-people" hidden></div>
           <header class="plan-lead-hero">
             <div class="plan-headline-card">
+              <span class="projection-eyebrow">Your projection</span>
               <div class="plan-result" id="plan-result" role="status"></div>
               <details id="estate-composition" class="estate-composition"></details>
             </div>
           </header>
 
+          <section class="retirement-goal" aria-labelledby="retirement-goal-heading">
+            <div class="retirement-goal-main">
+              <div><h2 id="retirement-goal-heading">Income goal after work</h2><p id="retirement-start-caption" class="small">First full year after both stop working</p></div>
+              <label class="retirement-goal-input" for="retirement-budget-monthly"><span>Amount to live on each month <small>(today’s pounds)</small></span><span class="currency-input"><span aria-hidden="true">£</span><input id="retirement-budget-monthly" type="number" min="0" max="1000000" step="100" inputmode="decimal" /></span></label>
+            </div>
+            <p id="retirement-costs" class="retirement-costs"></p>
+            <div class="retirement-funding">
+              <div><span>Other income</span><strong id="retirement-budget-income">—</strong></div>
+              <div><span>Drawn from assets</span><strong id="retirement-budget-withdraw">—</strong></div>
+              <div><span>Not covered</span><strong id="retirement-budget-gap">—</strong></div>
+              <div><span>Accessible assets left</span><strong id="retirement-budget-assets">—</strong></div>
+            </div>
+            <p id="retirement-impact" class="retirement-impact"></p>
+            <div class="retirement-goal-footer"><p>Illustration, not advice. Current rules, subject to change.</p><div><button type="button" id="show-retirement-year" class="quiet-button">See year on chart ↓</button><button type="button" id="change-work-dates" class="quiet-button">Change work dates</button></div></div>
+          </section>
+
           <div class="plan-workbench">
             <div id="plan-visuals" class="plan-visuals">
               <div class="chart-toolbar">
               <div class="chart-tabs" role="tablist" aria-label="Plan charts">
-                <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="true">Assets</button>
-                <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="false" tabindex="-1">Income</button>
+                <button type="button" role="tab" id="chart-tab-estate" aria-controls="chart-panel-estate" aria-selected="false" tabindex="-1">Assets</button>
+                <button type="button" role="tab" id="chart-tab-income" aria-controls="chart-panel-income" aria-selected="true">Funding</button>
                 <button type="button" role="tab" id="chart-tab-spending" aria-controls="chart-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
               </div>
+                <label class="chart-period">Years <select id="chart-period" aria-label="Years shown on chart"><option value="after-work">After work</option><option value="all">Whole plan</option></select></label>
                 <div class="plan-year"><label for="inspect-year">Year</label><select id="inspect-year" aria-label="Explore a year"></select></div>
               </div>
               <div class="timeline-inspector">
@@ -80,39 +98,55 @@
                 <span id="inspect-year-caption"></span>
               </div>
               <div class="two-charts plan-charts">
-                <section class="graph-panel" id="chart-panel-estate" role="tabpanel" aria-labelledby="chart-tab-estate">
-                  <div class="chart-headline"><div><h3 id="estate-year-title">Net wealth</h3><strong id="estate-year-value">—</strong></div></div>
+                <section class="graph-panel" id="chart-panel-estate" role="tabpanel" aria-labelledby="chart-tab-estate" hidden>
+                  <div class="chart-headline"><div><h3 id="estate-year-title">Net wealth</h3><strong id="estate-year-value">—</strong></div><label class="chart-mode">View <select id="estate-view" aria-label="Estate view"><option value="composition">By account</option><option value="total">Compare plans</option></select></label></div>
                   <p id="estate-year-context" class="chart-reading"></p>
                   <svg id="wealth-chart" role="group" aria-label="Household estate and accounts over the planning horizon"></svg>
+                  <div id="estate-legend" class="chart-legend visible-legend"></div>
                   <p id="estate-axis-note" class="small"></p>
-                  <details class="chart-details"><summary>Chart key &amp; milestones</summary><label class="chart-mode">Chart view <select id="estate-view" aria-label="Estate view"><option value="composition">By account</option><option value="total">Compare plans</option></select></label><div id="estate-legend" class="chart-legend"></div><p>Coloured areas show year-end assets. Debt is below zero; the line shows wealth after debt.</p><div id="wealth-events"></div></details>
+                  <details class="chart-details"><summary>Milestones &amp; chart notes</summary><p>Coloured areas show year-end assets. Debt is below zero; the line shows wealth after debt.</p><div id="wealth-events"></div></details>
                   <p id="selected-milestone" class="small selected-milestone" role="status"></p>
                 </section>
-                <section class="graph-panel" id="chart-panel-income" role="tabpanel" aria-labelledby="chart-tab-income" hidden>
-                  <div class="chart-headline"><div><h3 id="income-year-title">Income</h3><strong id="income-year-value">—</strong></div><span class="chart-unit">/ year</span></div>
+                <section class="graph-panel" id="chart-panel-income" role="tabpanel" aria-labelledby="chart-tab-income">
+                  <div class="chart-headline"><div><h3 id="income-year-title">Income before withdrawals</h3><strong id="income-year-value">—</strong></div><span class="chart-unit">/ year</span></div>
                   <p id="income-year-context" class="chart-reading"></p>
                   <svg id="income-chart" role="img" aria-label="Income and asset withdrawals against spending"></svg>
-                  <details class="chart-details"><summary>Chart key</summary><p id="income-chart-caption" class="chart-caption">Bars show income and withdrawals. The line shows spending.</p><div id="income-legend" class="chart-legend"></div><p>Salary uses take-home pay. Where tax is excluded, the full receipt is shown. Withdrawals and investment releases come from existing assets.</p></details>
+                  <div id="income-legend" class="chart-legend visible-legend"></div>
+                  <details class="chart-details"><summary>How to read funding</summary><p id="income-chart-caption" class="chart-caption">Bars show income and withdrawals. The line shows spending.</p><p>Asset draw is net cash used for costs; deduction estimates and money move fees can reduce account balances further. Salary uses take-home pay. Where tax is excluded, the full receipt is shown.</p></details>
                 </section>
                 <section class="graph-panel" id="chart-panel-spending" role="tabpanel" aria-labelledby="chart-tab-spending" hidden>
                   <div class="chart-headline"><div><h3 id="spending-year-title">Spending</h3><strong id="spending-year-value">—</strong></div><span class="chart-unit">/ year</span></div>
                   <p id="spending-year-context" class="chart-reading"></p>
                   <svg id="spending-chart" role="img" aria-label="Annual spending by category against income"></svg>
-                  <details class="chart-details"><summary>Chart key</summary><p class="chart-caption">Bars show spending categories. The line shows income.</p><div id="spending-legend" class="chart-legend"></div><p>Spending includes scheduled debt payments and any mortgage payoff. Pension saving is a transfer into your assets, so it is shown in the year details.</p></details>
+                  <div id="spending-legend" class="chart-legend visible-legend"></div>
+                  <details class="chart-details"><summary>How to read spending</summary><p class="chart-caption">Bars show spending categories. The line shows income.</p><p>Spending includes scheduled debt payments and any mortgage payoff. Pension saving is a transfer into your assets, so it is shown in the year details.</p></details>
                 </section>
               </div>
+              <div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
               <p class="chart-footnote">Future pounds. Illustration, not advice. Current rules, subject to change.</p>
               <div class="analytical-drilldowns">
-                <details class="year-details"><summary>Year details</summary><div id="year-summary" class="year-summary" aria-label="Selected year overview"></div>
+                <details class="year-details"><summary>Detailed year workings</summary>
                 <details class="pension-details"><summary>Pension contributions &amp; growth</summary><div id="pension-breakdown"></div></details>
                 <details class="model-notes"><summary>Full year workings</summary><div id="household-year-details"></div></details>
                 </details>
               </div>
             </div>
 
-            <details id="scenario-controls" class="scenario-controls" open>
-              <summary class="adjustment-heading"><span>Adjust your plan</span><span id="adjustment-summary" class="collapsed-preview"></span></summary>
+            <section class="plan-input-overview" aria-labelledby="plan-input-heading">
+              <div class="input-overview-heading"><div><h2 id="plan-input-heading">Your plan</h2><p>These inputs shape the projection. Use Edit to change them.</p></div><span id="plan-input-scenario" class="input-scenario"></span></div>
+              <div id="plan-input-cards" class="plan-input-cards"></div>
+              <div id="plan-input-extras" class="plan-input-extras"></div>
+            </section>
+
+            <details id="scenario-controls" class="scenario-controls">
+              <summary class="adjustment-heading"><span>More plan inputs &amp; options</span><span id="adjustment-summary" class="collapsed-preview"></span></summary>
               <div class="section-heading"><p id="scenario-live" class="scenario-live" role="status"></p><button type="button" class="quiet-button" id="reset-actions">Reset changes</button></div>
+              <p id="saving-goal-warning" class="small stress-warning"></p>
+              <details class="control-section" data-plan-section="starting"><summary><span>Starting assets &amp; debts</span><span class="collapsed-preview">Edit balances used by this plan</span></summary><div id="plan-starting" class="plan-starting"></div></details>
+              <details class="control-section" data-plan-section="work"><summary><span>Work &amp; retirement</span><span id="work-settings-summary" class="collapsed-preview"></span></summary><div id="plan-retirement"></div></details>
+              <details class="control-section" data-plan-section="income"><summary><span>Income <span id="income-now" class="control-summary">—</span></span><span id="income-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · monthly average</p><button type="button" class="quiet-button" id="add-income">+ Income</button></div><div id="income-rows" class="stream-list"></div></details>
+              <details class="control-section" data-plan-section="spending"><summary><span>Spending <span id="spending-now" class="control-summary">—</span></span><span id="spending-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · includes debt payments</p><button type="button" class="quiet-button" id="add-expense">+ Spending</button></div><div id="expense-rows" class="stream-list"></div></details>
+              <details class="control-section"><summary><span>Try a change</span><span id="changes-summary" class="collapsed-preview"></span></summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details><div id="action-editors"></div></details>
               <details class="scenario-management control-section">
                 <summary><span>Saved scenarios</span><span id="saved-scenario-summary" class="collapsed-preview"></span></summary>
                 <div class="plan-status-pills"><span id="scenario-state" class="scenario-state" role="status"></span><span id="scenario-feedback" class="scenario-feedback" role="status"></span></div>
@@ -126,14 +160,9 @@
                 <div id="saved-scenarios" class="saved-scenarios"></div>
                 <button type="button" id="assets-only" class="quiet-button">Start with assets only</button>
               </details>
-              <p id="saving-goal-warning" class="small stress-warning"></p>
-              <details class="control-section"><summary><span>Work &amp; retirement</span><span id="work-settings-summary" class="collapsed-preview"></span></summary><div id="plan-retirement"></div></details>
-              <details class="control-section"><summary><span>Income <span id="income-now" class="control-summary">—</span></span><span id="income-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · monthly average</p><button type="button" class="quiet-button" id="add-income">+ Income</button></div><div id="income-rows" class="stream-list"></div></details>
-              <details class="control-section"><summary><span>Spending <span id="spending-now" class="control-summary">—</span></span><span id="spending-settings-summary" class="collapsed-preview"></span></summary><div class="section-heading"><p class="small">Starting year · includes debt payments</p><button type="button" class="quiet-button" id="add-expense">+ Spending</button></div><div id="expense-rows" class="stream-list"></div></details>
-              <details class="control-section"><summary><span>Try a change</span><span id="changes-summary" class="collapsed-preview"></span></summary><div id="household-actions" class="scenario-shortcuts primary-changes" aria-label="Add a main scenario change"></div><details class="more-scenarios"><summary>More changes</summary><div id="more-actions" class="scenario-shortcuts"></div></details><div id="action-editors"></div></details>
               <details class="control-section"><summary><span>Transfers &amp; surplus</span><span id="transfers-summary" class="collapsed-preview"></span></summary><div class="cashflow-summary"><div><span>Starting income surplus · monthly average</span><strong id="surplus-now">—</strong></div></div><button id="add-money-move" type="button" class="quiet-button">+ Move money</button><div id="money-moves"></div><div id="surplus-policy"></div></details>
               <div id="plan-pay" hidden></div><div id="plan-spending" hidden></div>
-              <details class="plan-tweak-group control-section"><summary><span>Rates &amp; planning ages</span><span id="assumptions-summary" class="collapsed-preview"></span></summary><div id="plan-assumptions"></div></details>
+              <details class="plan-tweak-group control-section" data-plan-section="assumptions"><summary><span>Rates &amp; planning ages</span><span id="assumptions-summary" class="collapsed-preview"></span></summary><div id="plan-assumptions"></div></details>
               <details class="withdrawal-settings control-section"><summary><span>Withdrawal settings</span><span id="withdrawal-summary" class="collapsed-preview"></span></summary><div id="withdrawal-policy" class="quick-fields"></div></details>
               <button type="button" id="view-graphs" class="quiet-button">View updated graphs ↑</button>
             </details>

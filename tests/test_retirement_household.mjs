@@ -112,3 +112,44 @@ test('target debt end derives a payment but unfunded debt survives that year',as
  input.assets.forEach(a=>a.balance=0);input.incomes=[];assert.ok(simulateHousehold(input).rows[2].debtBalances.loan>12000);
  assert.throws(()=>paymentForDebtEnd(12000,5,0));
 });
+
+test('retirement living target starts after both work-end dates and replaces the everyday budget',()=>{
+ const input=householdExample();input.debts=[];input.incomes=[];input.people[0].retireAge=58;input.people[1].retireAge=57;
+ const living=input.expenses.find(r=>r.id==='living');living.growth=1;living.changes=[{age:59,amount:9000}];
+ input.retirementBudget={monthly:5000,expenseId:'living'};
+ const target=simulateHousehold(input);
+ assert.equal(target.retirementStartYear,2028);
+ assert.equal(target.rows[1].retirementLivingTarget,0);
+ assert.ok(Math.abs(target.rows[1].spending-(2800*12*1.03+400*12))<.01);
+ const retired=target.rows[2],expected=5000*12*1.03**2;
+ assert.ok(Math.abs(retired.retirementLivingTarget-expected)<.01);
+ assert.ok(Math.abs(retired.spendingByCategory.living-expected)<.01);
+ assert.ok(Math.abs(retired.spending-(expected+400*12))<.01);
+ const unchanged=structuredClone(input);delete unchanged.retirementBudget;unchanged.expenses.find(r=>r.id==='living').changes=[];
+ const base=simulateHousehold(unchanged).rows[2];
+ assert.ok(retired.withdrawals>base.withdrawals);
+ assert.ok(retired.closingAssets<base.closingAssets);
+});
+
+test('temporary redundancy does not start a retirement target; permanent redundancy waits for a full year',()=>{
+ const input=householdExample();input.retirementBudget={monthly:5000,expenseId:'living'};
+ input.employment=[{owner:'primary',year:2027,month:7,severance:0,returnYears:2},{owner:'partner',year:2029,month:7,severance:0,returnYears:2}];
+ const temporary=simulateHousehold(input,{job:true,jobPartner:true});
+ assert.equal(temporary.retirementStartYear,2038);
+ assert.equal(temporary.rows.find(r=>r.year===2030).retirementLivingTarget,0);
+ input.employment.forEach(e=>e.returnYears=0);
+ const permanent=simulateHousehold(input,{job:true,jobPartner:true});
+ assert.equal(permanent.retirementStartYear,2030);
+ assert.equal(permanent.rows.find(r=>r.year===2029).retirementLivingTarget,0);
+ assert.ok(permanent.rows.find(r=>r.year===2030).retirementLivingTarget>0);
+ assert.equal(simulateHousehold(input,{job:true}).retirementStartYear,2038);
+});
+
+test('retirement target requires a valid monthly amount and regular expense id',()=>{
+ const input=householdExample();input.retirementBudget={monthly:-1,expenseId:'living'};
+ assert.throws(()=>simulateHousehold(input),/retirement.*monthly/i);
+ input.retirementBudget.monthly=Infinity;assert.throws(()=>simulateHousehold(input),/retirement.*monthly/i);
+ input.retirementBudget.monthly=4000;input.retirementBudget.expenseId='missing';
+ assert.throws(()=>simulateHousehold(input),/regular.*expense/i);
+ input.retirementBudget.expenseId='lease';assert.throws(()=>simulateHousehold(input),/regular.*expense/i);
+});
