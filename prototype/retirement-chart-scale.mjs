@@ -22,3 +22,11 @@ export function estateComparisonRange(values) {
   if (low <= 0 || spread < high * 0.2) return { min: Math.min(0, low), max: Math.max(1, high) * 1.08 };
   return { min: Math.max(0, low - spread * 0.1), max: high + spread * 0.1 };
 }
+
+// The account chart must be scaled from the current plan it actually draws.
+export function estateCompositionRange(rows) {
+  return {
+    min: Math.min(0, ...rows.map(row => -row.closingDebt), ...rows.map(row => row.netWealth)),
+    max: Math.max(1, ...rows.map(row => row.closingAssets), ...rows.map(row => row.netWealth)) * 1.08,
+  };
+}

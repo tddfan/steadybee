@@ -1,6 +1,6 @@
 import { householdExample, simulateHousehold, openingPicture, convertStreamFrequency, paymentForDebtEnd, monthlyDebtPayment } from './retirement-household.mjs';
 import { householdBaseExample } from './retirement-example.mjs';
-import { chartScale, estateComparisonRange } from './retirement-chart-scale.mjs';
+import { chartScale, estateComparisonRange, estateCompositionRange } from './retirement-chart-scale.mjs';
 import { controlSummaries } from './retirement-control-summary.mjs';
 const $=id=>document.getElementById(id);
 const money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
@@ -317,8 +317,8 @@ function chartFrame(id,title,max,min=0) {
 const funding=[['bonus','Bonus','#687bb6'],['severance','Severance','#92764a'],['inheritance','Inheritance','#926899'],['salary','Salary','#4775ac'],['rent','Rent','#ad863c'],['support','Support','#856399'],['pension','Pension income','#548579'],['state','State Pension','#2b675e'],['other','Other income','#85959c'],['assetRelease','Investment releases','#a080b3'],['withdrawals','Savings & pension withdrawals','#d5ac60'],['gap','Spending not covered','#b4563b']];
 function drawCharts() {
  if(!current||!$('household-error').hidden)return;
- const values=[...baseline.rows,...current.rows,...stressed.rows].map(r=>r.netWealth);const range=estateView==='composition'?{max:Math.max(1,actions.legacy?input.settings.legacyTarget:0,...values,...current.rows.map(r=>r.closingAssets))*1.08,min:Math.min(0,...values,...current.rows.map(r=>-r.closingDebt))}:estateComparisonRange(values);const max=actions.legacy?Math.max(range.max,input.settings.legacyTarget*1.08):range.max,min=actions.legacy?Math.min(range.min,input.settings.legacyTarget):range.min;
- $('estate-axis-note').textContent=min>0?'Comparison axis starts above £0 to show the change in wealth.':'';
+ const values=[...baseline.rows,...current.rows,...stressed.rows].map(r=>r.netWealth);const range=estateView==='composition'?estateCompositionRange(current.rows):estateComparisonRange(values);const max=actions.legacy&&estateView==='total'?Math.max(range.max,input.settings.legacyTarget*1.08):range.max,min=actions.legacy&&estateView==='total'?Math.min(range.min,input.settings.legacyTarget):range.min;
+ $('estate-axis-note').textContent=min>0?'Comparison axis starts above £0 to show the change in wealth.':actions.legacy&&estateView==='composition'&&input.settings.legacyTarget>max?'Target is above this account chart’s scale; see Compare plans for the target line.':'';
  const frame=chartFrame('wealth-chart',estateView==='composition'?'Current estate: asset groups, debt below zero and net estate':'Net household estate: baseline, chosen scenario and stress path',max,min);const {svg,x,y,width}=frame;
  const components=[['cash','Cash','#d7bc82'],['investment','Investments','#809ec4'],['bonds','Fixed income','#96b0a8'],['pension','Pensions','#b5a1c7'],['property','Property','#b5c39b'],['car','Vehicle','#ccd2d1']];
  if(estateView==='composition'){let lower=current.rows.map(()=>0);for(const [key,,color]of components){const upper=lower.map((v,i)=>v+current.rows[i].balancesByType[key]);const path=upper.map((v,i)=>`${i?'L':'M'}${x(i)},${y(v)}`).join(' ')+lower.map((v,i)=>{const j=lower.length-1-i;return `L${x(j)},${y(lower[j])}`;}).join(' ')+' Z';svgNode(svg,'path',{d:path,fill:color,opacity:.65});lower=upper;}const debtPath=current.rows.map((r,i)=>`${i?'L':'M'}${x(i)},${y(-r.closingDebt)}`).join(' ')+`L${x(current.rows.length-1)},${y(0)}L${x(0)},${y(0)}Z`;svgNode(svg,'path',{d:debtPath,fill:'#b4563b',opacity:.65});}
