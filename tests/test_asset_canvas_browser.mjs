@@ -227,9 +227,12 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
   assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
   assert.equal(await p.locator(".orbit-card").count(), 12);
   assert.deepEqual(await p.locator("[data-owner-group]").evaluateAll((groups) => groups.map((group) => group.dataset.ownerGroup)), ["primary", "partner", "shared"]);
-  assert.match(await p.locator('[data-owner-group="primary"] .owner-cluster-heading').innerText(), /Alex[\s\S]*£1,225,000/);
-  assert.match(await p.locator('[data-owner-group="partner"] .owner-cluster-heading').innerText(), /Gemma[\s\S]*£520,000/);
-  assert.match(await p.locator('[data-owner-group="shared"] .owner-cluster-heading').innerText(), /Shared[\s\S]*£400,000/);
+  assert.match(await p.locator('[data-owner-group="primary"]').innerText(), /Alex[\s\S]*£1,225,000/);
+  assert.match(await p.locator('[data-owner-group="partner"]').innerText(), /Gemma[\s\S]*£520,000/);
+  assert.match(await p.locator('[data-owner-group="shared"]').innerText(), /Shared[\s\S]*£400,000/);
+  assert.match(await p.locator('[data-owner-group="shared"] [data-bucket="illiquid"]').innerText(), /Main home[\s\S]*equity £400k/);
+  assert.match(await p.locator('[data-owner-group="shared"] [data-bucket="debt"]').innerText(), /Main home mortgage/);
+  assert.match(await p.locator('#mix-legend').innerText(), /Accessible £690k[\s\S]*Pensions £710k[\s\S]*Property & things £1\.03m[\s\S]*Check access £100k/);
   assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
   assert.equal(await p.locator('[data-orbit-id="alex-home"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
   assert.equal(await p.locator('[data-orbit-id="alex-mortgage"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
@@ -294,7 +297,7 @@ test("partner ownership can be edited without duplicating a shared home", async 
   await p.locator("#save-item-button").click();
   assert.equal(await p.locator('[data-owner-group="partner"] .orbit-card').count(), 0);
   assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
-  assert.match(await p.locator('[data-owner-group="shared"] .owner-cluster-heading').innerText(), /£320,000/);
+  assert.match(await p.locator('[data-owner-group="shared"]').innerText(), /£320,000/);
   assert.equal(await displayedAmount(p, "#asset-total"), 320000);
   await p.locator("#edit-profile-button").click();
   await p.locator("#profile-partner").fill("");
@@ -315,5 +318,30 @@ test("a large entered total stays inside the household summary", async () => {
     return { inside: text.left >= circle.left && text.right <= circle.right, scroll: amount.scrollWidth, width: amount.clientWidth };
   });
   assert.ok(fit.inside && fit.scroll <= fit.width + 1, JSON.stringify(fit));
+  await p.close();
+});
+
+test("quick add and access review update the matrix without changing net worth", async () => {
+  const p = await page();
+  assert.equal(await p.locator('[data-owner-group="primary"] [data-bucket="review"] [data-orbit-id="alex-shares"]').count(), 1);
+  await p.locator('[data-orbit-id="alex-shares"]').click();
+  assert.equal(await p.locator("#item-access-bucket").inputValue(), "review");
+  await p.locator("#item-access-bucket").selectOption("accessible");
+  await p.locator("#item-confidence").selectOption("exact");
+  await p.locator("#save-item-button").click();
+  assert.equal(await p.locator('[data-owner-group="primary"] [data-bucket="accessible"] [data-orbit-id="alex-shares"]').count(), 1);
+  assert.match(await p.locator("#mix-legend").innerText(), /Accessible £790k/);
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
+  await p.locator('[data-orbit-id="alex-pension"]').click();
+  await p.locator("#item-pension-access-age").fill("55");
+  await p.locator("#save-item-button").click();
+  assert.match(await p.locator('[data-orbit-id="alex-pension"]').innerText(), /Age 55/);
+  await p.locator('[data-quick-kind="isa"]').click();
+  assert.equal(await p.locator("#item-kind").inputValue(), "isa");
+  await p.locator("#item-owner").selectOption("partner");
+  await p.locator("#item-amount").fill("25000");
+  await p.locator("#save-item-button").click();
+  assert.equal(await displayedAmount(p, "#net-worth"), 2170000);
+  assert.match(await p.locator('[data-owner-group="partner"] [data-bucket="accessible"]').innerText(), /£325k/);
   await p.close();
 });

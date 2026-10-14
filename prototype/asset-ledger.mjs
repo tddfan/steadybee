@@ -33,6 +33,14 @@ const isMoney = (value) =>
   Math.abs(value * 100 - Math.round(value * 100)) < 0.001;
 const pennies = (value) => Math.round(value * 100);
 const pounds = (value) => value / 100;
+export const ACCESS_BUCKETS = Object.freeze(["accessible", "pension", "illiquid", "review"]);
+export const CONFIDENCE_LEVELS = Object.freeze(["exact", "estimate", "review"]);
+export function accessBucket(asset) {
+  if (["cash", "isa"].includes(asset.kind)) return "accessible";
+  if (asset.kind === "dc-pension") return "pension";
+  if (["home", "other-property", "car"].includes(asset.kind)) return "illiquid";
+  return asset.accessBucket || "review";
+}
 
 export function createBlankDraft() {
   return { name: "", age: null, partnerName: "", assets: [], debts: [] };
@@ -128,6 +136,14 @@ export function validateDraft(draft) {
       error(`${path}.kind`, "Choose a listed asset type.");
     if (!isMoney(asset.value))
       error(`${path}.value`, "Enter a finite amount from £0 to £100 billion, to the penny.");
+    if (!isBlank(asset.confidence) && !CONFIDENCE_LEVELS.includes(asset.confidence))
+      error(`${path}.confidence`, "Choose exact, estimate, or needs review.");
+    if (!isBlank(asset.accessBucket) &&
+      (!["shares", "other"].includes(asset.kind) || !["accessible", "illiquid", "review"].includes(asset.accessBucket)))
+      error(`${path}.accessBucket`, "Choose an access category for shares or other assets.");
+    if (!isBlank(asset.pensionAccessAge) &&
+      (asset.kind !== "dc-pension" || !Number.isInteger(asset.pensionAccessAge) || asset.pensionAccessAge < 18 || asset.pensionAccessAge > 100))
+      error(`${path}.pensionAccessAge`, "Enter a scheme access age from 18 to 100.");
     if (!isBlank(asset.monthlyRent) &&
       (!isMoney(asset.monthlyRent) || !["home", "other-property"].includes(asset.kind)))
       error(`${path}.monthlyRent`, "Enter monthly rent for a property, from £0 to £100 billion.");
@@ -147,6 +163,8 @@ export function validateDraft(draft) {
       error(`${path}.kind`, "Choose a listed debt type.");
     if (!isMoney(debt.balance))
       error(`${path}.balance`, "Enter a finite balance from £0 to £100 billion, to the penny.");
+    if (!isBlank(debt.confidence) && !CONFIDENCE_LEVELS.includes(debt.confidence))
+      error(`${path}.confidence`, "Choose exact, estimate, or needs review.");
     if (
       !isBlank(debt.interestRate) &&
       (typeof debt.interestRate !== "number" ||
@@ -183,6 +201,10 @@ export function summarizeDraft(draft) {
 
   const assetTotal = draft.assets.reduce((sum, asset) => sum + pennies(asset.value), 0);
   const debtTotal = draft.debts.reduce((sum, debt) => sum + pennies(debt.balance), 0);
+  const accessTotals = Object.fromEntries(ACCESS_BUCKETS.map((bucket) => [bucket,
+    pounds(draft.assets.filter((asset) => accessBucket(asset) === bucket)
+      .reduce((sum, asset) => sum + pennies(asset.value), 0)),
+  ]));
   const assetGroups = Object.entries(ASSET_TYPES)
     .map(([kind, type]) => {
       const items = draft.assets.filter((asset) => asset.kind === kind);
@@ -235,6 +257,7 @@ export function summarizeDraft(draft) {
   return {
     assetTotal: pounds(assetTotal),
     debtTotal: pounds(debtTotal),
+    accessTotals,
     netWorth: pounds(assetTotal - debtTotal),
     assetGroups,
     debtGroups,

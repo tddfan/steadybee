@@ -64,22 +64,33 @@
             </div>
           </div>
 
-          <section class="picture-panel" aria-label="Interactive picture of assets and debts">
-            <div class="picture-top"><span>YOUR HOUSEHOLD, TOGETHER</span><span>Tap any point to edit it</span></div>
+          <section class="picture-panel" aria-label="Assets and debts by owner and access">
+            <div class="picture-top"><span>WHO OWNS IT · WHEN CAN YOU USE IT?</span><span>Tap an item to edit</span></div>
+            <div class="quick-add" role="group" aria-label="Quick add an item">
+              <span class="quick-add-label">Add a piece</span>
+              <button class="quick-add-chip" data-quick-kind="cash" type="button">＋ Cash</button>
+              <button class="quick-add-chip" data-quick-kind="isa" type="button">＋ ISA</button>
+              <button class="quick-add-chip" data-quick-kind="dc-pension" type="button">＋ Pension</button>
+              <button class="quick-add-chip" data-quick-kind="home" type="button">＋ Property</button>
+              <button class="quick-add-chip" data-quick-kind="mortgage" type="button">＋ Mortgage</button>
+              <button class="quick-add-chip" data-quick-kind="loan" type="button">＋ Loan</button>
+            </div>
             <div id="constellation" class="constellation">
+              <div class="bucket-headings" aria-hidden="true"><span>Owner</span><span>Accessible <small>Cash &amp; ISAs</small></span><span>Pensions <small>Scheme rules apply</small></span><span>Property &amp; things <small>Value tied up</small></span><span>Check access <small>Sale rules unknown</small></span><span>Debts <small>What you owe</small></span><span>Net</span></div>
               <div id="orbit-items" class="orbit-items"></div>
               <div class="constellation-centre" aria-label="Combined household totals">
                 <span class="centre-kicker">THE COMPLETE PICTURE</span>
+                <div class="mix-overview"><div id="mix-bar" class="mix-bar" role="img" aria-label="Asset mix"></div><div id="mix-legend" class="mix-legend"></div></div>
                 <div class="summary-row"><span>Total assets</span><strong id="asset-total">£0</strong></div>
                 <div class="summary-row summary-debt"><span>Total debt</span><strong id="debt-total">£0</strong></div>
                 <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong></div>
                 <span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span>
               </div>
             </div>
-            <p class="picture-equation">Each item sits with its owner. Shared items count once in the household total.</p>
+            <p class="picture-equation">The mortgage sits beside the shared home. The £400k equity is a view of that pair, not an extra asset. Shared items count once.</p>
             <div class="picture-actions"><button id="add-asset-button" class="button button-add" type="button"><span aria-hidden="true">＋</span> Add asset</button><button id="add-debt-button" class="button button-add button-add-debt" type="button"><span aria-hidden="true">＋</span> Add debt</button></div>
           </section>
-          <p class="snapshot-caveat">Today’s values only. Rent and interest rates are shown as details, not added to net worth. Property and pensions are included in net worth but may not be available to spend.</p>
+          <p class="snapshot-caveat">Today’s values only. Rent and interest rates are details, not added to net worth. “Accessible” means generally available, subject to each account’s rules. Confirm pension and employee share access before using them in a plan.</p>
 
           <details class="list-disclosure"><summary>View every detail as a list</summary><div class="board-grid">
             <section class="ledger-panel" aria-labelledby="asset-section-title">
@@ -141,6 +152,9 @@
           <div class="money-input"><span aria-hidden="true">£</span><input id="item-amount" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" placeholder="0" required /></div>
           <p id="item-amount-help" class="field-help">Use the current value, not what you originally paid.</p>
         </div>
+        <div class="form-field"><label for="item-confidence">How sure is this value?</label><select id="item-confidence"><option value="estimate">Estimate</option><option value="exact">Exact</option><option value="review">Needs review</option></select></div>
+        <div id="access-bucket-field" class="form-field" hidden><label for="item-access-bucket">When can you use it?</label><select id="item-access-bucket"><option value="review">Check access</option><option value="accessible">Accessible</option><option value="illiquid">Needs sale</option></select><p class="field-help">Check any employee scheme or sale restrictions before marking shares accessible.</p></div>
+        <div id="pension-access-field" class="form-field" hidden><label for="item-pension-access-age">Scheme access age <span class="optional">Optional</span></label><input id="item-pension-access-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Check your scheme" /><p class="field-help">Use the age confirmed for this pension; a protected access age may apply.</p></div>
         <div id="rent-field" class="form-field" hidden><label for="item-monthly-rent">Monthly rent received <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-rent" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Shown as context; not counted as an asset value.</p></div>
         <div id="cash-rate-field" class="form-field" hidden><label for="item-cash-rate">Current cash interest rate <span class="optional">Optional</span></label><div class="unit-input"><input id="item-cash-rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" /><span aria-hidden="true">%</span></div><p class="field-help">Shown as context; future interest is not calculated.</p></div>
         <div id="investment-field" class="form-field" hidden><label for="item-investment-label">Invested in <span class="optional">Optional</span></label><input id="item-investment-label" type="text" maxlength="80" placeholder="e.g. S&amp;P" /><p class="field-help">A description of your holding, not a growth forecast.</p></div>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ASSET_TYPES,
+  accessBucket,
   DEBT_TYPES,
   createBlankDraft,
   createAlexExample,
@@ -40,6 +41,7 @@ test("blank draft supports an honest zero-entered state", () => {
   assert.deepEqual(summarizeDraft(draft), {
     assetTotal: 0,
     debtTotal: 0,
+    accessTotals: { accessible: 0, pension: 0, illiquid: 0, review: 0 },
     netWorth: 0,
     assetGroups: [],
     debtGroups: [],
@@ -57,6 +59,7 @@ test("Alex and Gemma's fictional household reconciles shared items once", () => 
   assert.equal(result.assetTotal, 2_525_000);
   assert.equal(result.debtTotal, 380_000);
   assert.equal(result.netWorth, 2_145_000);
+  assert.deepEqual(result.accessTotals, { accessible: 690_000, pension: 710_000, illiquid: 1_025_000, review: 100_000 });
   assert.equal(example.assets.length, 11);
   assert.equal(example.assets.find((asset) => asset.id === "alex-home").owner, "shared");
   assert.equal(example.debts[0].owner, "shared");
@@ -87,6 +90,20 @@ test("ownership labels do not change value and partner items require a partner",
   assert.ok(validateDraft(draft).errors.some((error) => error.path.endsWith(".owner")));
   draft.partnerName = 12;
   assert.ok(validateDraft(draft).errors.some((error) => error.path === "partnerName"));
+});
+
+test("shares require access review until explicitly classified, and confidence is validated", () => {
+  const draft = createAlexExample();
+  const shares = draft.assets.find((asset) => asset.kind === "shares");
+  assert.equal(accessBucket(shares), "review");
+  shares.accessBucket = "accessible";
+  shares.confidence = "exact";
+  assert.equal(summarizeDraft(draft).accessTotals.accessible, 790_000);
+  shares.accessBucket = "pension";
+  assert.ok(validateDraft(draft).errors.some((error) => error.path.endsWith("accessBucket")));
+  shares.accessBucket = "review";
+  shares.confidence = "uncertain";
+  assert.ok(validateDraft(draft).errors.some((error) => error.path.endsWith("confidence")));
 });
 
 test("known item kinds have clear labels and asset-access groups", () => {

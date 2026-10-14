@@ -1,6 +1,8 @@
 import {
   ASSET_TYPES,
+  ACCESS_BUCKETS,
   DEBT_TYPES,
+  accessBucket,
   createBlankDraft,
   createAlexExample,
   createId,
@@ -53,6 +55,20 @@ function setTotals() {
   $("net-worth").style.fontSize = netWorthText.length > 15 ? "1.12rem" : netWorthText.length > 11 ? "1.4rem" : "";
   $("asset-count").textContent = countLabel(draft.assets.length, "asset");
   $("debt-count").textContent = countLabel(draft.debts.length, "debt");
+  const labels = { accessible: "Accessible", pension: "Pensions", illiquid: "Property & things", review: "Check access" };
+  const mix = $("mix-bar");
+  const legend = $("mix-legend");
+  mix.replaceChildren();
+  legend.replaceChildren();
+  for (const bucket of ACCESS_BUCKETS) {
+    const value = summary.accessTotals[bucket];
+    if (!value) continue;
+    const segment = make("span", `mix-segment mix-${bucket}`);
+    segment.style.width = `${value / summary.assetTotal * 100}%`;
+    mix.append(segment);
+    legend.append(make("span", `mix-key mix-${bucket}`, `${labels[bucket]} ${compactMoney(value)}`));
+  }
+  mix.setAttribute("aria-label", summary.assetTotal ? ACCESS_BUCKETS.map((bucket) => `${labels[bucket]} ${money(summary.accessTotals[bucket])}`).join(", ") : "No assets entered");
   return summary;
 }
 
@@ -88,6 +104,7 @@ function assetContext(asset) {
   if (asset.monthlyRent !== undefined) notes.push(`${money(asset.monthlyRent)}/month rent`);
   if (asset.interestRate !== undefined) notes.push(`${plain(asset.interestRate)}% cash rate`);
   if (asset.investmentLabel) notes.push(`Invested in ${asset.investmentLabel}`);
+  if (asset.kind === "dc-pension") notes.push(asset.pensionAccessAge ? `Scheme access age ${asset.pensionAccessAge}` : "Check scheme access age");
   return notes.join(" · ");
 }
 function debtContext(debt) {
@@ -113,13 +130,6 @@ function renderOrbit(summary) {
     const subtotal = summary.ownership[owner];
     const assets = draft.assets.filter((asset) => (asset.owner || "primary") === owner);
     const debts = draft.debts.filter((debt) => (debt.owner || "primary") === owner);
-    const entries = [
-      ...assets.flatMap((item) => [
-        { type: "asset", item },
-        ...debts.filter((debt) => debt.linkedAssetId === item.id).map((debt) => ({ type: "debt", item: debt })),
-      ]),
-      ...debts.filter((debt) => !assets.some((asset) => asset.id === debt.linkedAssetId)).map((item) => ({ type: "debt", item })),
-    ];
     const group = make("section", `owner-cluster owner-cluster-${owner}`);
     group.dataset.ownerGroup = owner;
     group.setAttribute("aria-label", `${ownerName(owner)}: ${money(subtotal.assetTotal)} assets, ${money(subtotal.debtTotal)} debt, ${money(subtotal.netWorth)} net`);
@@ -127,8 +137,15 @@ function renderOrbit(summary) {
     header.append(make("h2", "owner-cluster-title", ownerName(owner)));
     header.append(make("strong", "owner-cluster-net", money(subtotal.netWorth)));
     header.append(make("span", "owner-cluster-detail", `net · ${subtotal.assetCount} asset${subtotal.assetCount === 1 ? "" : "s"}${subtotal.debtCount ? ` · ${subtotal.debtCount} debt${subtotal.debtCount === 1 ? "" : "s"}` : ""}`));
-    const nodes = make("div", "owner-nodes");
-    for (const { type, item } of entries) {
+    const cells = ["accessible", "pension", "illiquid", "review", "debt"].map((bucket) => {
+      const cell = make("div", `bucket-cell bucket-${bucket}`);
+      cell.dataset.bucket = bucket;
+      const members = bucket === "debt" ? debts.map((item) => ({ type: "debt", item })) : assets.filter((item) => accessBucket(item) === bucket).map((item) => ({ type: "asset", item }));
+      const total = members.reduce((sum, { type, item }) => sum + (type === "debt" ? item.balance : item.value), 0);
+      cell.append(make("span", "bucket-mobile-label", { accessible: "Accessible", pension: "Pensions", illiquid: "Property & things", review: "Check access", debt: "Debts" }[bucket]));
+      if (members.length) cell.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
+      const nodes = make("div", "owner-nodes");
+      for (const { type, item } of members) {
       const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
       const value = type === "asset" ? item.value : item.balance;
       const context = type === "asset" ? assetContext(item) : debtContext(item);
@@ -136,17 +153,28 @@ function renderOrbit(summary) {
       button.type = "button";
       button.dataset.orbitType = type;
       button.dataset.orbitId = item.id;
-      button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
+      button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}, ${item.confidence || "estimate"}`);
       const pictogram = make("span", "orbit-icon");
       pictogram.append(icon(item.kind));
       const words = make("span", "orbit-words");
       words.append(make("span", "orbit-name", itemName(item, types)));
       words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
+      words.append(make("span", "orbit-confidence", { exact: "Exact", estimate: "Estimate", review: "Needs review" }[item.confidence || "estimate"]));
+      if (type === "asset" && item.kind === "dc-pension") words.append(make("span", "orbit-confidence", item.pensionAccessAge ? `Age ${item.pensionAccessAge}` : "Scheme age?"));
       button.append(pictogram, words);
       nodes.append(button);
-    }
-    if (!entries.length) nodes.append(make("p", "orbit-empty", owner === "primary" ? "Add an asset or debt below to begin." : "No items yet."));
-    group.append(header, nodes, make("span", "flow-arrow", "→"));
+      }
+      if (!members.length) nodes.append(make("span", "orbit-empty", "—"));
+      cell.append(nodes);
+      if (bucket === "illiquid") {
+        for (const asset of members.map(({ item }) => item)) {
+          const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
+          if (equity?.linkedDebtTotal) cell.append(make("span", "equity-note", `${itemName(asset, ASSET_TYPES)} equity ${compactMoney(equity.equity)}`));
+        }
+      }
+      return cell;
+    });
+    group.append(header, ...cells, make("strong", "owner-net-cell", money(subtotal.netWorth)));
     container.append(group);
   }
 }
@@ -260,7 +288,7 @@ function renderList(id, items, groups, summary, type) {
 function render() {
   const summary = setTotals();
   $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
-  $("snapshot-description").textContent = `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap a point to see or change its details.`;
+  $("snapshot-description").textContent = `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
@@ -310,12 +338,14 @@ function updateDialogFields(selectedLink = "") {
   $("rent-field").hidden = dialogType !== "asset" || !["home", "other-property"].includes($("item-kind").value);
   $("cash-rate-field").hidden = dialogType !== "asset" || $("item-kind").value !== "cash";
   $("investment-field").hidden = dialogType !== "asset" || !["isa", "dc-pension"].includes($("item-kind").value);
+  $("access-bucket-field").hidden = dialogType !== "asset" || !["shares", "other"].includes($("item-kind").value);
+  $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
   $("item-amount-label").textContent = dialogType === "asset" ? "What is it worth today?" : "How much is still owed?";
   $("item-amount-help").textContent = dialogType === "asset" ? "Use the current value, not what you originally paid." : "Enter the outstanding balance, not the original loan or monthly payment.";
   if (dialogType === "debt") populateLinks(selectedLink);
 }
 
-function showItemDialog(type, id = null, trigger = null) {
+function showItemDialog(type, id = null, trigger = null, initialKind = "") {
   dialogType = type;
   editingId = id;
   lastTrigger = trigger;
@@ -327,7 +357,7 @@ function showItemDialog(type, id = null, trigger = null) {
   $("item-dialog-title").textContent = `${item ? "Edit" : "Add"} ${type === "asset" ? "an asset" : "a debt"}`;
   $("save-item-button").textContent = item ? "Save changes" : "Add to my picture";
   $("delete-item-button").hidden = !item;
-  populateKinds(type, item?.kind);
+  populateKinds(type, item?.kind || initialKind);
   populateOwners(type, item?.owner);
   $("item-label").value = item?.label || "";
   $("item-amount").value = item ? String(type === "asset" ? item.value : item.balance) : "";
@@ -336,10 +366,13 @@ function showItemDialog(type, id = null, trigger = null) {
   $("item-cash-rate").value = type === "asset" ? item?.interestRate ?? "" : "";
   $("item-investment-label").value = item?.investmentLabel ?? "";
   $("item-remaining-years").value = item?.remainingYears ?? "";
+  $("item-confidence").value = item?.confidence || "estimate";
+  $("item-access-bucket").value = item?.accessBucket || "review";
+  $("item-pension-access-age").value = item?.pensionAccessAge ?? "";
   $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined);
   updateDialogFields(item?.linkedAssetId);
   $("item-dialog").showModal();
-  $("item-kind").focus();
+  $(item || initialKind ? "item-amount" : "item-kind").focus();
 }
 
 function itemFromForm() {
@@ -350,13 +383,15 @@ function itemFromForm() {
   if (!rawAmount) throw new Error(dialogType === "asset" ? "Enter its current value." : "Enter the balance still owed.");
   const amount = Number(rawAmount);
   if (dialogType === "asset") {
-    const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary" };
+    const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
+    if (!$("access-bucket-field").hidden) asset.accessBucket = $("item-access-bucket").value;
+    if (!$("pension-access-field").hidden && $("item-pension-access-age").value.trim()) asset.pensionAccessAge = Number($("item-pension-access-age").value);
     if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
     if (!$("cash-rate-field").hidden && $("item-cash-rate").value.trim()) asset.interestRate = Number($("item-cash-rate").value);
     if (!$("investment-field").hidden && $("item-investment-label").value.trim()) asset.investmentLabel = $("item-investment-label").value.trim();
     return asset;
   }
-  const debt = { id: editingId || createId("debt"), kind, label, balance: amount, owner: $("item-owner").value || "primary" };
+  const debt = { id: editingId || createId("debt"), kind, label, balance: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
   if (kind === "mortgage") {
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
     if ($("item-remaining-years").value.trim()) debt.remainingYears = Number($("item-remaining-years").value);
@@ -386,6 +421,10 @@ for (const id of ["person-name", "person-age"]) $(id).addEventListener("input", 
 
 $("add-asset-button").addEventListener("click", (event) => showItemDialog("asset", null, event.currentTarget));
 $("add-debt-button").addEventListener("click", (event) => showItemDialog("debt", null, event.currentTarget));
+document.querySelector(".quick-add").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-quick-kind]");
+  if (button) showItemDialog(["mortgage", "loan"].includes(button.dataset.quickKind) ? "debt" : "asset", null, button, button.dataset.quickKind);
+});
 $("asset-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-edit-asset]");
   if (button) showItemDialog("asset", button.dataset.editAsset, button);
@@ -490,6 +529,9 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("asset-list").replaceChildren();
   $("debt-list").replaceChildren();
   $("orbit-items").replaceChildren();
+  $("mix-bar").replaceChildren();
+  $("mix-bar").setAttribute("aria-label", "No assets entered");
+  $("mix-legend").replaceChildren();
   $("item-linked-asset").replaceChildren();
   $("item-kind").replaceChildren();
   $("item-owner").replaceChildren();
