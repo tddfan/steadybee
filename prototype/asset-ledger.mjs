@@ -218,6 +218,19 @@ export function summarizeDraft(draft) {
         equity: pounds(pennies(asset.value) - linkedDebt),
       };
     });
+  const ownership = Object.fromEntries(["primary", "partner", "shared"].map((owner) => {
+    const ownedAssets = draft.assets.filter((asset) => (asset.owner || "primary") === owner);
+    const ownedDebts = draft.debts.filter((debt) => (debt.owner || "primary") === owner);
+    const ownedAssetPennies = ownedAssets.reduce((sum, asset) => sum + pennies(asset.value), 0);
+    const ownedDebtPennies = ownedDebts.reduce((sum, debt) => sum + pennies(debt.balance), 0);
+    return [owner, {
+      assetTotal: pounds(ownedAssetPennies),
+      debtTotal: pounds(ownedDebtPennies),
+      netWorth: pounds(ownedAssetPennies - ownedDebtPennies),
+      assetCount: ownedAssets.length,
+      debtCount: ownedDebts.length,
+    }];
+  }));
 
   return {
     assetTotal: pounds(assetTotal),
@@ -226,5 +239,6 @@ export function summarizeDraft(draft) {
     assetGroups,
     debtGroups,
     linkedEquity,
+    ownership,
   };
 }

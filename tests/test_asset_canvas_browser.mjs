@@ -226,8 +226,11 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
   assert.equal(await displayedAmount(p, "#debt-total"), 380000);
   assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
   assert.equal(await p.locator(".orbit-card").count(), 12);
-  assert.equal(await p.locator(".constellation-ray").count(), 12);
-  assert.equal(await p.locator(".constellation-link").count(), 1);
+  assert.deepEqual(await p.locator("[data-owner-group]").evaluateAll((groups) => groups.map((group) => group.dataset.ownerGroup)), ["primary", "partner", "shared"]);
+  assert.match(await p.locator('[data-owner-group="primary"] .owner-cluster-heading').innerText(), /Alex[\s\S]*£1,225,000/);
+  assert.match(await p.locator('[data-owner-group="partner"] .owner-cluster-heading').innerText(), /Gemma[\s\S]*£520,000/);
+  assert.match(await p.locator('[data-owner-group="shared"] .owner-cluster-heading').innerText(), /Shared[\s\S]*£400,000/);
+  assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
   assert.equal(await p.locator('[data-orbit-id="alex-home"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
   assert.equal(await p.locator('[data-orbit-id="alex-mortgage"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
   assert.equal(await p.locator('[data-orbit-id="gemma-pension"]').getAttribute("class").then((text) => text.includes("orbit-owner-partner")), true);
@@ -250,6 +253,8 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
   assert.equal(await p.locator("#item-interest-rate").inputValue(), "4.7");
   assert.equal(await p.locator("#item-owner").inputValue(), "shared");
   await p.locator("#close-item-button").click();
+  await p.locator("#item-dialog").waitFor({ state: "hidden" });
+  await p.waitForFunction(() => document.activeElement?.dataset.orbitId === "alex-mortgage");
   await p.locator('[data-orbit-id="gemma-isa"]').focus();
   await p.keyboard.press("Enter");
   assert.equal(await p.locator("#item-owner").inputValue(), "partner");
@@ -269,7 +274,7 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
     return { width: document.documentElement.scrollWidth, viewport: innerWidth, centre: centre.toJSON(), amount: amount.toJSON() };
   });
   assert.ok(layout.width <= layout.viewport + 1);
-  assert.ok(layout.amount.left >= layout.centre.left && layout.amount.right <= layout.centre.right, "Central amount stays inside its circle");
+  assert.ok(layout.amount.left >= layout.centre.left && layout.amount.right <= layout.centre.right, "Net worth stays inside the summary");
   await p.close();
 });
 
@@ -284,6 +289,13 @@ test("partner ownership can be edited without duplicating a shared home", async 
   assert.equal(await displayedAmount(p, "#asset-total"), 320000);
   assert.equal(await p.locator(".orbit-owner-shared").count(), 1);
   assert.equal(await p.locator(".orbit-owner-partner").count(), 1);
+  await p.locator(".orbit-owner-partner").click();
+  await p.locator("#item-owner").selectOption("shared");
+  await p.locator("#save-item-button").click();
+  assert.equal(await p.locator('[data-owner-group="partner"] .orbit-card').count(), 0);
+  assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
+  assert.match(await p.locator('[data-owner-group="shared"] .owner-cluster-heading').innerText(), /£320,000/);
+  assert.equal(await displayedAmount(p, "#asset-total"), 320000);
   await p.locator("#edit-profile-button").click();
   await p.locator("#profile-partner").fill("");
   await p.locator("#profile-form button[type=submit]").click();
@@ -291,7 +303,7 @@ test("partner ownership can be edited without duplicating a shared home", async 
   await p.close();
 });
 
-test("a large entered total stays inside the centre", async () => {
+test("a large entered total stays inside the household summary", async () => {
   const p = await page(true);
   await start(p);
   await addItem(p, "asset", "other", "Large holding", 100000000000);

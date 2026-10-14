@@ -44,6 +44,7 @@ test("blank draft supports an honest zero-entered state", () => {
     assetGroups: [],
     debtGroups: [],
     linkedEquity: [],
+    ownership: Object.fromEntries(["primary", "partner", "shared"].map((owner) => [owner, { assetTotal: 0, debtTotal: 0, netWorth: 0, assetCount: 0, debtCount: 0 }])),
   });
 });
 
@@ -62,6 +63,11 @@ test("Alex and Gemma's fictional household reconciles shared items once", () => 
   assert.equal(example.assets.find((asset) => asset.id === "alex-shares").value, 100_000);
   assert.deepEqual(example.assets.filter((asset) => asset.owner === "partner").map((asset) => asset.value), [220_000, 150_000, 150_000]);
   assert.equal(result.linkedEquity.find((entry) => entry.assetId === "alex-home").equity, 400_000);
+  assert.deepEqual(result.ownership, {
+    primary: { assetTotal: 1_225_000, debtTotal: 0, netWorth: 1_225_000, assetCount: 7, debtCount: 0 },
+    partner: { assetTotal: 520_000, debtTotal: 0, netWorth: 520_000, assetCount: 3, debtCount: 0 },
+    shared: { assetTotal: 780_000, debtTotal: 380_000, netWorth: 400_000, assetCount: 1, debtCount: 1 },
+  });
   assert.equal(example.assets.find((asset) => asset.id === "alex-gurgaon").monthlyRent, 100);
   assert.equal(example.assets.find((asset) => asset.id === "alex-cash").interestRate, 4);
   assert.equal(example.assets.find((asset) => asset.id === "alex-pension").investmentLabel, "S&P");
@@ -73,7 +79,10 @@ test("ownership labels do not change value and partner items require a partner",
   const draft = createAlexExample();
   const before = summarizeDraft(draft);
   draft.assets.find((asset) => asset.id === "alex-shares").owner = "partner";
-  assert.equal(summarizeDraft(draft).netWorth, before.netWorth);
+  const after = summarizeDraft(draft);
+  assert.equal(after.netWorth, before.netWorth);
+  assert.equal(after.ownership.primary.netWorth, before.ownership.primary.netWorth - 100_000);
+  assert.equal(after.ownership.partner.netWorth, before.ownership.partner.netWorth + 100_000);
   draft.partnerName = "";
   assert.ok(validateDraft(draft).errors.some((error) => error.path.endsWith(".owner")));
   draft.partnerName = 12;

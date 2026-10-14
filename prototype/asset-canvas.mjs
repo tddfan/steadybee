@@ -51,7 +51,6 @@ function setTotals() {
   const netWorthText = money(summary.netWorth);
   $("net-worth").textContent = netWorthText;
   $("net-worth").style.fontSize = netWorthText.length > 15 ? "1.12rem" : netWorthText.length > 11 ? "1.4rem" : "";
-  $("net-worth-echo").textContent = netWorthText;
   $("asset-count").textContent = countLabel(draft.assets.length, "asset");
   $("debt-count").textContent = countLabel(draft.debts.length, "debt");
   return summary;
@@ -106,58 +105,50 @@ function compactMoney(value) {
   if (value >= 1000 && value % 1000 === 0) return `£${plain(value / 1000)}k`;
   return money(value);
 }
-function svgLine(x1, y1, x2, y2, className) {
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line.setAttribute(name, String(value));
-  line.setAttribute("class", className);
-  return line;
-}
-function renderOrbit() {
+function renderOrbit(summary) {
   const container = $("orbit-items");
   container.replaceChildren();
-  const lines = $("constellation-lines");
-  lines.replaceChildren();
-  const items = [
-    ...draft.assets.flatMap((item) => [
-      { type: "asset", item },
-      ...draft.debts.filter((debt) => debt.linkedAssetId === item.id).map((debt) => ({ type: "debt", item: debt })),
-    ]),
-    ...draft.debts.filter((debt) => !draft.assets.some((asset) => asset.id === debt.linkedAssetId)).map((item) => ({ type: "debt", item })),
-  ];
-  $("constellation").classList.toggle("orbit-grid", items.length > 16 || items.length === 0);
-  const coordinates = new Map();
-  for (const [index, { type, item }] of items.entries()) {
-    const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
-    const value = type === "asset" ? item.value : item.balance;
-    const context = type === "asset" ? assetContext(item) : debtContext(item);
-    const owner = item.owner || "primary";
-    const angle = ((items.length >= 10 ? -105 : -90) + index * (360 / items.length)) * Math.PI / 180;
-    const x = 50 + 42 * Math.cos(angle);
-    const y = 50 + 33 * Math.sin(angle);
-    coordinates.set(item.id, { x: x * 10, y: y * 6 });
-    const button = make("button", `orbit-card orbit-${type} orbit-owner-${owner}`);
-    button.type = "button";
-    button.style.setProperty("--x", `${x}%`);
-    button.style.setProperty("--y", `${y}%`);
-    button.dataset.orbitType = type;
-    button.dataset.orbitId = item.id;
-    button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
-    const pictogram = make("span", "orbit-icon");
-    pictogram.append(icon(item.kind));
-    const words = make("span", "orbit-words");
-    words.append(make("span", "orbit-owner", ownerName(owner)));
-    words.append(make("span", "orbit-name", itemName(item, types)));
-    words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
-    button.append(pictogram, words);
-    container.append(button);
-    lines.append(svgLine(500, 300, x * 10, y * 6, `constellation-ray ray-${owner}`));
+  for (const owner of ["primary", "partner", "shared"]) {
+    if (owner !== "primary" && !draft.partnerName?.trim()) continue;
+    const subtotal = summary.ownership[owner];
+    const assets = draft.assets.filter((asset) => (asset.owner || "primary") === owner);
+    const debts = draft.debts.filter((debt) => (debt.owner || "primary") === owner);
+    const entries = [
+      ...assets.flatMap((item) => [
+        { type: "asset", item },
+        ...debts.filter((debt) => debt.linkedAssetId === item.id).map((debt) => ({ type: "debt", item: debt })),
+      ]),
+      ...debts.filter((debt) => !assets.some((asset) => asset.id === debt.linkedAssetId)).map((item) => ({ type: "debt", item })),
+    ];
+    const group = make("section", `owner-cluster owner-cluster-${owner}`);
+    group.dataset.ownerGroup = owner;
+    group.setAttribute("aria-label", `${ownerName(owner)}: ${money(subtotal.assetTotal)} assets, ${money(subtotal.debtTotal)} debt, ${money(subtotal.netWorth)} net`);
+    const header = make("div", "owner-cluster-heading");
+    header.append(make("h2", "owner-cluster-title", ownerName(owner)));
+    header.append(make("strong", "owner-cluster-net", money(subtotal.netWorth)));
+    header.append(make("span", "owner-cluster-detail", `net · ${subtotal.assetCount} asset${subtotal.assetCount === 1 ? "" : "s"}${subtotal.debtCount ? ` · ${subtotal.debtCount} debt${subtotal.debtCount === 1 ? "" : "s"}` : ""}`));
+    const nodes = make("div", "owner-nodes");
+    for (const { type, item } of entries) {
+      const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
+      const value = type === "asset" ? item.value : item.balance;
+      const context = type === "asset" ? assetContext(item) : debtContext(item);
+      const button = make("button", `orbit-card orbit-${type} orbit-owner-${owner}`);
+      button.type = "button";
+      button.dataset.orbitType = type;
+      button.dataset.orbitId = item.id;
+      button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
+      const pictogram = make("span", "orbit-icon");
+      pictogram.append(icon(item.kind));
+      const words = make("span", "orbit-words");
+      words.append(make("span", "orbit-name", itemName(item, types)));
+      words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
+      button.append(pictogram, words);
+      nodes.append(button);
+    }
+    if (!entries.length) nodes.append(make("p", "orbit-empty", owner === "primary" ? "Add an asset or debt below to begin." : "No items yet."));
+    group.append(header, nodes, make("span", "flow-arrow", "→"));
+    container.append(group);
   }
-  for (const debt of draft.debts) {
-    const start = coordinates.get(debt.id);
-    const end = coordinates.get(debt.linkedAssetId);
-    if (start && end) lines.append(svgLine(start.x, start.y, end.x, end.y, "constellation-link"));
-  }
-  if (!items.length) container.append(make("p", "orbit-empty", "Your picture starts with a plus. Add an asset or a debt below."));
 }
 
 function renderAsset(asset, group, summary) {
@@ -271,13 +262,9 @@ function render() {
   $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
   $("snapshot-description").textContent = `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap a point to see or change its details.`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
-  $("primary-legend").textContent = draft.name;
-  $("partner-legend").textContent = draft.partnerName || "Partner";
-  $("partner-legend-item").hidden = !draft.partnerName?.trim();
-  $("shared-legend-item").hidden = !draft.partnerName?.trim();
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
-  renderOrbit();
+  renderOrbit(summary);
   renderList("asset-list", draft.assets, assetGroups, summary, "asset");
   renderList("debt-list", draft.debts, debtGroups, summary, "debt");
   $("link-tip").hidden = !(draft.debts.some((debt) => debt.kind === "mortgage") && draft.assets.some((asset) => ["home", "other-property"].includes(asset.kind)));
@@ -503,19 +490,15 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("asset-list").replaceChildren();
   $("debt-list").replaceChildren();
   $("orbit-items").replaceChildren();
-  $("constellation-lines").replaceChildren();
   $("item-linked-asset").replaceChildren();
   $("item-kind").replaceChildren();
   $("item-owner").replaceChildren();
   $("asset-total").textContent = "£0";
   $("debt-total").textContent = "£0";
   $("net-worth").textContent = "£0";
-  $("net-worth-echo").textContent = "£0";
   $("asset-count").textContent = "Nothing entered yet";
   $("debt-count").textContent = "Nothing entered yet";
   $("person-heading").textContent = "Your";
-  $("primary-legend").textContent = "You";
-  $("partner-legend").textContent = "Partner";
   $("example-badge").textContent = "Your money picture";
   $("snapshot-description").textContent = "A snapshot from what you’ve entered. Add or change a piece whenever you like.";
   $("canvas-screen").hidden = true;

@@ -2,7 +2,7 @@
 
 A retirement decision workspace for people considering retirement, reduced work or a change in spending.
 
-**Current status:** working research prototypes. The [asset picture](prototype/asset-canvas.html) opens with an editable fictional household example for Alex, age 43, and Gemma. A central net worth is connected to compact asset and debt points, colour coded for Alex, Gemma or shared ownership; visitors can also start with a blank picture. The existing workspace organises information and uses three separately labelled fictional examples for scenario comparisons. Personal retirement forecasts, accounts and payments are not connected.
+**Current status:** working research prototypes. The [asset picture](prototype/asset-canvas.html) opens with an editable fictional household example for Alex, age 43, and Gemma. A light canvas groups compact, tappable asset and debt points under Alex, Gemma and Shared, then brings their subtotals into one household summary of assets, debt and net worth. Visitors can also start with a blank picture. The existing workspace organises information and uses three separately labelled fictional examples for scenario comparisons. Personal retirement forecasts, accounts and payments are not connected.
 
 ## What you can try
 

@@ -221,91 +221,79 @@ h2 { margin: 6px 0 0; font-family: Georgia, "Times New Roman", serif; font-size:
   .button:hover { transform: translateY(-1px); }
 }
 
-/* A connected, compact household picture. Ownership is colour coded. */
+/* Three ownership streams feed a single household summary. */
 .canvas-screen { padding-top: 32px; }
 .canvas-heading h1 { font-size: clamp(2.25rem, 4vw, 3.65rem); }
-.picture-panel { position: relative; margin-top: 24px; padding: 24px 30px 22px; border: 1px solid #2e4f58; border-radius: 24px; color: #f2f7f5; background: radial-gradient(circle at 50% 48%, #21444a 0, #122e37 40%, #0d242d 100%); box-shadow: 0 20px 45px rgba(12,39,43,.16); overflow: hidden; }
-.picture-panel::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55; background-image: radial-gradient(circle at 11% 21%, #a6d1c8 0 1px, transparent 2px), radial-gradient(circle at 78% 13%, #a6d1c8 0 1px, transparent 2px), radial-gradient(circle at 69% 76%, #a6d1c8 0 1px, transparent 2px), radial-gradient(circle at 29% 63%, #a6d1c8 0 1px, transparent 2px); }
-.picture-top,.owner-legend,.picture-equation,.picture-actions { position: relative; z-index: 2; }
-.picture-top { display: flex; justify-content: space-between; gap: 12px; color: #a6c5c2; font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
+.picture-panel { margin-top: 24px; padding: 24px 28px 22px; border: 1px solid #cadbd0; border-radius: 24px; background: linear-gradient(145deg,#f5f9f4,#eaf3ed); box-shadow: 0 18px 42px rgba(36,74,58,.08); }
+.picture-top { display: flex; justify-content: space-between; gap: 12px; color: #4e7565; font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
 .picture-top span:last-child { font-weight: 600; letter-spacing: .015em; }
-.owner-legend { display: flex; gap: 9px 22px; flex-wrap: wrap; margin-top: 13px; color: #e3eee9; font-size: .74rem; }
-.owner-legend > span { display: inline-flex; align-items: center; gap: 7px; }
-.owner-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9dd9c1; }
-.owner-legend .legend-partner i { background: #cbb9ef; }
-.owner-legend .legend-shared i { background: #f2c979; }
-.owner-legend .legend-debt i { background: #f1a68b; }
-.constellation { position: relative; height: 600px; max-width: 1180px; margin: -8px auto -6px; isolation: isolate; }
-.constellation::before,.constellation::after { content: ""; position: absolute; pointer-events: none; border: 1px solid rgba(154,193,189,.09); border-radius: 50%; }
-.constellation::before { inset: 12% 7%; }
-.constellation::after { inset: 28% 30%; }
-.constellation-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.constellation-ray { stroke: rgba(157,217,193,.27); stroke-width: 1.15; stroke-dasharray: 3 6; }
-.ray-partner { stroke: rgba(203,185,239,.32); }
-.ray-shared { stroke: rgba(242,201,121,.42); }
-.constellation-link { stroke: #f2c979; stroke-width: 2; stroke-dasharray: 5 4; opacity: .82; }
-.constellation-centre { position: absolute; z-index: 2; left: 50%; top: 50%; display: flex; width: 218px; height: 218px; transform: translate(-50%,-50%); flex-direction: column; justify-content: center; align-items: center; gap: 7px; padding: 19px; border: 1px solid #8ec9b5; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #37716c, #235653 58%, #164344); box-shadow: 0 0 0 9px rgba(157,217,193,.055), 0 0 36px rgba(157,217,193,.16); text-align: center; }
-.centre-kicker { color: #d6f3e4; font-size: .55rem; font-weight: 850; letter-spacing: .115em; }
-.constellation-centre strong { display: block; max-width: 100%; color: white; font-size: clamp(1.55rem,2.5vw,2rem); line-height: 1.1; letter-spacing: -.055em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.centre-detail { max-width: 170px; color: #d6eee3; font-size: .59rem; line-height: 1.25; }
-.orbit-items { display: contents; }
-.orbit-card { position: absolute; z-index: 3; left: var(--x); top: var(--y); display: flex; width: 116px; min-height: 118px; transform: translate(-50%,-27px); flex-direction: column; align-items: center; gap: 3px; padding: 0; border: 0; border-radius: 12px; background: none; color: white; text-align: center; }
-.orbit-icon { flex: none; display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid #9dd9c1; border-radius: 50%; background: #235e55; color: #c9f0dd; box-shadow: 0 0 0 5px rgba(157,217,193,.08), 0 5px 17px rgba(3,20,24,.18); }
-.orbit-owner-partner .orbit-icon { border-color: #cbb9ef; background: #4d436f; color: #eee3ff; box-shadow: 0 0 0 5px rgba(203,185,239,.09), 0 5px 17px rgba(3,20,24,.18); }
-.orbit-owner-shared .orbit-icon { border-color: #f2c979; background: #715732; color: #fff0c2; box-shadow: 0 0 0 5px rgba(242,201,121,.09), 0 5px 17px rgba(3,20,24,.18); }
-.orbit-debt .orbit-icon { border-color: #f1a68b; background: #754637; color: #ffe1d4; }
-.orbit-icon svg { width: 27px; height: 27px; }
-.orbit-words { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 1px; text-shadow: 0 1px 4px #102a32; }
-.orbit-owner { color: #a6ddc5; font-size: .55rem; font-weight: 800; letter-spacing: .095em; line-height: 1.1; text-transform: uppercase; }
-.orbit-owner-partner .orbit-owner { color: #d9cafa; }
-.orbit-owner-shared .orbit-owner { color: #f2d392; }
-.orbit-name { max-width: 100%; font-size: .68rem; font-weight: 650; line-height: 1.12; overflow-wrap: anywhere; }
-.orbit-value { max-width: 100%; margin-top: 1px; color: white; font-size: .86rem; font-weight: 850; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.orbit-debt .orbit-value { color: #ffb79f; }
-.orbit-card:hover .orbit-icon,.orbit-card:focus-visible .orbit-icon { transform: scale(1.12); box-shadow: 0 0 0 7px rgba(157,217,193,.17), 0 0 25px rgba(157,217,193,.33); }
-.orbit-empty { color: #d8e7e4; text-align: center; }
-.picture-equation { display: flex; justify-content: center; align-items: baseline; gap: 9px; flex-wrap: wrap; margin: 0 0 14px; color: #b9d2cd; font-size: .7rem; }
-.picture-equation strong { margin-left: 4px; color: white; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.constellation { display: grid; grid-template-columns: minmax(0,1fr) 306px; gap: 46px; align-items: stretch; margin: 20px 0 8px; }
+.orbit-items { display: grid; align-content: center; }
+.owner-cluster { --owner-accent: #267763; --owner-light: #dceee4; position: relative; display: grid; grid-template-columns: 148px minmax(0,1fr); gap: 12px; align-items: center; min-width: 0; min-height: 126px; padding: 13px 6px 13px 14px; border-bottom: 1px solid #d2ded4; border-left: 3px solid var(--owner-accent); border-radius: 5px 0 0 5px; }
+.owner-cluster:last-child { border-bottom-color: transparent; }
+.owner-cluster-partner { --owner-accent: #74549b; --owner-light: #ece6f4; }
+.owner-cluster-shared { --owner-accent: #a4742e; --owner-light: #f5e9cf; }
+.owner-cluster-heading { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.owner-cluster-title { margin: 0 0 3px; color: var(--owner-accent); font: 500 1.2rem/1.1 Georgia,serif; letter-spacing: -.03em; overflow-wrap: anywhere; }
+.owner-cluster-net { font-size: 1.08rem; line-height: 1.15; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.owner-cluster-detail { color: var(--muted); font-size: .68rem; line-height: 1.25; }
+.owner-nodes { display: flex; min-width: 0; justify-content: flex-start; align-items: flex-start; flex-wrap: wrap; gap: 7px 2px; }
+.orbit-card { display: flex; flex: 0 0 88px; min-width: 0; min-height: 98px; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); text-align: center; }
+.orbit-icon { flex: none; display: grid; width: 43px; height: 43px; place-items: center; border: 1.5px solid var(--owner-accent); border-radius: 50%; background: var(--owner-light); color: var(--owner-accent); box-shadow: 0 0 0 4px rgba(255,255,255,.52); }
+.orbit-debt .orbit-icon { border-color: #b4563d; background: #f9e0d8; color: #a7412a; }
+.orbit-icon svg { width: 23px; height: 23px; }
+.orbit-words { display: flex; width: 100%; min-width: 0; flex-direction: column; align-items: center; gap: 1px; }
+.orbit-name { max-width: 100%; font-size: .61rem; font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; }
+.orbit-value { max-width: 100%; color: #1c3432; font-size: .75rem; font-weight: 850; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.orbit-debt .orbit-value { color: #aa412b; }
+.orbit-card:hover .orbit-icon,.orbit-card:focus-visible .orbit-icon { transform: translateY(-3px) scale(1.08); box-shadow: 0 0 0 6px rgba(38,119,99,.13); }
+.orbit-empty { margin: 0; padding: 14px; color: var(--muted); font-size: .8rem; }
+.flow-arrow { position: absolute; top: calc(50% - 14px); right: -37px; color: var(--owner-accent); font-size: 1.35rem; line-height: 1; }
+.owner-cluster::after { content: ""; position: absolute; left: 100%; top: 50%; width: 26px; border-top: 1px dashed var(--owner-accent); opacity: .55; }
+.constellation-centre { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 13px; padding: 27px 23px; border: 1px solid #c2d6c8; border-radius: 20px; background: #fcfdf9; box-shadow: 0 12px 28px rgba(37,82,61,.07); }
+.centre-kicker { color: #4b735f; font-size: .68rem; font-weight: 850; letter-spacing: .12em; }
+.summary-row { display: flex; justify-content: space-between; align-items: baseline; gap: 9px; padding-bottom: 12px; border-bottom: 1px solid #dae4dc; color: #526660; font-size: .8rem; }
+.summary-row strong { color: #1d3833; font-size: 1.35rem; line-height: 1.1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.summary-debt strong { color: #a84b33; }
+.summary-net { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding: 18px 14px; border-radius: 15px; background: #deeee4; }
+.summary-net span { color: #386453; font-size: .73rem; font-weight: 750; }
+.summary-net strong { max-width: 100%; color: #145844; font-size: clamp(1.8rem,2.5vw,2.3rem); line-height: 1.05; letter-spacing: -.06em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.centre-detail { color: #566b60; font-size: .66rem; line-height: 1.3; }
+.picture-equation { margin: 8px 0 17px; color: #52685c; font-size: .72rem; text-align: center; }
 .picture-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.picture-actions .button { min-width: 138px; min-height: 44px; padding: 6px 14px; border-color: #91c5b2; border-radius: 22px; background: rgba(141,205,183,.09); color: #dcf4e8; }
-.picture-actions .button-add-debt { border-color: #e9a38b; background: rgba(233,163,139,.09); color: #ffcfbc; }
-.picture-actions .button:hover { background: rgba(141,205,183,.2); }
-.picture-actions .button-add-debt:hover { background: rgba(233,163,139,.2); }
+.picture-actions .button { min-width: 135px; min-height: 44px; padding: 6px 14px; border-color: #348368; border-radius: 22px; background: #fafff9; color: #216a52; }
+.picture-actions .button-add-debt { border-color: #bc6a50; background: #fff9f5; color: #a44930; }
+.picture-actions .button:hover { background: #dcefe3; }
+.picture-actions .button-add-debt:hover { background: #f9e3db; }
 .list-disclosure { margin-top: 18px; }
 .list-disclosure > summary { cursor: pointer; padding: 14px 18px; border: 1px solid var(--line); border-radius: 13px; background: white; font-weight: 750; color: var(--green); }
 .list-disclosure[open] > summary { margin-bottom: 16px; }
 .list-disclosure .ledger-panel { box-shadow: none; }
 .list-disclosure .entry-list { margin-top: 20px; }
 .snapshot-caveat { margin: 16px 2px 22px; }
-@media (max-width: 800px) {
-  .constellation,.constellation.orbit-grid { display: block; height: auto; min-height: 0; margin: 0 auto; padding: 30px 0 14px; }
-  .constellation::before,.constellation::after,.constellation-lines { display: none; }
-  .constellation-centre,.orbit-grid .constellation-centre { position: relative; left: auto; top: auto; width: 190px; height: 190px; transform: none; margin: 0 auto 28px; }
-  .orbit-items,.orbit-grid .orbit-items { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px 3px; }
-  .orbit-card,.orbit-grid .orbit-card { position: relative; left: auto; top: auto; width: 100%; min-height: 116px; transform: none; }
-  .orbit-empty { grid-column: 1 / -1; }
+@media (max-width: 1120px) {
+  .constellation { grid-template-columns: 1fr; gap: 12px; }
+  .owner-cluster { grid-template-columns: 150px minmax(0,1fr); }
+  .owner-cluster::after,.flow-arrow { display: none; }
+  .orbit-items::after { content: "Together ↓"; justify-self: center; padding: 13px 0 3px; color: #4b735f; font-size: .72rem; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+  .constellation-centre { max-width: 100%; gap: 10px; }
 }
-@media (min-width: 801px) {
-  .constellation.orbit-grid { display: flex; height: auto; min-height: 350px; flex-direction: column; align-items: center; padding: 30px 0; }
-  .orbit-grid::before,.orbit-grid::after,.orbit-grid .constellation-lines { display: none; }
-  .orbit-grid .constellation-centre { position: relative; left: auto; top: auto; transform: none; margin-bottom: 26px; }
-  .orbit-grid .orbit-items { display: grid; width: 100%; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 18px 4px; }
-  .orbit-grid .orbit-card { position: relative; left: auto; top: auto; width: 100%; transform: none; }
-}
-@media (max-width: 560px) {
-  .picture-panel { padding: 18px 10px; border-radius: 18px; }
-  .picture-top { padding: 0 3px; font-size: .58rem; }
-  .owner-legend { padding: 0 3px; gap: 7px 12px; font-size: .66rem; }
-  .orbit-items,.orbit-grid .orbit-items { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px 3px; }
-  .orbit-card,.orbit-grid .orbit-card { min-height: 115px; }
-  .orbit-icon { width: 47px; height: 47px; }
-  .orbit-icon svg { width: 24px; height: 24px; }
-  .orbit-name { font-size: .67rem; }
-  .orbit-value { font-size: .82rem; }
-  .picture-equation { gap: 5px; font-size: .6rem; }
-  .picture-equation strong { font-size: .7rem; }
+@media (max-width: 620px) {
+  .picture-panel { padding: 17px 12px; border-radius: 18px; }
+  .picture-top { font-size: .58rem; }
+  .owner-cluster { display: block; min-height: 0; padding: 13px 4px 10px 9px; }
+  .owner-cluster-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1px 8px; align-items: baseline; margin-bottom: 8px; }
+  .owner-cluster-title { grid-row: 1 / 3; font-size: 1.15rem; }
+  .owner-cluster-net { font-size: .98rem; text-align: right; }
+  .owner-cluster-detail { text-align: right; }
+  .owner-nodes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px 1px; }
+  .orbit-card { width: 100%; min-height: 100px; }
+  .orbit-name { font-size: .66rem; }
+  .orbit-value { font-size: .79rem; }
+  .constellation-centre { padding: 20px; }
+  .summary-net strong { font-size: 2rem; }
   .picture-actions .button { min-width: 0; flex: 1; }
 }
 @media (max-width: 430px) { .canvas-heading-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px 8px; } .canvas-heading-actions .text-button { text-align: left; font-size: .78rem; } }
-@media (max-width: 340px) { .orbit-name { font-size: .64rem; } .orbit-value { font-size: .78rem; } }
+@media (max-width: 340px) { .orbit-name { font-size: .62rem; } .orbit-value { font-size: .75rem; } .summary-net strong { font-size: 1.8rem; } }
 @media (prefers-reduced-motion: no-preference) { .orbit-icon { transition: transform .18s ease,box-shadow .18s ease; } }

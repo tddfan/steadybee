@@ -65,18 +65,18 @@
           </div>
 
           <section class="picture-panel" aria-label="Interactive picture of assets and debts">
-            <div class="picture-top"><span>HOUSEHOLD CONSTELLATION</span><span>Tap a point to edit</span></div>
-            <div class="owner-legend" aria-label="Ownership colours"><span class="legend-primary"><i aria-hidden="true"></i><span id="primary-legend">Alex</span></span><span id="partner-legend-item" class="legend-partner"><i aria-hidden="true"></i><span id="partner-legend">Gemma</span></span><span id="shared-legend-item" class="legend-shared"><i aria-hidden="true"></i>Shared</span><span class="legend-debt"><i aria-hidden="true"></i>Debt</span></div>
+            <div class="picture-top"><span>YOUR HOUSEHOLD, TOGETHER</span><span>Tap any point to edit it</span></div>
             <div id="constellation" class="constellation">
-              <svg id="constellation-lines" class="constellation-lines" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true"></svg>
-              <div class="constellation-centre">
-                <span class="centre-kicker">HOUSEHOLD NET WORTH</span>
-                <strong id="net-worth">£0</strong>
+              <div id="orbit-items" class="orbit-items"></div>
+              <div class="constellation-centre" aria-label="Combined household totals">
+                <span class="centre-kicker">THE COMPLETE PICTURE</span>
+                <div class="summary-row"><span>Total assets</span><strong id="asset-total">£0</strong></div>
+                <div class="summary-row summary-debt"><span>Total debt</span><strong id="debt-total">£0</strong></div>
+                <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong></div>
                 <span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span>
               </div>
-              <div id="orbit-items" class="orbit-items"></div>
             </div>
-            <p class="picture-equation"><span>Assets <strong id="asset-total">£0</strong></span><span aria-hidden="true">−</span><span>Debts <strong id="debt-total">£0</strong></span><span aria-hidden="true">=</span><span>Net worth <strong id="net-worth-echo">£0</strong></span></p>
+            <p class="picture-equation">Each item sits with its owner. Shared items count once in the household total.</p>
             <div class="picture-actions"><button id="add-asset-button" class="button button-add" type="button"><span aria-hidden="true">＋</span> Add asset</button><button id="add-debt-button" class="button button-add button-add-debt" type="button"><span aria-hidden="true">＋</span> Add debt</button></div>
           </section>
           <p class="snapshot-caveat">Today’s values only. Rent and interest rates are shown as details, not added to net worth. Property and pensions are included in net worth but may not be available to spend.</p>
