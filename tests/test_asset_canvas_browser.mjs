@@ -222,7 +222,7 @@ test("clear removes entered details, and the canvas fits a narrow phone", async 
   await p.close();
 });
 
-test("Alex and Gemma's opening constellation is editable and reconciles shared values once", async () => {
+test("Alex and Gemma's owner sections are editable and reconcile shared values once", async () => {
   const p = await page();
   assert.equal(await displayedAmount(p, "#asset-total"), 2525000);
   assert.equal(await displayedAmount(p, "#debt-total"), 380000);
@@ -233,7 +233,8 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
   assert.match(await p.locator('[data-owner-group="partner"]').innerText(), /Gemma[\s\S]*£520,000/);
   assert.match(await p.locator('[data-owner-group="shared"]').innerText(), /Shared[\s\S]*£400,000/);
   assert.match(await p.locator('[data-owner-group="shared"] .linked-pair-note').innerText(), /Main home £780k − £380k debt[\s\S]*£400k equity/);
-  assert.deepEqual(await p.locator('[data-owner-group="shared"] [data-bucket]').evaluateAll((cells) => cells.map((cell) => cell.dataset.bucket)), ["accessible", "pension", "illiquid", "debt", "review"]);
+  assert.deepEqual(await p.locator('[data-owner-group="shared"] [data-bucket]').evaluateAll((cells) => cells.map((cell) => cell.dataset.bucket)), ["illiquid", "debt"]);
+  assert.deepEqual(await p.locator('[data-owner-group="partner"] [data-bucket]').evaluateAll((cells) => cells.map((cell) => cell.dataset.bucket)), ["accessible", "pension"]);
   const hierarchy = await p.evaluate(() => document.querySelector('.constellation-centre').getBoundingClientRect().bottom < document.querySelector('.picture-panel').getBoundingClientRect().top);
   assert.equal(hierarchy, true, "The household summary leads the grid");
   assert.equal(await displayedAmount(p, "#accessible-total"), 690000);
@@ -328,7 +329,7 @@ test("a large entered total stays inside the household summary", async () => {
   await p.close();
 });
 
-test("quick add and access review update the matrix without changing net worth", async () => {
+test("quick add and access review update the household picture without changing net worth", async () => {
   const p = await page();
   assert.match(await p.locator('#access-review-count').innerText(), /3 access details/);
   await p.locator('#access-review summary').click();

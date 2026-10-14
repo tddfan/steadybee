@@ -176,21 +176,28 @@ function renderOrbit(summary) {
     group.dataset.ownerGroup = owner;
     group.setAttribute("aria-label", `${ownerName(owner)}: ${money(subtotal.assetTotal)} assets, ${money(subtotal.debtTotal)} debt, ${money(subtotal.netWorth)} net`);
     const header = make("div", "owner-cluster-heading");
+    const avatar = make("span", "owner-avatar", owner === "shared" ? "∞" : ownerName(owner).trim().charAt(0).toUpperCase());
+    avatar.setAttribute("aria-hidden", "true");
+    header.append(avatar);
     header.append(make("h2", "owner-cluster-title", ownerName(owner)));
-    header.append(make("strong", "owner-cluster-net", money(subtotal.netWorth)));
     header.append(make("span", "owner-cluster-detail", `${subtotal.assetCount} asset${subtotal.assetCount === 1 ? "" : "s"}${subtotal.debtCount ? ` · ${subtotal.debtCount} debt${subtotal.debtCount === 1 ? "" : "s"}` : ""}`));
     const add = make("button", "owner-add", "＋ Add");
     add.type = "button";
     add.dataset.addOwner = owner;
     add.setAttribute("aria-label", `Add an asset or debt for ${ownerName(owner)}`);
     header.append(add);
-    const cells = ["accessible", "pension", "illiquid", "debt", "review"].map((bucket) => {
+    const balance = make("div", "owner-balance");
+    balance.append(make("span", "", "Net today"), make("strong", "owner-cluster-net", money(subtotal.netWorth)));
+    const cells = ["accessible", "pension", "illiquid", "debt", "review"].flatMap((bucket) => {
       const cell = make("div", `bucket-cell bucket-${bucket}`);
       cell.dataset.bucket = bucket;
       const members = bucket === "debt" ? debts.map((item) => ({ type: "debt", item })) : assets.filter((item) => accessBucket(item) === bucket).map((item) => ({ type: "asset", item }));
+      if (!members.length) return [];
       const total = members.reduce((sum, { type, item }) => sum + (type === "debt" ? item.balance : item.value), 0);
-      cell.append(make("span", "bucket-mobile-label", { accessible: "Accessible", pension: "Pensions", illiquid: "Property & things", review: "Check access", debt: "Debts" }[bucket]));
-      if (members.length) cell.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
+      const heading = make("div", "bucket-heading");
+      heading.append(make("span", "bucket-mobile-label", { accessible: "Available now", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm", debt: "Borrowing" }[bucket]));
+      if (members.length > 1) heading.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
+      cell.append(heading);
       const nodes = make("div", "owner-nodes");
       for (const { type, item } of members) {
         const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
@@ -211,17 +218,16 @@ function renderOrbit(summary) {
         }
         const words = make("span", "orbit-words");
         words.append(make("span", "orbit-name", itemName(item, types)));
-        words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
         if (item.confidence === "review") words.append(make("span", "orbit-confidence", "Needs review"));
         if (type === "asset" && item.pensionAccessAge) words.append(make("span", "orbit-confidence", `Age ${item.pensionAccessAge}`));
-        button.append(pictogram, words);
+        button.append(pictogram, words, make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
         nodes.append(button);
       }
-      if (!members.length) nodes.append(make("span", "orbit-empty", "—"));
       cell.append(nodes);
       return cell;
     });
-    group.append(header, ...cells, make("strong", "owner-net-cell", money(subtotal.netWorth)));
+    group.append(header, balance, ...cells);
+    if (!assets.length && !debts.length) group.append(make("p", "owner-empty", "Start with one thing you own or owe. Use + Add above."));
     for (const asset of assets) {
       const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
       if (equity?.linkedDebtTotal) {
@@ -232,6 +238,8 @@ function renderOrbit(summary) {
     }
     container.append(group);
   }
+  container.classList.toggle("single-owner", !draft.partnerName?.trim());
+  document.querySelector(".picture-top > span").textContent = draft.partnerName?.trim() ? "YOUR HOUSEHOLD · THREE PARTS, ONE PICTURE" : "YOUR ASSETS & DEBTS";
 }
 
 function renderAsset(asset, group, summary) {
