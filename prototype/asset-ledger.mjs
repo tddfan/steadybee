@@ -37,6 +37,25 @@ export function createBlankDraft() {
   return { name: "", age: null, assets: [], debts: [] };
 }
 
+/** Fictional, editable opening example. Values are pounds at today's prices. */
+export function createAlexExample() {
+  return {
+    name: "Alex", age: 43,
+    assets: [
+      { id: "alex-home", kind: "home", label: "Main home", value: 780_000 },
+      { id: "alex-gurgaon", kind: "other-property", label: "Gurgaon", value: 200_000, monthlyRent: 100 },
+      { id: "alex-pension", kind: "dc-pension", label: "Pension", value: 490_000, investmentLabel: "S&P" },
+      { id: "alex-isa", kind: "isa", label: "ISA investment", value: 230_000 },
+      { id: "alex-cash", kind: "cash", label: "Cash in account", value: 160_000, interestRate: 4 },
+      { id: "alex-car", kind: "car", label: "Car", value: 15_000 },
+      { id: "alex-property", kind: "other-property", label: "Other property", value: 30_000 },
+    ],
+    debts: [
+      { id: "alex-mortgage", kind: "mortgage", label: "Main home mortgage", balance: 380_000, interestRate: 4.7, linkedAssetId: "alex-home" },
+    ],
+  };
+}
+
 export function createId(prefix = "item") {
   const safePrefix = /^[a-z][a-z0-9-]*$/i.test(prefix) ? prefix : "item";
   return `${safePrefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${++idSequence}`}`;
@@ -98,6 +117,16 @@ export function validateDraft(draft) {
       error(`${path}.kind`, "Choose a listed asset type.");
     if (!isMoney(asset.value))
       error(`${path}.value`, "Enter a finite amount from £0 to £100 billion, to the penny.");
+    if (!isBlank(asset.monthlyRent) &&
+      (!isMoney(asset.monthlyRent) || !["home", "other-property"].includes(asset.kind)))
+      error(`${path}.monthlyRent`, "Enter monthly rent for a property, from £0 to £100 billion.");
+    if (!isBlank(asset.interestRate) &&
+      (asset.kind !== "cash" || typeof asset.interestRate !== "number" ||
+        !Number.isFinite(asset.interestRate) || asset.interestRate < 0 || asset.interestRate > 100))
+      error(`${path}.interestRate`, "Enter a current cash rate from 0% to 100%.");
+    if (!isBlank(asset.investmentLabel) &&
+      (!["isa", "dc-pension"].includes(asset.kind) || typeof asset.investmentLabel !== "string" || asset.investmentLabel.length > 80))
+      error(`${path}.investmentLabel`, "Use an investment description of at most 80 characters for an ISA or pension.");
   });
 
   debts.forEach((debt, index) => {

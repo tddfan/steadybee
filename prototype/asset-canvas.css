@@ -220,3 +220,70 @@ h2 { margin: 6px 0 0; font-family: Georgia, "Times New Roman", serif; font-size:
   .button, .icon-button, .entry-card { transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease; }
   .button:hover { transform: translateY(-1px); }
 }
+
+/* The example opens as a picture: each item is its own keyboard-accessible edit button. */
+.picture-panel { margin-top: 30px; padding: 24px; border: 1px solid #c8d9ce; border-radius: 28px; background: radial-gradient(circle at 50% 50%, #f0f7ee 0 18%, #e7f0e9 60%, #e0ebdf 100%); box-shadow: var(--shadow); }
+.picture-top { display: flex; justify-content: space-between; gap: 15px; color: #456b5b; font-size: .8rem; font-weight: 800; letter-spacing: .09em; }
+.picture-top span:last-child { letter-spacing: 0; font-weight: 650; }
+.constellation { display: grid; grid-template-columns: minmax(0,1fr) minmax(290px,1.3fr) minmax(0,1fr); grid-template-rows: 138px 270px 138px; gap: 12px 28px; align-items: center; margin: 20px 0 28px; padding: 18px; border-radius: 50%; background: radial-gradient(circle, transparent 0 26%, rgba(62,117,90,.18) 26.1% 26.25%, transparent 26.4% 52%, rgba(62,117,90,.13) 52.1% 52.25%, transparent 52.4%); }
+.constellation-centre { position: relative; z-index: 1; grid-column: 2; grid-row: 2; display: flex; width: min(100%,270px); aspect-ratio: 1; justify-self: center; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border: 1px solid #2d584d; border-radius: 50%; background: #193c38; color: white; text-align: center; box-shadow: 0 17px 35px rgba(25,60,56,.2); }
+.centre-kicker { font-size: .72rem; font-weight: 850; letter-spacing: .12em; color: #b5dbca; }
+.constellation-centre strong { display: block; margin: 7px 0; font-size: clamp(2.15rem,3vw,2.8rem); line-height: 1.1; letter-spacing: -.055em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.centre-formula,.centre-detail { font-size: .77rem; color: #d5e6df; }
+.centre-detail { margin-top: 6px; color: #b5dbca; }
+.orbit-items { display: contents; }
+.orbit-card { position: relative; z-index: 2; display: flex; width: 100%; min-width: 0; min-height: 136px; align-items: center; gap: 10px; padding: 15px; border: 1px solid #bdd5c4; border-radius: 20px; background: #fffefa; color: var(--ink); text-align: left; box-shadow: 0 8px 19px rgba(38,66,53,.07); }
+.orbit-card:hover { transform: translateY(-3px); box-shadow: 0 15px 28px rgba(38,66,53,.15); }
+.orbit-debt { border-color: #e4b59f; background: #fff4eb; }
+.orbit-icon { flex: none; display: grid; width: 46px; height: 46px; place-items: center; border-radius: 14px; background: #deeee5; color: #20664e; }
+.orbit-debt .orbit-icon { background: #f9d7c2; color: #a44928; }
+.orbit-icon svg { width: 27px; height: 27px; }
+.orbit-words { display: flex; min-width: 0; flex-direction: column; }
+.orbit-name { font-size: .81rem; font-weight: 800; line-height: 1.18; }
+.orbit-value { margin-top: 4px; font-size: 1.24rem; letter-spacing: -.045em; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.orbit-debt .orbit-value { color: #9d462d; }
+.orbit-context { margin-top: 6px; color: var(--muted); font-size: .71rem; line-height: 1.18; overflow-wrap: anywhere; }
+.orbit-card:nth-child(1) { grid-area: 1 / 1; }
+.orbit-card:nth-child(2) { grid-area: 1 / 2; }
+.orbit-card:nth-child(3) { grid-area: 1 / 3; }
+.orbit-card:nth-child(4) { grid-area: 2 / 1; }
+.orbit-card:nth-child(5) { grid-area: 2 / 3; }
+.orbit-card:nth-child(6) { grid-area: 3 / 1; }
+.orbit-card:nth-child(7) { grid-area: 3 / 2; }
+.orbit-card:nth-child(8) { grid-area: 3 / 3; }
+.orbit-grid { display: flex; flex-direction: column; border-radius: 28px; background: none; }
+.orbit-grid .constellation-centre { order: -1; width: min(100%,270px); }
+.orbit-grid .orbit-items { display: grid; width: 100%; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); gap: 12px; }
+.orbit-grid .orbit-card { grid-area: auto; }
+.orbit-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); }
+.picture-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.picture-actions .button { min-width: 160px; background: white; }
+.list-disclosure { margin-top: 18px; }
+.list-disclosure > summary { cursor: pointer; padding: 14px 18px; border: 1px solid var(--line); border-radius: 13px; background: white; font-weight: 750; color: var(--green); }
+.list-disclosure[open] > summary { margin-bottom: 16px; }
+.list-disclosure .ledger-panel { box-shadow: none; }
+.list-disclosure .entry-list { margin-top: 20px; }
+.snapshot-caveat { margin: 16px 2px 22px; }
+@media (max-width: 1050px) {
+  .constellation:not(.orbit-grid) { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: auto; gap: 12px; border-radius: 20px; background: none; }
+  .constellation:not(.orbit-grid) .constellation-centre { grid-column: 1 / -1; grid-row: 1; width: min(100%,340px); justify-self: center; order: -1; }
+  .constellation:not(.orbit-grid) .orbit-items { display: grid; grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+  .constellation:not(.orbit-grid) .orbit-card { grid-area: auto; }
+}
+@media (max-width: 620px) {
+  .picture-panel { padding: 16px 10px; border-radius: 20px; }
+  .picture-top { padding: 0 8px; }
+  .constellation:not(.orbit-grid),.orbit-grid { padding: 8px; }
+  .constellation:not(.orbit-grid) .orbit-items,.orbit-grid .orbit-items { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .orbit-card { min-height: 143px; flex-direction: column; align-items: flex-start; gap: 5px; padding: 11px; }
+  .orbit-icon { width: 36px; height: 36px; border-radius: 10px; }
+  .orbit-icon svg { width: 23px; height: 23px; }
+  .orbit-value { font-size: 1.12rem; }
+  .picture-actions .button { min-width: 0; flex: 1; }
+  .centre-kicker { font-size: .64rem; }
+  .centre-formula,.centre-detail { max-width: 200px; font-size: .67rem; line-height: 1.3; }
+  .centre-detail { margin-top: 3px; }
+}
+@media (max-width: 430px) { .canvas-heading-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px 8px; } .canvas-heading-actions .text-button { text-align: left; font-size: .78rem; } }
+@media (max-width: 360px) { .orbit-value { font-size: .99rem; } .orbit-name { font-size: .77rem; } .orbit-context { font-size: .69rem; } .constellation-centre { padding: 12px; } }
+@media (prefers-reduced-motion: no-preference) { .orbit-card { transition: transform .18s ease,box-shadow .18s ease; } }

@@ -2,6 +2,7 @@ import {
   ASSET_TYPES,
   DEBT_TYPES,
   createBlankDraft,
+  createAlexExample,
   createId,
   summarizeDraft,
   validateDraft,
@@ -31,7 +32,8 @@ const debtGroups = [
   { key: "other", title: "Other borrowing", barLabel: "Other debt", subtitle: "Loans and cards", kinds: ["loan", "credit-card", "other"], color: "#95603b" },
 ];
 
-let draft = createBlankDraft();
+let draft = createAlexExample();
+let mode = "example";
 let dialogType = null;
 let editingId = null;
 let draggedDebtId = null;
@@ -51,39 +53,75 @@ function setTotals() {
   return summary;
 }
 
-function renderComposition(id, items, field, groups) {
-  const box = $(id);
-  box.replaceChildren();
-  box.classList.toggle("is-empty", items.length === 0);
-  if (!items.length) {
-    box.setAttribute("aria-label", "Nothing entered yet");
-    box.append(make("span", "composition-empty", "Nothing entered yet"));
-    return;
+const iconPaths = {
+  home: "M3 10 12 3l9 7M5 9v12h14V9M9 21v-7h6v7",
+  "other-property": "M4 21V6l8-3 8 3v15M4 21h16M8 9h1m6 0h1M8 13h1m6 0h1M8 17h1m6 0h1",
+  cash: "M3 6h18v12H3zM12 9c-2 0-3 1-3 3s1 3 3 3 3-1 3-3-1-3-3-3ZM6 9h.01M18 15h.01",
+  isa: "M4 20h16M6 17l4-5 3 2 5-8M15 6h3v3",
+  "dc-pension": "M4 20h16M6 20V9l6-5 6 5v11M9 12h6M9 16h6",
+  car: "M4 16 6 9h12l2 7M4 16h16v3H4zM7 19v2m10-2v2M7 16h.01M17 16h.01",
+  mortgage: "M3 10 12 3l9 7M5 9v12h14V9M9 16h6M12 13v6",
+  loan: "M4 4h16v16H4zM8 9h8M8 13h8M8 17h5",
+  "credit-card": "M3 6h18v12H3zM3 10h18M7 15h4",
+  other: "M12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8",
+};
+function icon(kind) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", iconPaths[kind] || iconPaths.other);
+  svg.append(path);
+  return svg;
+}
+function assetContext(asset) {
+  const notes = [];
+  if (asset.monthlyRent !== undefined) notes.push(`${money(asset.monthlyRent)}/month rent`);
+  if (asset.interestRate !== undefined) notes.push(`${plain(asset.interestRate)}% cash rate`);
+  if (asset.investmentLabel) notes.push(`Invested in ${asset.investmentLabel}`);
+  return notes.join(" · ");
+}
+function debtContext(debt) {
+  const notes = [];
+  if (debt.interestRate !== undefined) notes.push(`${plain(debt.interestRate)}% mortgage rate`);
+  if (debt.remainingYears !== undefined) notes.push(`${plain(debt.remainingYears)} years left`);
+  return notes.join(" · ");
+}
+function renderOrbit() {
+  const container = $("orbit-items");
+  container.replaceChildren();
+  const items = [
+    ...draft.assets.flatMap((item) => [
+      { type: "asset", item },
+      ...draft.debts.filter((debt) => debt.linkedAssetId === item.id).map((debt) => ({ type: "debt", item: debt })),
+    ]),
+    ...draft.debts.filter((debt) => !draft.assets.some((asset) => asset.id === debt.linkedAssetId)).map((item) => ({ type: "debt", item })),
+  ];
+  $("constellation").classList.toggle("orbit-grid", items.length !== 8);
+  for (const { type, item } of items) {
+    const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
+    const value = type === "asset" ? item.value : item.balance;
+    const context = type === "asset" ? assetContext(item) : debtContext(item);
+    const button = make("button", `orbit-card orbit-${type}`);
+    button.type = "button";
+    button.dataset.orbitType = type;
+    button.dataset.orbitId = item.id;
+    button.setAttribute("aria-label", `Edit ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
+    const pictogram = make("span", "orbit-icon");
+    pictogram.append(icon(item.kind));
+    const words = make("span", "orbit-words");
+    words.append(make("span", "orbit-name", itemName(item, types)));
+    words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${money(value)}`));
+    if (context) words.append(make("span", "orbit-context", context));
+    button.append(pictogram, words);
+    container.append(button);
   }
-  const total = items.reduce((sum, item) => sum + item[field], 0);
-  if (total === 0) {
-    box.setAttribute("aria-label", "£0 entered so far");
-    box.append(make("span", "composition-empty", "£0 entered so far"));
-    return;
-  }
-  for (const group of groups) {
-    const value = items.filter((item) => group.kinds.includes(item.kind)).reduce((sum, item) => sum + item[field], 0);
-    if (value <= 0) continue;
-    const segment = make("span", "composition-segment");
-    segment.style.flexGrow = String(value);
-    segment.style.backgroundColor = group.color;
-    segment.title = `${group.title}: ${money(value)}`;
-    segment.setAttribute("aria-hidden", "true");
-    if (value / total >= 0.35) {
-      segment.append(make("span", "segment-label", group.barLabel));
-      segment.append(make("strong", "segment-value", money(value)));
-    }
-    box.append(segment);
-  }
-  box.setAttribute("aria-label", groups.map((group) => {
-    const value = items.filter((item) => group.kinds.includes(item.kind)).reduce((sum, item) => sum + item[field], 0);
-    return value ? `${group.title} ${money(value)}` : "";
-  }).filter(Boolean).join("; "));
+  if (!items.length) container.append(make("p", "orbit-empty", "Your picture starts with a plus. Add an asset or a debt below."));
 }
 
 function renderAsset(asset, group, summary) {
@@ -93,6 +131,7 @@ function renderAsset(asset, group, summary) {
   const details = make("div", "entry-details");
   details.append(make("p", "entry-name", itemName(asset, ASSET_TYPES)));
   details.append(make("p", "entry-meta", ASSET_TYPES[asset.kind].label));
+  if (assetContext(asset)) details.append(make("p", "entry-extra", assetContext(asset)));
   const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
   if (equity?.linkedDebtTotal > 0) {
     details.append(make("p", "entry-extra", `Equity after linked debt: ${money(equity.equity)}`));
@@ -192,9 +231,11 @@ function renderList(id, items, groups, summary, type) {
 function render() {
   const summary = setTotals();
   $("person-heading").textContent = `${draft.name.trim() || "Your"}’s`;
-  $("snapshot-description").textContent = `Age ${draft.age} · A snapshot from what you’ve entered. Add or change a piece whenever you like.`;
-  renderComposition("asset-visual", draft.assets, "value", assetGroups);
-  renderComposition("debt-visual", draft.debts, "balance", debtGroups);
+  $("snapshot-description").textContent = `Age ${draft.age} · ${mode === "example" ? "Explore Alex’s editable example." : "A snapshot from what you’ve entered."} Tap a piece to see or change its details.`;
+  $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
+  $("start-own-button").hidden = mode !== "example";
+  $("reset-example-button").hidden = mode !== "example";
+  renderOrbit();
   renderList("asset-list", draft.assets, assetGroups, summary, "asset");
   renderList("debt-list", draft.debts, debtGroups, summary, "debt");
   $("link-tip").hidden = !(draft.debts.some((debt) => debt.kind === "mortgage") && draft.assets.some((asset) => ["home", "other-property"].includes(asset.kind)));
@@ -224,6 +265,9 @@ function populateLinks(selected = "") {
 function updateDialogFields(selectedLink = "") {
   const mortgage = dialogType === "debt" && $("item-kind").value === "mortgage";
   $("mortgage-fields").hidden = !mortgage;
+  $("rent-field").hidden = dialogType !== "asset" || !["home", "other-property"].includes($("item-kind").value);
+  $("cash-rate-field").hidden = dialogType !== "asset" || $("item-kind").value !== "cash";
+  $("investment-field").hidden = dialogType !== "asset" || !["isa", "dc-pension"].includes($("item-kind").value);
   $("item-amount-label").textContent = dialogType === "asset" ? "What is it worth today?" : "How much is still owed?";
   $("item-amount-help").textContent = dialogType === "asset" ? "Use the current value, not what you originally paid." : "Enter the outstanding balance, not the original loan or monthly payment.";
   if (dialogType === "debt") populateLinks(selectedLink);
@@ -244,7 +288,10 @@ function showItemDialog(type, id = null, trigger = null) {
   populateKinds(type, item?.kind);
   $("item-label").value = item?.label || "";
   $("item-amount").value = item ? String(type === "asset" ? item.value : item.balance) : "";
-  $("item-interest-rate").value = item?.interestRate ?? "";
+  $("item-interest-rate").value = type === "debt" ? item?.interestRate ?? "" : "";
+  $("item-monthly-rent").value = item?.monthlyRent ?? "";
+  $("item-cash-rate").value = type === "asset" ? item?.interestRate ?? "" : "";
+  $("item-investment-label").value = item?.investmentLabel ?? "";
   $("item-remaining-years").value = item?.remainingYears ?? "";
   $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined);
   updateDialogFields(item?.linkedAssetId);
@@ -259,7 +306,13 @@ function itemFromForm() {
   if (!kind) throw new Error("Choose what kind of item this is.");
   if (!rawAmount) throw new Error(dialogType === "asset" ? "Enter its current value." : "Enter the balance still owed.");
   const amount = Number(rawAmount);
-  if (dialogType === "asset") return { id: editingId || createId("asset"), kind, label, value: amount };
+  if (dialogType === "asset") {
+    const asset = { id: editingId || createId("asset"), kind, label, value: amount };
+    if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
+    if (!$("cash-rate-field").hidden && $("item-cash-rate").value.trim()) asset.interestRate = Number($("item-cash-rate").value);
+    if (!$("investment-field").hidden && $("item-investment-label").value.trim()) asset.investmentLabel = $("item-investment-label").value.trim();
+    return asset;
+  }
   const debt = { id: editingId || createId("debt"), kind, label, balance: amount };
   if (kind === "mortgage") {
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
@@ -279,6 +332,7 @@ $("welcome-form").addEventListener("submit", (event) => {
   const validation = validateDraft(candidate);
   if (!validation.valid) { $("person-age").setCustomValidity(validation.errors[0].message); $("person-age").reportValidity(); return; }
   draft = candidate;
+  mode = "personal";
   $("welcome-screen").hidden = true;
   $("canvas-screen").hidden = false;
   render();
@@ -296,6 +350,10 @@ $("asset-list").addEventListener("click", (event) => {
 $("debt-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-edit-debt]");
   if (button) showItemDialog("debt", button.dataset.editDebt, button);
+});
+$("orbit-items").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-orbit-id]");
+  if (button) showItemDialog(button.dataset.orbitType, button.dataset.orbitId, button);
 });
 $("item-kind").addEventListener("change", () => updateDialogFields());
 $("close-item-button").addEventListener("click", () => $("item-dialog").close());
@@ -366,9 +424,18 @@ $("profile-form").addEventListener("submit", (event) => {
 for (const id of ["profile-name", "profile-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
 $("clear-button").addEventListener("click", () => $("clear-dialog").showModal());
+$("start-own-button").addEventListener("click", () => {
+  $("clear-dialog").showModal();
+});
+$("reset-example-button").addEventListener("click", () => {
+  draft = createAlexExample();
+  render();
+  announce("Alex’s fictional example has been reset.");
+});
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 $("confirm-clear-button").addEventListener("click", () => {
   draft = createBlankDraft();
+  mode = "personal";
   draggedDebtId = null;
   editingId = null;
   lastTrigger = null;
@@ -378,10 +445,7 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("item-form").reset();
   $("asset-list").replaceChildren();
   $("debt-list").replaceChildren();
-  $("asset-visual").replaceChildren();
-  $("debt-visual").replaceChildren();
-  $("asset-visual").removeAttribute("aria-label");
-  $("debt-visual").removeAttribute("aria-label");
+  $("orbit-items").replaceChildren();
   $("item-linked-asset").replaceChildren();
   $("item-kind").replaceChildren();
   $("asset-total").textContent = "£0";
@@ -390,9 +454,13 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("asset-count").textContent = "Nothing entered yet";
   $("debt-count").textContent = "Nothing entered yet";
   $("person-heading").textContent = "Your";
+  $("example-badge").textContent = "Your money picture";
   $("snapshot-description").textContent = "A snapshot from what you’ve entered. Add or change a piece whenever you like.";
   $("canvas-screen").hidden = true;
   $("welcome-screen").hidden = false;
   $("person-name").focus();
   announce("Your name, age, assets and debts have been cleared from this tab.");
 });
+
+render();
+$("canvas-screen").hidden = false;

@@ -2,11 +2,11 @@
 
 A retirement decision workspace for people considering retirement, reduced work or a change in spending.
 
-**Current status:** working research prototypes. A new [asset picture](prototype/asset-canvas.html) lets one person build a visual snapshot of assets, debts and net worth from their own entries. The existing workspace organises information and uses three separately labelled fictional examples for scenario comparisons. Personal retirement forecasts, accounts and payments are not connected.
+**Current status:** working research prototypes. The [asset picture](prototype/asset-canvas.html) opens with an editable fictional example for Alex, age 43. A central net worth is surrounded by tappable asset and debt cards; visitors can also start with a blank picture. The existing workspace organises information and uses three separately labelled fictional examples for scenario comparisons. Personal retirement forecasts, accounts and payments are not connected.
 
 ## What you can try
 
-- A one-person asset picture: enter a name and age, add/edit/remove assets and debts, link a debt to an asset, and see the composition and net worth of the items entered. Mortgage interest rate and remaining years can be recorded, but this snapshot does not project growth, repayment, income or spending. Entries stay in the open tab and can be cleared. Sentence entry and AI assistance are future experiments.
+- A one-person asset picture: explore or reset Alex’s fictional example, or enter a name and age to start blank. Add, edit or remove assets and debts by tapping their icons, and link a mortgage to a property. The example has £1,905,000 of assets, £380,000 mortgage debt and £1,525,000 net worth. Gurgaon rent (£100/month), mortgage rate (4.7%), cash rate (4%) and the pension’s S&P holding are editable details; they do not change today’s net worth. This snapshot does not project growth, repayment, income or spending. Entries stay in the open tab and can be cleared; a refresh restores only the fictional example. Sentence entry and AI assistance are future experiments.
 - An interactive full-retirement landing preview: annual spending coverage, separate savings/pension balances, early and later shortfalls, and planning endpoints of 90/95/100. Selected fictional choices and endpoint carry into the workspace, brief and CSV.
 - A short DC or income-led start, with unknown, estimated and zero values kept distinct.
 - Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.

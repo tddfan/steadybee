@@ -4,6 +4,7 @@ import {
   ASSET_TYPES,
   DEBT_TYPES,
   createBlankDraft,
+  createAlexExample,
   createId,
   summarizeDraft,
   validateDraft,
@@ -44,6 +45,22 @@ test("blank draft supports an honest zero-entered state", () => {
     debtGroups: [],
     linkedEquity: [],
   });
+});
+
+test("Alex's fictional opening picture reconciles and keeps context out of net worth", () => {
+  const example = createAlexExample();
+  assert.equal(example.age, 43);
+  assert.deepEqual(validateDraft(example), { valid: true, errors: [] });
+  const result = summarizeDraft(example);
+  assert.equal(result.assetTotal, 1_905_000);
+  assert.equal(result.debtTotal, 380_000);
+  assert.equal(result.netWorth, 1_525_000);
+  assert.equal(result.linkedEquity.find((entry) => entry.assetId === "alex-home").equity, 400_000);
+  assert.equal(example.assets.find((asset) => asset.id === "alex-gurgaon").monthlyRent, 100);
+  assert.equal(example.assets.find((asset) => asset.id === "alex-cash").interestRate, 4);
+  assert.equal(example.assets.find((asset) => asset.id === "alex-pension").investmentLabel, "S&P");
+  example.assets[0].value = 1;
+  assert.equal(createAlexExample().assets[0].value, 780_000);
 });
 
 test("known item kinds have clear labels and asset-access groups", () => {
@@ -123,6 +140,9 @@ test("invalid money, rates, terms, and profile values are rejected", () => {
     ["debts[0].remainingYears", (draft) => { draft.debts[0].remainingYears = 101; }],
     ["age", (draft) => { draft.age = 50.5; }],
     ["age", (draft) => { draft.age = 121; }],
+    ["assets[0].monthlyRent", (draft) => { draft.assets[0].monthlyRent = -1; }],
+    ["assets[1].interestRate", (draft) => { draft.assets[1].interestRate = 4; }],
+    ["assets[1].investmentLabel", (draft) => { draft.assets[1].investmentLabel = "a".repeat(81); }],
   ];
   for (const [path, mutate] of cases) {
     const draft = filledDraft();

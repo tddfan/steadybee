@@ -56,11 +56,13 @@ async function page(mobile = false) {
   browserPage.on("pageerror", (error) => errors.push(error.message));
   browserPage.on("dialog", (dialog) => dialog.accept());
   await browserPage.goto(`${origin}/asset-canvas.html`);
-  await browserPage.locator("#welcome-form").waitFor();
+  await browserPage.locator("#canvas-screen").waitFor({ state: "visible" });
   return browserPage;
 }
 
 async function start(browserPage, name = "Alex", age = 52) {
+  await browserPage.locator("#start-own-button").click();
+  await browserPage.locator("#confirm-clear-button").click();
   await browserPage.locator("#person-name").fill(name);
   await browserPage.locator("#person-age").fill(String(age));
   await browserPage.locator("#start-button").click();
@@ -88,10 +90,14 @@ async function displayedAmount(browserPage, selector) {
 
 test("welcome gathers a name and age before showing an honestly empty picture", async () => {
   const p = await page();
+  await p.locator("#start-own-button").click();
+  await p.locator("#confirm-clear-button").click();
   assert.equal(await p.locator("#welcome-screen").isVisible(), true);
   await p.locator("#start-button").click();
   assert.equal(await p.locator("#canvas-screen").isVisible(), false);
-  await start(p);
+  await p.locator("#person-name").fill("Alex");
+  await p.locator("#person-age").fill("52");
+  await p.locator("#start-button").click();
   assert.equal(await displayedAmount(p, "#asset-total"), 0);
   assert.equal(await displayedAmount(p, "#debt-total"), 0);
   assert.equal(await displayedAmount(p, "#net-worth"), 0);
@@ -109,6 +115,7 @@ test("assets, linked mortgage and edits reconcile without double counting equity
   assert.ok(homeId);
   await addItem(p, "debt", "mortgage", "Home mortgage", 190000, { rate: 4.5, years: 18, link: homeId });
   await addItem(p, "asset", "isa", "Stocks and shares ISA", 35000);
+  await p.locator(".list-disclosure summary").click();
   assert.equal(await displayedAmount(p, "#asset-total"), 515000);
   assert.equal(await displayedAmount(p, "#debt-total"), 190000);
   assert.equal(await displayedAmount(p, "#net-worth"), 325000);
@@ -155,6 +162,7 @@ test("dragging a mortgage onto a home links it without changing the totals", asy
   await start(p);
   await addItem(p, "asset", "home", "The house", 300000);
   await addItem(p, "debt", "mortgage", "The mortgage", 120000);
+  await p.locator(".list-disclosure summary").click();
   const before = await displayedAmount(p, "#net-worth");
   await p.locator("[data-debt-id]").dragTo(p.locator("[data-asset-id]"));
   assert.match(await p.locator("#debt-list").innerText(), /Linked to The house/);
@@ -170,14 +178,15 @@ test("profile edits, deliberate zero and a negative entered balance stay distinc
   await p.locator("#profile-name").fill("Sam");
   await p.locator("#profile-age").fill("60");
   await p.locator("#profile-form button[type=submit]").click();
-  assert.match(await p.locator(".canvas-heading").innerText(), /Sam’s picture, so far\.[\s\S]*Age 60/);
+  assert.match(await p.locator(".canvas-heading").innerText(), /Sam’s money picture\.[\s\S]*Age 60/);
   await addItem(p, "asset", "car", "Old car", 0);
   assert.match(await p.locator("#asset-count").innerText(), /1 asset entered/);
-  assert.match(await p.locator("#asset-visual").innerText(), /£0 entered so far/);
+  assert.match(await p.locator("#orbit-items").innerText(), /£0/);
   await addItem(p, "debt", "loan", "Small loan", 5000);
   assert.equal(await displayedAmount(p, "#net-worth"), -5000);
   await p.reload();
-  assert.equal(await p.locator("#welcome-screen").isVisible(), true);
+  assert.equal(await p.locator("#canvas-screen").isVisible(), true);
+  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
   assert.equal(await p.locator("#person-name").inputValue(), "");
   await p.close();
 });
@@ -205,7 +214,34 @@ test("clear removes entered details, and the canvas fits a narrow phone", async 
   const storage = await p.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }));
   assert.deepEqual(storage, { local: 0, session: 0 });
   await p.reload();
-  assert.equal(await p.locator("#welcome-screen").isVisible(), true);
-  assert.equal(await p.locator("#person-name").inputValue(), "");
+  assert.equal(await p.locator("#canvas-screen").isVisible(), true);
+  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  await p.close();
+});
+
+test("Alex's opening picture includes editable details and reconciles exactly", async () => {
+  const p = await page();
+  assert.equal(await displayedAmount(p, "#asset-total"), 1905000);
+  assert.equal(await displayedAmount(p, "#debt-total"), 380000);
+  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  assert.equal(await p.locator(".orbit-card").count(), 8);
+  assert.match(await p.locator("#example-badge").innerText(), /Fictional example/);
+  await p.locator('[data-orbit-id="alex-gurgaon"]').click();
+  assert.equal(await p.locator("#item-monthly-rent").inputValue(), "100");
+  await p.locator("#item-monthly-rent").fill("125");
+  await p.locator("#save-item-button").click();
+  assert.match(await p.locator('[data-orbit-id="alex-gurgaon"]').innerText(), /£125\/month rent/);
+  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  await p.locator('[data-orbit-id="alex-cash"]').click();
+  assert.equal(await p.locator("#item-cash-rate").inputValue(), "4");
+  await p.locator("#close-item-button").click();
+  await p.locator('[data-orbit-id="alex-pension"]').click();
+  assert.equal(await p.locator("#item-investment-label").inputValue(), "S&P");
+  await p.locator("#close-item-button").click();
+  await p.locator('[data-orbit-id="alex-mortgage"]').click();
+  assert.equal(await p.locator("#item-interest-rate").inputValue(), "4.7");
+  await p.locator("#close-item-button").click();
+  await p.locator("#reset-example-button").click();
+  assert.match(await p.locator('[data-orbit-id="alex-gurgaon"]').innerText(), /£100\/month rent/);
   await p.close();
 });
