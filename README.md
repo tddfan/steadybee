@@ -2,10 +2,11 @@
 
 A retirement decision workspace for people considering retirement, reduced work or a change in spending.
 
-**Current status:** working research prototype. It organises information entered by a person or household. Three separately labelled fictional examples demonstrate scenario comparisons and a decision brief. Personal retirement forecasts, accounts and payments are not connected.
+**Current status:** research prototypes. The existing workspace organises a person’s or household’s information and offers three separately labelled fictional examples. A separate [personal Plan Sketch](prototype/plan-sketch.html) illustrates one person’s annual spending coverage from their own confirmed figures and explicit assumptions. It does not calculate UK tax or verify pension eligibility; accounts and payments are not connected.
 
 ## What you can try
 
+- A one-person Plan Sketch with manual inputs, an editable confirmation receipt, annual coverage and workings, accessible savings versus a locked DC pension, and one retirement-date comparison. It shows nominal spending growth behind today’s-pound results and compares an early versus later one-year investment shock using the same return assumptions. The user supplies a DC access date and effective withdrawal-tax assumption; these are not checked against UK rules. Inputs stay in the browser tab unless the user downloads a brief.
 - An interactive full-retirement landing preview: annual spending coverage, separate savings/pension balances, early and later shortfalls, and planning endpoints of 90/95/100. Selected fictional choices and endpoint carry into the workspace, brief and CSV.
 - A short DC or income-led start, with unknown, estimated and zero values kept distinct.
 - Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
@@ -15,7 +16,7 @@ A retirement decision workspace for people considering retirement, reduced work 
 - Optional local save, resume, validated JSON backup/import and deletion. Saving is limited to this browser profile, unencrypted and not shared across devices.
 - A feedback download for research notes. It does not submit anything to a server or take payment.
 
-Fictional calculations are deterministic demonstrations using authored assumptions, not a UK tax or pension engine. They do not establish the correctness of personal planning. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md).
+The personal Plan Sketch is a conditional illustration: net earnings and State Pension are entered by the user; DC withdrawal tax is a flat rate the user chooses; and the first pension access date is user-confirmed. Its annual figures are auditable but do not establish that the tax treatment, entitlement or future returns will apply. The fictional calculations use separate authored assumptions and are not a UK tax or pension engine. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md) for the existing workspace.
 
 The latest [full-retirement preview review](docs/2026-10-09-full-retirement-preview-review.md) records the founder’s complete-picture feedback, real endpoint recalculation and simulated review. The earlier [example validation loop](docs/2026-10-09-example-validation-loop.md) records the two-year-shortfall explanation. Customer willingness to pay remains unverified.
 
@@ -25,7 +26,7 @@ No npm application dependencies or frontend framework are required.
 
 ```sh
 node scripts/build-prototype.mjs
-node --test tests/test_state.mjs tests/test_app_updates.cjs
+node --test tests/test_state.mjs tests/test_app_updates.cjs tests/test_personal_engine.mjs
 python3 -m http.server 8000 --directory dist
 ```
 
@@ -37,7 +38,7 @@ CHROME_EXECUTABLE_PATH=/absolute/path/to/chrome-headless-shell \
 node --test tests/test_browser.mjs
 ```
 
-The browser suite runs its own local HTTP server. It checks intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
+Run `node --test tests/test_personal_browser.mjs` with the same Playwright and Chromium variables for the Plan Sketch. The browser suites run their own local HTTP servers. They check personal confirmation and coverage, intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
 
 ## Deployment and installed app
 

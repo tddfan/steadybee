@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="steadybee-version" content="development">
+    <meta name="theme-color" content="#f4f4ed">
+    <title>Plan Sketch | Steadybee</title>
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="plan-sketch.css">
+    <script type="module" src="plan-sketch.mjs"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="index.html" aria-label="Steadybee home"><img src="icons/icon.svg" alt="" width="30" height="30"> Steadybee</a>
+        <span class="header-label">Plan Sketch <span aria-hidden="true">/</span> research prototype</span>
+        <a class="header-link" href="app.html#overview">Open the existing workspace</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="intro wrap" aria-labelledby="intro-heading">
+        <div class="intro-copy">
+          <p class="eyebrow">One person · your figures</p>
+          <h1 id="intro-heading">See which years your spending may be covered.</h1>
+          <p class="lede">Sketch a retirement date, check the figures you entered, then inspect each year. Change the date or see how a market fall near retirement changes the illustration.</p>
+          <div class="privacy-note"><strong>Your figures stay in this tab.</strong> This page does not save them to an account or send them to a server. You can clear them at any time. An export is downloaded only when you choose it.</div>
+        </div>
+        <aside class="intro-aside" aria-label="What this illustration can show">
+          <span class="aside-mark" aria-hidden="true">✳</span>
+          <h2>A sketch you can inspect</h2>
+          <p>See spending coverage, accessible savings, a pension you cannot yet draw, and the cash needed to bridge those years.</p>
+          <p class="aside-small">Illustration, not advice. No investments are recommended.</p>
+        </aside>
+      </section>
+
+      <div class="workspace wrap">
+        <nav class="steps" aria-label="Plan Sketch stages">
+          <button type="button" class="step is-active" data-stage-button="enter" aria-current="step"><span>01</span> Enter figures</button>
+          <button type="button" class="step" data-stage-button="review" disabled><span>02</span> Confirm receipt</button>
+          <button type="button" class="step" data-stage-button="explore" disabled><span>03</span> Explore years</button>
+        </nav>
+
+        <section id="enter-stage" class="stage" aria-labelledby="enter-heading">
+          <div class="stage-head">
+            <div><p class="eyebrow">Step 1 of 3</p><h2 id="enter-heading">Enter the essentials</h2><p>Use your own figures. Leave a figure unknown if you do not have it yet; the receipt will show what is needed for a calculation.</p></div>
+            <div class="head-aside">Amounts are entered in <strong>today’s pounds</strong>. Choose “Zero” when you mean none.</div>
+          </div>
+          <p class="scope-note"><strong>What this first sketch covers:</strong> one person, cash, an invested ISA, a DC pension, spendable pay and your net State Pension estimate. Annual spending keeps the same buying power apart from inflation. It does not model a DB pension, a partner, the end of a mortgage, care costs, property proceeds or a UK tax calculation.</p>
+          <form id="plan-form" novalidate>
+            <div id="entry-groups"></div>
+            <div class="form-end">
+              <div id="entry-errors" class="message" role="status" aria-live="polite"></div>
+              <button class="button primary" type="submit">Review my receipt <span aria-hidden="true">→</span></button>
+            </div>
+          </form>
+        </section>
+
+        <section id="review-stage" class="stage" aria-labelledby="review-heading" hidden>
+          <div class="stage-head">
+            <div><p class="eyebrow">Step 2 of 3</p><h2 id="review-heading">Your Living Receipt</h2><p>Every figure below came from you. Edit a row here, then confirm that the receipt reflects what you meant to enter.</p></div>
+            <div class="head-aside">“Estimated” means the input is uncertain. It does not change the calculation.</div>
+          </div>
+          <div id="receipt-summary" class="receipt-summary" role="status" aria-live="polite"></div>
+          <div id="receipt-list" class="receipt-list"></div>
+          <div class="confirm-panel">
+            <label class="check-row"><input id="pension-provider-confirmed" type="checkbox"><span>I checked the first date I can access this DC pension with my pension provider.</span></label>
+            <label class="check-row" hidden><input id="protected-pension-age-confirmed" type="checkbox"><span>My pension provider has confirmed a protected pension age that permits access at 55 or 56 after 6 April 2028.</span></label>
+            <label class="check-row"><input id="tax-assumption-confirmed" type="checkbox"><span>I understand the effective tax rate I entered is only an assumption for DC withdrawals, not a UK tax calculation.</span></label>
+            <label class="check-row"><input id="receipt-confirmed" type="checkbox"><span>I have checked the rest of this receipt against the figures I meant to enter.</span></label>
+            <p class="fine-print">The general minimum pension access age rises from 55 to 57 on 6 April 2028; a protected age may differ. This page applies a basic age check, but does not verify your scheme rules or legal eligibility. The model uses your after-tax income estimates and your effective pension withdrawal tax rate; it does not calculate UK tax allowances or bands. Rules may change.</p>
+            <div id="review-errors" class="message" role="status" aria-live="polite"></div>
+            <div class="action-row"><button type="button" class="button secondary" id="back-to-entry">Back to entries</button><button type="button" class="button primary" id="calculate-button" disabled>Show my illustration <span aria-hidden="true">→</span></button></div>
+          </div>
+        </section>
+
+        <section id="explore-stage" class="stage" aria-labelledby="explore-heading" hidden>
+          <div class="stage-head result-head">
+            <div><p class="eyebrow">Step 3 of 3 · Illustration, not advice</p><h2 id="explore-heading">A year-by-year view of your plan</h2><p id="result-intro">This result is conditional on your figures and assumptions. It is not a verified UK tax forecast.</p></div>
+            <button class="button secondary" id="edit-figures" type="button">Edit figures</button>
+          </div>
+
+          <div class="result-alert" id="result-alert" role="status" aria-live="polite"></div>
+          <p class="scope-note result-scope">Annual spending is held constant in today’s buying power before inflation. DB pensions, a partner, mortgage changes, care costs, property proceeds and UK tax rules are outside this sketch.</p>
+
+          <div class="result-grid">
+            <section class="card lead-card" aria-labelledby="lead-heading">
+              <p class="eyebrow">Annual spending coverage</p>
+              <h3 id="lead-heading">What the illustration shows</h3>
+              <p id="coverage-headline" class="big-result"></p>
+              <p id="coverage-detail" class="result-caption"></p>
+              <div id="bridge-callout" class="bridge-callout"></div>
+            </section>
+            <section class="card assumption-card" aria-labelledby="assumptions-heading">
+              <p class="eyebrow">Behind the figures</p><h3 id="assumptions-heading">Your assumptions</h3>
+              <dl id="assumption-list" class="assumption-list"></dl>
+              <p class="fine-print">The chart shows purchasing power in today’s pounds. Spending, take-home pay and your entered net State Pension estimate keep their buying power in this model: their future-pound amounts rise with inflation. The year detail shows the cash needed and the inflation factor.</p>
+            </section>
+          </div>
+
+          <section class="card chart-card" aria-labelledby="chart-heading">
+            <div class="section-heading"><div><p class="eyebrow">Money through time · today's pounds</p><h3 id="chart-heading">What is accessible each year?</h3><p>End-of-year balances in today’s purchasing power. Select a year to see its spending and withdrawals. A striped grey pension is still locked at that age.</p></div></div>
+            <div class="legend" aria-label="Chart key"><span><i class="swatch cash"></i> Cash</span><span><i class="swatch isa"></i> Invested ISA</span><span><i class="swatch dc"></i> DC pension accessible</span><span><i class="swatch locked"></i> DC pension locked</span><span><i class="swatch mixed"></i> Access begins during year</span><span><i class="swatch gap"></i> Uncovered spending</span></div>
+            <div id="year-chart" class="year-chart" role="group" aria-label="Select a year on the timeline"></div>
+            <p class="chart-note">Grey pension money cannot be used for the pre-access bridge in this model, even when it appears larger than your accessible savings. Access in the middle of a year is marked separately. An asterisk marks a partial first age year.</p>
+          </section>
+
+          <section id="year-inspector" class="card inspector" aria-labelledby="inspector-heading" tabindex="-1">
+            <div class="section-heading"><div><p class="eyebrow">Show me why</p><h3 id="inspector-heading">Selected year</h3></div><span id="selected-year-badge" class="year-badge"></span></div>
+            <p id="year-summary" class="inspector-summary"></p>
+            <dl id="year-workings" class="workings"></dl>
+            <p id="year-explanation" class="fine-print"></p>
+          </section>
+
+          <section class="card scenario-card" aria-labelledby="scenario-heading">
+            <div class="section-heading"><div><p class="eyebrow">Test a decision and a risk</p><h3 id="scenario-heading">Change the timing</h3><p>Compare the same plan with one retirement age you choose. Market shocks are a separate stress test of the original plan.</p></div></div>
+            <form id="alternative-form" class="alternative-form"><label for="alternative-age">Try retiring at age</label><input id="alternative-age" type="number" inputmode="numeric" min="18" max="100" step="1" placeholder="Age"><button type="submit" class="button primary">Compare dates</button></form>
+            <p id="alternative-error" class="message" role="status" aria-live="polite"></p>
+            <div id="comparison-grid" class="comparison-grid"></div>
+            <div id="shock-action" class="shock-action"><p id="shock-prompt">Choose to test the same one-year invested return shock early and five years later. This uses your entered shock rate.</p><button id="compare-shocks-button" class="button secondary" type="button">Compare early and later market shocks</button></div>
+            <p id="shock-error" class="message" role="status" aria-live="polite"></p>
+            <details id="shock-method-note" class="method-note" hidden><summary>How the market shocks work</summary><p id="shock-method"></p></details>
+          </section>
+
+          <section class="card table-card" aria-labelledby="table-heading">
+            <div class="section-heading"><div><p class="eyebrow">Every year · today's pounds</p><h3 id="table-heading">Accessible money and coverage</h3><p>This table is an alternative to the chart. Select a row to inspect the full workings above.</p></div></div>
+            <div class="table-scroll"><table><thead><tr><th scope="col">Age</th><th scope="col">Spending, today’s £</th><th scope="col">Cash + invested ISA, year end</th><th scope="col">DC pension, year end</th><th scope="col">Pension status</th><th scope="col">Uncovered, today’s £</th><th scope="col">Workings</th></tr></thead><tbody id="year-table"></tbody></table></div>
+          </section>
+
+          <section class="card exit-card" aria-labelledby="exit-heading">
+            <div><p class="eyebrow">Keep or leave</p><h3 id="exit-heading">Take the workings with you</h3><p>Download a text brief with your inputs, assumptions and annual rows. The file contains your financial figures, so keep it somewhere private.</p></div>
+            <div class="action-row"><button id="export-button" class="button secondary" type="button">Download brief</button><button id="clear-button" class="button danger" type="button">Clear my figures</button></div>
+          </section>
+        </section>
+      </div>
+    </main>
+    <footer class="site-footer"><div class="wrap"><p>Steadybee sells no financial products and takes no commissions. This prototype is for exploring a question, not making a financial decision on its own.</p><p>Illustration, not advice. Calculated by code from your entries and stated assumptions. Tax, eligibility and future returns need independent checking.</p></div></footer>
+  </body>
+</html>
