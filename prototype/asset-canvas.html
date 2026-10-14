@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="steadybee-version" content="development" />
+    <meta name="theme-color" content="#f4f1ea" />
+    <title>Your money picture · Steadybee</title>
+    <meta name="description" content="Build a simple picture of what you own and owe, one entry at a time." />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./asset-canvas.css" />
+    <script type="module" src="./asset-canvas.mjs"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="wordmark" href="./index.html" aria-label="Steadybee home"><span class="brand-mark" aria-hidden="true">✳</span> steadybee<span class="brand-dot">.</span></a>
+        <span class="header-note">A clearer picture, one piece at a time</span>
+      </header>
+
+      <main id="main">
+        <section id="welcome-screen" class="welcome-screen" aria-labelledby="welcome-title">
+          <div class="welcome-copy">
+            <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> Your money picture</p>
+            <h1 id="welcome-title">Let’s start with <em>you.</em></h1>
+            <p class="intro">Add what you own and owe, one piece at a time. We’ll bring it together into a picture you can understand at a glance.</p>
+            <form id="welcome-form" class="welcome-form">
+              <div class="form-field">
+                <label for="person-name">What should we call you?</label>
+                <input id="person-name" name="person-name" type="text" maxlength="60" autocomplete="given-name" placeholder="Alex" required />
+              </div>
+              <div class="form-field">
+                <label for="person-age">How old are you?</label>
+                <input id="person-age" name="person-age" type="number" min="18" max="120" step="1" inputmode="numeric" placeholder="54" required />
+              </div>
+              <button id="start-button" class="button button-primary" type="submit">Start my picture <span aria-hidden="true">→</span></button>
+            </form>
+            <p class="privacy-note"><span aria-hidden="true">◎</span> Your entries stay in this tab. Refreshing or closing it clears them. You can clear them anytime.</p>
+          </div>
+          <div class="welcome-art" aria-hidden="true">
+            <div class="art-grid">
+              <div class="art-piece art-piece-home"><span class="art-icon">⌂</span><span>Home</span></div>
+              <div class="art-piece art-piece-cash"><span class="art-icon">£</span><span>Savings</span></div>
+              <div class="art-piece art-piece-pension"><span class="art-icon">P</span><span>Pension</span></div>
+              <div class="art-piece art-piece-debt"><span class="art-icon">−</span><span>Mortgage</span></div>
+            </div>
+            <p>Every piece has its place.</p>
+          </div>
+        </section>
+
+        <section id="canvas-screen" class="canvas-screen" aria-labelledby="canvas-title" hidden>
+          <div class="canvas-heading">
+            <div>
+              <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> Your money picture</p>
+              <h1 id="canvas-title" tabindex="-1"><span id="person-heading">Your</span> picture, so far.</h1>
+              <p id="snapshot-description" class="muted">A snapshot from what you’ve entered. Add or change a piece whenever you like.</p>
+            </div>
+            <div class="canvas-heading-actions">
+              <button id="edit-profile-button" class="text-button" type="button">Edit name &amp; age</button>
+              <button id="clear-button" class="text-button text-button-danger" type="button">Clear everything</button>
+            </div>
+          </div>
+
+          <section class="totals-board" aria-label="Totals from your entries">
+            <div class="total-card total-assets">
+              <span class="total-symbol" aria-hidden="true">＋</span>
+              <p>Assets entered</p>
+              <strong id="asset-total">£0</strong>
+              <span id="asset-count" class="total-detail">Nothing entered yet</span>
+            </div>
+            <div class="total-card total-debts">
+              <span class="total-symbol" aria-hidden="true">−</span>
+              <p>Debts entered</p>
+              <strong id="debt-total">£0</strong>
+              <span id="debt-count" class="total-detail">Nothing entered yet</span>
+            </div>
+            <div class="total-card total-net">
+              <span class="total-symbol" aria-hidden="true">＝</span>
+              <p>Net worth from entries</p>
+              <strong id="net-worth">£0</strong>
+              <span class="total-detail">Assets minus debts</span>
+            </div>
+          </section>
+          <p class="snapshot-caveat">This is only as complete as the items you add. Net worth includes property and pensions; it is not cash you can necessarily spend today.</p>
+
+          <div class="board-grid">
+            <section class="ledger-panel" aria-labelledby="asset-section-title">
+              <div class="section-top">
+                <div>
+                  <p class="section-kicker">01 · What you own</p>
+                  <h2 id="asset-section-title">Your assets</h2>
+                </div>
+                <button id="add-asset-button" class="button button-add" type="button"><span aria-hidden="true">＋</span> Add asset</button>
+              </div>
+              <div id="asset-visual" class="composition" role="img" aria-label="Breakdown of assets entered"></div>
+              <div id="asset-list" class="entry-list"></div>
+            </section>
+
+            <section class="ledger-panel debt-panel" aria-labelledby="debt-section-title">
+              <div class="section-top">
+                <div>
+                  <p class="section-kicker">02 · What you owe</p>
+                  <h2 id="debt-section-title">Your debts</h2>
+                </div>
+                <button id="add-debt-button" class="button button-add button-add-debt" type="button"><span aria-hidden="true">＋</span> Add debt</button>
+              </div>
+              <div id="debt-visual" class="composition" role="img" aria-label="Breakdown of debts entered"></div>
+              <div id="debt-list" class="entry-list"></div>
+              <p id="link-tip" class="link-tip" hidden>Tip: drag a mortgage onto a property to link them, or use “Linked to” when editing. The totals stay the same.</p>
+            </section>
+          </div>
+
+          <aside class="access-note" aria-label="What these assets mean">
+            <span class="access-note-icon" aria-hidden="true">✳</span>
+            <div>
+              <h2>One total, different kinds of access.</h2>
+              <p>Cash and ISAs are generally accessible; pension access depends on the rules that apply to you; property and possessions would usually need to be sold or borrowed against. This screen only describes today’s entered values.</p>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="site-footer"><span>Steadybee · A working prototype</span><span>Snapshot only · Illustration, not advice</span></footer>
+    </div>
+
+    <dialog id="item-dialog" class="form-dialog" aria-labelledby="item-dialog-title">
+      <form id="item-form" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p id="item-dialog-kicker" class="section-kicker">A new piece</p>
+            <h2 id="item-dialog-title">Add an asset</h2>
+          </div>
+          <button id="close-item-button" class="icon-button" type="button" aria-label="Close without saving">×</button>
+        </div>
+        <p id="item-dialog-intro" class="dialog-intro">Start with what you know. You can change it later.</p>
+        <div class="form-field">
+          <label for="item-kind">What kind is it?</label>
+          <select id="item-kind" required></select>
+        </div>
+        <div class="form-field">
+          <label for="item-label">What would you call it? <span class="optional">Optional</span></label>
+          <input id="item-label" type="text" maxlength="80" placeholder="e.g. Our home" />
+        </div>
+        <div class="form-field">
+          <label id="item-amount-label" for="item-amount">What is it worth today?</label>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="item-amount" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" placeholder="0" required /></div>
+          <p id="item-amount-help" class="field-help">Use the current value, not what you originally paid.</p>
+        </div>
+        <details id="mortgage-fields" class="optional-fields" hidden>
+          <summary>Mortgage details <span>Interest rate and years left · optional</span></summary>
+          <div class="field-pair">
+            <div class="form-field">
+              <label for="item-interest-rate">Current interest rate <span class="optional">Optional</span></label>
+              <div class="unit-input"><input id="item-interest-rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="e.g. 4.5" /><span aria-hidden="true">%</span></div>
+            </div>
+            <div class="form-field">
+              <label for="item-remaining-years">Years left <span class="optional">Optional</span></label>
+              <div class="unit-input"><input id="item-remaining-years" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 18" /><span aria-hidden="true">years</span></div>
+            </div>
+          </div>
+          <p class="field-help">These details are recorded for context. We do not calculate future repayments here.</p>
+        </details>
+        <div id="debt-link-field" class="form-field" hidden>
+          <label for="item-linked-asset">Linked to an asset? <span class="optional">Optional</span></label>
+          <select id="item-linked-asset"></select>
+          <p class="field-help">For example, link a mortgage to its property. Linking changes the picture, not the totals.</p>
+        </div>
+        <p id="item-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="delete-item-button" class="text-button text-button-danger" type="button" hidden>Delete this item</button>
+          <button id="save-item-button" class="button button-primary" type="submit">Add to my picture</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="profile-dialog" class="form-dialog small-dialog" aria-labelledby="profile-dialog-title">
+      <form id="profile-form">
+        <div class="dialog-heading"><h2 id="profile-dialog-title">Your details</h2><button id="close-profile-button" class="icon-button" type="button" aria-label="Close without saving">×</button></div>
+        <div class="form-field"><label for="profile-name">What should we call you?</label><input id="profile-name" type="text" maxlength="60" required /></div>
+        <div class="form-field"><label for="profile-age">How old are you?</label><input id="profile-age" type="number" min="18" max="120" step="1" required /></div>
+        <div class="dialog-actions"><button class="button button-primary" type="submit">Save details</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="clear-dialog" class="form-dialog small-dialog" aria-labelledby="clear-dialog-title">
+      <div class="dialog-heading"><h2 id="clear-dialog-title">Clear your picture?</h2><button id="close-clear-button" class="icon-button" type="button" aria-label="Keep my entries">×</button></div>
+      <p class="dialog-intro">This removes your name, age, assets and debts from this tab.</p>
+      <div class="dialog-actions"><button id="cancel-clear-button" class="button button-secondary" type="button">Keep my entries</button><button id="confirm-clear-button" class="button button-danger" type="button">Clear everything</button></div>
+    </dialog>
+    <p id="live-message" class="visually-hidden" role="status" aria-live="polite"></p>
+  </body>
+</html>

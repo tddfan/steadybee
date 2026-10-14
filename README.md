@@ -2,10 +2,11 @@
 
 A retirement decision workspace for people considering retirement, reduced work or a change in spending.
 
-**Current status:** working research prototype. It organises information entered by a person or household. Three separately labelled fictional examples demonstrate scenario comparisons and a decision brief. Personal retirement forecasts, accounts and payments are not connected.
+**Current status:** working research prototypes. A new [asset picture](prototype/asset-canvas.html) lets one person build a visual snapshot of assets, debts and net worth from their own entries. The existing workspace organises information and uses three separately labelled fictional examples for scenario comparisons. Personal retirement forecasts, accounts and payments are not connected.
 
 ## What you can try
 
+- A one-person asset picture: enter a name and age, add/edit/remove assets and debts, link a debt to an asset, and see the composition and net worth of the items entered. Mortgage interest rate and remaining years can be recorded, but this snapshot does not project growth, repayment, income or spending. Entries stay in the open tab and can be cleared. Sentence entry and AI assistance are future experiments.
 - An interactive full-retirement landing preview: annual spending coverage, separate savings/pension balances, early and later shortfalls, and planning endpoints of 90/95/100. Selected fictional choices and endpoint carry into the workspace, brief and CSV.
 - A short DC or income-led start, with unknown, estimated and zero values kept distinct.
 - Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
@@ -25,7 +26,7 @@ No npm application dependencies or frontend framework are required.
 
 ```sh
 node scripts/build-prototype.mjs
-node --test tests/test_state.mjs tests/test_app_updates.cjs
+node --test tests/test_state.mjs tests/test_app_updates.cjs tests/test_asset_ledger.mjs
 python3 -m http.server 8000 --directory dist
 ```
 
@@ -37,7 +38,7 @@ CHROME_EXECUTABLE_PATH=/absolute/path/to/chrome-headless-shell \
 node --test tests/test_browser.mjs
 ```
 
-The browser suite runs its own local HTTP server. It checks intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
+Run `node --test tests/test_asset_canvas_browser.mjs` with the same Playwright and Chromium variables for the asset picture. The browser suites run their own local HTTP servers. They check the asset picture, intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
 
 ## Deployment and installed app
 

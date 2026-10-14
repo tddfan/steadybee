@@ -1,0 +1,190 @@
+/** A one-person, present-day balance sheet. No growth, income, tax or advice. */
+
+export const ASSET_TYPES = Object.freeze({
+  home: Object.freeze({ label: "Home", group: "property" }),
+  "other-property": Object.freeze({ label: "Other property", group: "property" }),
+  cash: Object.freeze({ label: "Cash", group: "available" }),
+  isa: Object.freeze({ label: "ISA", group: "available" }),
+  "dc-pension": Object.freeze({ label: "DC pension", group: "pension" }),
+  car: Object.freeze({ label: "Car", group: "possessions" }),
+  other: Object.freeze({ label: "Other asset", group: "other" }),
+});
+
+export const DEBT_TYPES = Object.freeze({
+  mortgage: Object.freeze({ label: "Mortgage", group: "property" }),
+  loan: Object.freeze({ label: "Loan", group: "other" }),
+  "credit-card": Object.freeze({ label: "Credit card", group: "other" }),
+  other: Object.freeze({ label: "Other debt", group: "other" }),
+});
+
+const MAX_ITEMS = 100;
+const MAX_MONEY = 100_000_000_000;
+let idSequence = 0;
+
+const isRecord = (value) =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const isBlank = (value) => value === undefined || value === null || value === "";
+const isMoney = (value) =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= 0 &&
+  value <= MAX_MONEY &&
+  Math.abs(value * 100 - Math.round(value * 100)) < 0.001;
+const pennies = (value) => Math.round(value * 100);
+const pounds = (value) => value / 100;
+
+export function createBlankDraft() {
+  return { name: "", age: null, assets: [], debts: [] };
+}
+
+export function createId(prefix = "item") {
+  const safePrefix = /^[a-z][a-z0-9-]*$/i.test(prefix) ? prefix : "item";
+  return `${safePrefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${++idSequence}`}`;
+}
+
+/** Validate before presenting calculated totals or accepting a card. */
+export function validateDraft(draft) {
+  const errors = [];
+  const error = (path, message) => errors.push({ path, message });
+  if (!isRecord(draft)) {
+    error("draft", "The asset picture is missing.");
+    return { valid: false, errors };
+  }
+
+  if (typeof draft.name !== "string" || draft.name.length > 60)
+    error("name", "Use a name of at most 60 characters.");
+  if (
+    !isBlank(draft.age) &&
+    (typeof draft.age !== "number" ||
+      !Number.isInteger(draft.age) ||
+      draft.age < 18 ||
+      draft.age > 120)
+  )
+    error("age", "Enter a whole age from 18 to 120.");
+
+  const assets = Array.isArray(draft.assets) ? draft.assets : [];
+  const debts = Array.isArray(draft.debts) ? draft.debts : [];
+  if (!Array.isArray(draft.assets)) error("assets", "Include an asset list.");
+  else if (assets.length > MAX_ITEMS) error("assets", "Enter at most 100 assets.");
+  if (!Array.isArray(draft.debts)) error("debts", "Include a debt list.");
+  else if (debts.length > MAX_ITEMS) error("debts", "Enter at most 100 debts.");
+
+  const ids = new Set();
+  const checkSharedFields = (item, path) => {
+    if (!isRecord(item)) {
+      error(path, "Include an item.");
+      return false;
+    }
+    if (
+      typeof item.id !== "string" ||
+      !item.id.trim() ||
+      item.id.length > 128 ||
+      ids.has(item.id)
+    )
+      error(`${path}.id`, "Give every item a unique ID.");
+    else ids.add(item.id);
+    if (
+      !isBlank(item.label) &&
+      (typeof item.label !== "string" || item.label.length > 80)
+    )
+      error(`${path}.label`, "Use a label of at most 80 characters.");
+    return true;
+  };
+
+  assets.forEach((asset, index) => {
+    const path = `assets[${index}]`;
+    if (!checkSharedFields(asset, path)) return;
+    if (!Object.hasOwn(ASSET_TYPES, asset.kind))
+      error(`${path}.kind`, "Choose a listed asset type.");
+    if (!isMoney(asset.value))
+      error(`${path}.value`, "Enter a finite amount from £0 to £100 billion, to the penny.");
+  });
+
+  debts.forEach((debt, index) => {
+    const path = `debts[${index}]`;
+    if (!checkSharedFields(debt, path)) return;
+    if (!Object.hasOwn(DEBT_TYPES, debt.kind))
+      error(`${path}.kind`, "Choose a listed debt type.");
+    if (!isMoney(debt.balance))
+      error(`${path}.balance`, "Enter a finite balance from £0 to £100 billion, to the penny.");
+    if (
+      !isBlank(debt.interestRate) &&
+      (typeof debt.interestRate !== "number" ||
+        !Number.isFinite(debt.interestRate) ||
+        debt.interestRate < 0 ||
+        debt.interestRate > 100)
+    )
+      error(`${path}.interestRate`, "Enter a current rate from 0% to 100%.");
+    if (
+      !isBlank(debt.remainingYears) &&
+      (typeof debt.remainingYears !== "number" ||
+        !Number.isFinite(debt.remainingYears) ||
+        debt.remainingYears <= 0 ||
+        debt.remainingYears > 100)
+    )
+      error(`${path}.remainingYears`, "Enter more than 0 and up to 100 years remaining.");
+    if (!isBlank(debt.linkedAssetId)) {
+      const linked = assets.find((asset) => asset?.id === debt.linkedAssetId);
+      if (!linked ||
+        (debt.kind === "mortgage" &&
+          !["home", "other-property"].includes(linked.kind)))
+        error(`${path}.linkedAssetId`, "Link a mortgage to a property, or choose an existing asset.");
+    }
+  });
+
+  return { valid: errors.length === 0, errors };
+}
+
+/** All totals use whole pennies; linked equity is a view, not an extra asset. */
+export function summarizeDraft(draft) {
+  const review = validateDraft(draft);
+  if (!review.valid)
+    throw new Error(`Invalid asset draft: ${review.errors[0].path}: ${review.errors[0].message}`);
+
+  const assetTotal = draft.assets.reduce((sum, asset) => sum + pennies(asset.value), 0);
+  const debtTotal = draft.debts.reduce((sum, debt) => sum + pennies(debt.balance), 0);
+  const assetGroups = Object.entries(ASSET_TYPES)
+    .map(([kind, type]) => {
+      const items = draft.assets.filter((asset) => asset.kind === kind);
+      return {
+        kind,
+        label: type.label,
+        total: pounds(items.reduce((sum, item) => sum + pennies(item.value), 0)),
+        count: items.length,
+      };
+    })
+    .filter((group) => group.count > 0);
+  const debtGroups = Object.entries(DEBT_TYPES)
+    .map(([kind, type]) => {
+      const items = draft.debts.filter((debt) => debt.kind === kind);
+      return {
+        kind,
+        label: type.label,
+        total: pounds(items.reduce((sum, item) => sum + pennies(item.balance), 0)),
+        count: items.length,
+      };
+    })
+    .filter((group) => group.count > 0);
+  const linkedEquity = draft.assets
+    .filter((asset) => ["home", "other-property"].includes(asset.kind))
+    .map((asset) => {
+      const linkedDebt = draft.debts
+        .filter((debt) => debt.linkedAssetId === asset.id)
+        .reduce((sum, debt) => sum + pennies(debt.balance), 0);
+      return {
+        assetId: asset.id,
+        assetValue: asset.value,
+        linkedDebtTotal: pounds(linkedDebt),
+        equity: pounds(pennies(asset.value) - linkedDebt),
+      };
+    });
+
+  return {
+    assetTotal: pounds(assetTotal),
+    debtTotal: pounds(debtTotal),
+    netWorth: pounds(assetTotal - debtTotal),
+    assetGroups,
+    debtGroups,
+    linkedEquity,
+  };
+}

@@ -4,10 +4,11 @@ Read this every session. It is the source of truth for how we build Steadybee.
 Detailed rules live in the docs linked below; the hard rules are inlined here.
 
 ## What Steadybee is
-A retirement decision workspace for UK self-directed planners. The current research prototype
-organises entered information and separately demonstrates named fictional examples. Personal
-forecasts and payments are not connected. A verified personal decision bundle is a future offer
-hypothesis; price, cadence and demand remain unproven.
+A retirement decision workspace for UK self-directed planners. A separate asset picture prototype
+shows the current assets, debts and net worth of the items one person enters, without a forecast.
+The existing workspace organises entered information and separately demonstrates named fictional
+examples. Personal forecasts and payments are not connected. A verified personal decision bundle
+is a future offer hypothesis; price, cadence and demand remain unproven.
 Current prototype scope and verification: [README](README.md) and
 [prototype loop plan](docs/2026-10-09-prototype-loop-plan.md). The static HTML/CSS/JavaScript
 prototype is an experience experiment; the production stack below remains the agreed direction.
