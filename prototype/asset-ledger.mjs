@@ -64,7 +64,7 @@ export function createAlexExample() {
       { id: "gemma-cash", kind: "cash", label: "Cash", value: 150_000, owner: "partner" },
     ],
     debts: [
-      { id: "alex-mortgage", kind: "mortgage", label: "Main home mortgage", balance: 380_000, interestRate: 4.7, linkedAssetId: "alex-home", owner: "shared" },
+      { id: "alex-mortgage", kind: "mortgage", label: "Main home mortgage", balance: 380_000, interestRate: 4.7, remainingYears: 21, linkedAssetId: "alex-home", owner: "shared" },
     ],
   };
 }
@@ -181,6 +181,9 @@ export function validateDraft(draft) {
         debt.remainingYears > 100)
     )
       error(`${path}.remainingYears`, "Enter more than 0 and up to 100 years remaining.");
+    if (!isBlank(debt.monthlyPayment) &&
+      (debt.kind !== "mortgage" || !isMoney(debt.monthlyPayment)))
+      error(`${path}.monthlyPayment`, "Enter an explicit monthly mortgage payment, to the penny.");
     if (!isBlank(debt.linkedAssetId)) {
       const linked = assets.find((asset) => asset?.id === debt.linkedAssetId);
       if (!linked ||

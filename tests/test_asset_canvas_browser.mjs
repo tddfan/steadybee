@@ -57,6 +57,8 @@ async function page(mobile = false) {
   browserPage.on("dialog", (dialog) => dialog.accept());
   await browserPage.goto(`${origin}/asset-canvas.html`);
   await browserPage.locator("#canvas-screen").waitFor({ state: "visible" });
+  for (const summary of await browserPage.locator(".owner-details summary").all()) await summary.click();
+  for (const summary of await browserPage.locator(".bucket-cell > summary").all()) await summary.click();
   return browserPage;
 }
 
@@ -67,6 +69,8 @@ async function start(browserPage, name = "Alex", age = 52) {
   await browserPage.locator("#person-age").fill(String(age));
   await browserPage.locator("#start-button").click();
   await browserPage.locator("#canvas-screen").waitFor({ state: "visible" });
+  const details = browserPage.locator('[data-owner-details="primary"]');
+  if (await details.count()) await details.locator(":scope > summary").click();
 }
 
 async function addItem(browserPage, type, kind, label, amount, extras = {}) {
@@ -83,6 +87,9 @@ async function addItem(browserPage, type, kind, label, amount, extras = {}) {
   if (extras.link !== undefined) await browserPage.locator("#item-linked-asset").selectOption(extras.link);
   await browserPage.locator("#save-item-button").click();
   await browserPage.locator("#item-dialog").waitFor({ state: "hidden" });
+  const details = browserPage.locator(`[data-owner-details="${extras.owner || "primary"}"]`);
+  if (await details.count() && !(await details.evaluate((element) => element.open))) await details.locator(":scope > summary").click();
+  for (const summary of await details.locator(".bucket-cell:not([open]) > summary").all()) await summary.click();
 }
 
 async function displayedAmount(browserPage, selector) {
@@ -103,9 +110,89 @@ test("welcome gathers a name and age before showing an honestly empty picture", 
   assert.equal(await displayedAmount(p, "#asset-total"), 0);
   assert.equal(await displayedAmount(p, "#debt-total"), 0);
   assert.equal(await displayedAmount(p, "#net-worth"), 0);
-  assert.equal(await p.locator("[data-asset-id]").count(), 0);
-  assert.equal(await p.locator("[data-debt-id]").count(), 0);
-  assert.match(await p.locator("#canvas-screen").innerText(), /(?:nothing|no assets|none|start|entered)/i);
+  assert.equal(await p.locator('[data-orbit-type="asset"]').count(), 0);
+  assert.equal(await p.locator('[data-orbit-type="debt"]').count(), 0);
+  assert.equal(await p.locator("#first-piece").isVisible(), true);
+  assert.equal(await p.locator(".constellation-centre").isVisible(), false);
+  assert.equal(await p.locator(".explore-panel").isVisible(), false);
+  await p.locator('[data-first-kind="cash"]').click();
+  assert.equal(await p.locator("#item-kind").inputValue(), "cash");
+  await p.locator("#item-amount").fill("25000");
+  await p.locator("#save-item-button").click();
+  assert.equal(await p.locator("#first-piece").isVisible(), false);
+  assert.equal(await p.locator(".explore-panel").isVisible(), true);
+  assert.equal(await displayedAmount(p, "#net-worth"), 25000);
+  await p.close();
+});
+
+test("monthly Sankey links confirmed property rent and keeps asset values out of income", async () => {
+  const p = await page();
+  await p.locator("#step-to-flow").click();
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 14962.38);
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 6175.30);
+  assert.equal(await displayedAmount(p, "#flow-result-value"), 8787.08);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex pay · £9,190.93/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Mortgage · £2,375.30/);
+  assert.equal(await p.locator("#flow-pay-primary-annualGross").inputValue(), "146500");
+  assert.equal(await p.locator("#flow-pay-primary-annualBonus").inputValue(), "50000");
+  assert.equal(await p.locator("#flow-pay-primary-employeePensionRate").inputValue(), "7");
+  assert.equal(await p.locator("#flow-pay-partner-annualGross").inputValue(), "125000");
+  await p.locator("#flow-include-mortgage").uncheck();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 3800);
+  await p.locator("#flow-include-mortgage").check();
+  await p.locator("#flow-include-rent").uncheck();
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 14862.38);
+  await p.locator("#flow-rent-list [data-flow-asset]").click();
+  assert.equal(await p.locator("#item-monthly-rent").inputValue(), "100");
+  await p.locator("#item-monthly-rent").fill("150");
+  await p.locator("#save-item-button").click();
+  await p.locator("#flow-screen").waitFor({ state: "visible" });
+  await p.locator("#flow-include-rent").check();
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 15012.38);
+  await p.locator("#flow-editor > summary").click();
+  await p.locator("#flow-spending-homeBills").fill("1200");
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 6975.30);
+  assert.equal(await displayedAmount(p, "#flow-result-value"), 8037.08);
+  await p.locator("#step-to-assets").click();
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
+  await p.close();
+});
+
+test("dated entries are editable and update the monthly summary only when active", async () => {
+  const p = await page();
+  await p.locator("#step-to-flow").click();
+  await p.locator("#flow-add-expense").click();
+  await p.locator("#flow-dated-label").fill("School fees");
+  await p.locator("#flow-dated-amount").fill("300");
+  await p.locator("#flow-dated-form button[type=submit]").click();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 6475.30);
+  assert.match(await p.locator("#flow-sankey").textContent(), /School fees · £300/);
+  await p.locator("#flow-add-income").click();
+  await p.locator("#flow-dated-label").fill("Part-time work");
+  await p.locator("#flow-dated-amount").fill("1200");
+  await p.locator("#flow-dated-start").fill("2027-01");
+  await p.locator("#flow-dated-form button[type=submit]").click();
+  assert.match(await p.locator("#flow-dated-list").innerText(), /Part-time work[\s\S]*Starts later/);
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 14962.38);
+  await p.locator("#flow-dated-list").getByRole("button", { name: /School fees/ }).click();
+  await p.locator("#flow-dated-amount").fill("350");
+  await p.locator("#flow-dated-form button[type=submit]").click();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 6525.30);
+  await p.close();
+});
+
+test("personal monthly flow starts empty and shows an unfunded gap honestly", async () => {
+  const p = await page();
+  await start(p, "Jordan", 55);
+  await p.locator("#step-to-flow").click();
+  assert.equal(await p.locator("#flow-empty").isVisible(), true);
+  assert.equal(await p.locator("#flow-editor").evaluate((element) => element.open), true);
+  assert.equal(await p.locator("#flow-rent-toggle-row").isVisible(), false);
+  await p.locator("#flow-pay-primary-annualTakeHome").fill("36000");
+  await p.locator("#flow-spending-homeBills").fill("3500");
+  assert.equal(await p.locator("#flow-result-label").innerText(), "More spent than recorded income");
+  assert.equal(await displayedAmount(p, "#flow-result-value"), 500);
+  assert.equal(await p.locator("#flow-source-list").innerText().then((text) => text.includes("Amount not covered")), true);
   await p.close();
 });
 
@@ -113,29 +200,28 @@ test("assets, linked mortgage and edits reconcile without double counting equity
   const p = await page();
   await start(p);
   await addItem(p, "asset", "home", "Our home", 480000);
-  const homeId = await p.locator("[data-asset-id]").first().getAttribute("data-asset-id");
+  const homeId = await p.locator('[data-orbit-type="asset"]').first().getAttribute("data-orbit-id");
   assert.ok(homeId);
   await addItem(p, "debt", "mortgage", "Home mortgage", 190000, { rate: 4.5, years: 18, link: homeId });
   await addItem(p, "asset", "isa", "Stocks and shares ISA", 35000);
-  await p.locator(".list-disclosure summary").click();
   assert.equal(await displayedAmount(p, "#asset-total"), 515000);
   assert.equal(await displayedAmount(p, "#debt-total"), 190000);
   assert.equal(await displayedAmount(p, "#net-worth"), 325000);
-  assert.match(await p.locator("#asset-list").innerText(), /290,000/);
-  assert.match(await p.locator("#debt-list").innerText(), /4\.5\s*%/);
-  assert.match(await p.locator("#debt-list").innerText(), /18\s*(?:years|yrs)/i);
+  assert.match(await p.locator('[data-owner-group="primary"] .linked-pair-note').innerText(), /£480k − £190k debt[\s\S]*£290k equity/);
 
-  await p.locator("[data-edit-debt]").first().click();
+  await p.locator('[data-orbit-type="debt"]').first().click();
+  assert.equal(await p.locator("#item-interest-rate").inputValue(), "4.5");
+  assert.equal(await p.locator("#item-remaining-years").inputValue(), "18");
   await p.locator("#item-amount").fill("175000");
   await p.locator("#save-item-button").click();
   assert.equal(await displayedAmount(p, "#asset-total"), 515000);
   assert.equal(await displayedAmount(p, "#debt-total"), 175000);
   assert.equal(await displayedAmount(p, "#net-worth"), 340000);
-  assert.match(await p.locator("#asset-list").innerText(), /305,000/);
+  assert.match(await p.locator('[data-owner-group="primary"] .linked-pair-note').innerText(), /£305k equity/);
 
-  await p.locator("[data-edit-debt]").first().click();
+  await p.locator('[data-orbit-type="debt"]').first().click();
   await p.locator("#delete-item-button").click();
-  assert.equal(await p.locator("[data-debt-id]").count(), 0);
+  assert.equal(await p.locator('[data-orbit-type="debt"]').count(), 0);
   assert.equal(await displayedAmount(p, "#net-worth"), 515000);
   await p.close();
 });
@@ -153,23 +239,24 @@ test("a mortgage can be linked with the keyboard, without dragging", async () =>
   await link.focus();
   await link.press("End");
   const chosen = await link.inputValue();
-  assert.equal(chosen, await p.locator("[data-asset-id]").first().getAttribute("data-asset-id"));
+  assert.equal(chosen, await p.locator('[data-orbit-type="asset"]').first().getAttribute("data-orbit-id"));
   await p.locator("#item-amount").fill("100000");
   await p.locator("#save-item-button").click();
   assert.equal(await displayedAmount(p, "#net-worth"), 150000);
   await p.close();
 });
 
-test("dragging a mortgage onto a home links it without changing the totals", async () => {
+test("editing a mortgage links it to a home without changing the totals", async () => {
   const p = await page();
   await start(p);
   await addItem(p, "asset", "home", "The house", 300000);
   await addItem(p, "debt", "mortgage", "The mortgage", 120000);
-  await p.locator(".list-disclosure summary").click();
   const before = await displayedAmount(p, "#net-worth");
-  await p.locator("[data-debt-id]").dragTo(p.locator("[data-asset-id]"));
-  assert.match(await p.locator("#debt-list").innerText(), /Linked to The house/);
-  assert.match(await p.locator("#asset-list").innerText(), /180,000/);
+  const homeId = await p.locator('[data-orbit-type="asset"]').first().getAttribute("data-orbit-id");
+  await p.locator('[data-orbit-type="debt"]').first().click();
+  await p.locator("#item-linked-asset").selectOption(homeId);
+  await p.locator("#save-item-button").click();
+  assert.match(await p.locator('[data-owner-group="primary"] .linked-pair-note').innerText(), /£300k − £120k debt[\s\S]*£180k equity/);
   assert.equal(await displayedAmount(p, "#net-worth"), before);
   await p.close();
 });
@@ -240,7 +327,8 @@ test("Alex and Gemma's owner sections are editable and reconcile shared values o
   assert.equal(await displayedAmount(p, "#accessible-total"), 690000);
   assert.doesNotMatch(await p.locator('#orbit-items').innerText(), /Estimate|Scheme age\?/);
   assert.match(await p.locator('[data-owner-group="shared"] [data-bucket="debt"]').innerText(), /Main home mortgage/);
-  assert.match(await p.locator('#mix-legend').innerText(), /Accessible £690k[\s\S]*Pensions £710k[\s\S]*Property & things £1\.03m[\s\S]*Check access £100k/);
+  await p.locator('[data-chart-view="access"]').click();
+  assert.match(await p.locator('#chart-categories').innerText(), /Generally accessible[\s\S]*£690,000[\s\S]*Pensions[\s\S]*£710,000[\s\S]*Property & possessions[\s\S]*£1,025,000[\s\S]*Access to confirm[\s\S]*£100,000/);
   assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
   assert.equal(await p.locator('[data-orbit-id="alex-home"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
   assert.equal(await p.locator('[data-orbit-id="alex-mortgage"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
@@ -286,6 +374,23 @@ test("Alex and Gemma's owner sections are editable and reconcile shared values o
   });
   assert.ok(layout.width <= layout.viewport + 1);
   assert.ok(layout.amount.left >= layout.centre.left && layout.amount.right <= layout.centre.right, "Net worth stays inside the summary");
+  await p.close();
+});
+
+test("donut categories drill into assets and keep shared debt separate", async () => {
+  const p = await page();
+  assert.equal(await p.locator("#donut-total").innerText(), "£2,525,000");
+  await p.locator('[data-owner-details="shared"] summary').click();
+  await p.locator('[data-chart-key="shared"].chart-category').click();
+  assert.equal(await p.locator('[data-owner-details="shared"]').evaluate((element) => element.open), true);
+  assert.match(await p.locator('[data-owner-group="shared"]').innerText(), /Main home[\s\S]*£780k[\s\S]*Main home mortgage[\s\S]*−£380k[\s\S]*£400k equity/);
+  await p.locator('[data-orbit-id="alex-home"]').click();
+  assert.equal(await p.locator("#item-dialog").isVisible(), true);
+  await p.locator("#close-item-button").click();
+  await p.locator('[data-chart-view="type"]').click();
+  assert.equal(await p.locator("#chart-drilldown").isVisible(), false);
+  await p.locator('[data-chart-key="home"].chart-category').click();
+  assert.match(await p.locator("#chart-drilldown").innerText(), /Main home mortgage/);
   await p.close();
 });
 
@@ -340,7 +445,8 @@ test("quick add and access review update the household picture without changing 
   await p.locator("#item-confidence").selectOption("exact");
   await p.locator("#save-item-button").click();
   assert.equal(await p.locator('[data-owner-group="primary"] [data-bucket="accessible"] [data-orbit-id="alex-shares"]').count(), 1);
-  assert.match(await p.locator("#mix-legend").innerText(), /Accessible £790k/);
+  await p.locator('[data-chart-view="access"]').click();
+  assert.match(await p.locator("#chart-categories").innerText(), /Generally accessible[\s\S]*£790,000/);
   assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
   assert.equal(await displayedAmount(p, "#accessible-total"), 790000);
   assert.match(await p.locator('#access-review-count').innerText(), /2 access details/);
@@ -363,6 +469,8 @@ test("quick add and access review update the household picture without changing 
   await p.locator("#item-amount").fill("25000");
   await p.locator("#save-item-button").click();
   assert.equal(await displayedAmount(p, "#net-worth"), 2170000);
+  await p.locator('[data-chart-view="owner"]').click();
+  assert.match(await p.locator('[data-chart-key="partner"].chart-category').innerText(), /£545,000/);
   assert.match(await p.locator('[data-owner-group="partner"] [data-bucket="accessible"]').innerText(), /£325k/);
   await p.close();
 });

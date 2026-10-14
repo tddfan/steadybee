@@ -50,6 +50,7 @@
         </section>
 
         <section id="canvas-screen" class="canvas-screen" aria-labelledby="canvas-title" hidden>
+          <nav class="picture-steps" aria-label="Your picture sections"><span class="picture-step is-current" aria-current="step"><span>1</span> Assets &amp; debt</span><span class="step-connector" aria-hidden="true"></span><button id="step-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button></nav>
           <div class="canvas-heading">
             <div>
               <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> <span id="example-badge">Fictional example · edit anything</span></p>
@@ -57,68 +58,106 @@
               <p id="snapshot-description" class="muted">A snapshot from what you’ve entered. Add or change a piece whenever you like.</p>
             </div>
             <div class="canvas-heading-actions">
-              <button id="start-own-button" class="text-button" type="button">Start my own</button>
-              <button id="reset-example-button" class="text-button" type="button">Reset example</button>
-              <button id="edit-profile-button" class="text-button" type="button">Edit people</button>
-              <button id="clear-button" class="text-button text-button-danger" type="button">Clear everything</button>
+              <button id="start-own-button" class="heading-action heading-action-primary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Start my own</button>
+              <button id="edit-profile-button" class="heading-action heading-action-secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5.5 18.5 8.5M4 20l4.5-1 10-10a2.12 2.12 0 0 0-3-3l-10 10L4 20Z" /></svg>Edit people</button>
+              <div class="heading-utilities">
+                <button id="reset-example-button" class="heading-utility" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.3 6M4 4v7h7" /></svg>Reset example</button>
+                <button id="clear-button" class="heading-utility heading-utility-danger" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg>Clear everything</button>
+              </div>
             </div>
           </div>
 
-          <section class="constellation-centre" aria-label="Combined household totals">
-                <span class="centre-kicker">THE COMPLETE PICTURE</span>
-                <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong></div>
-                <div class="summary-accessible"><span>Generally accessible</span><strong id="accessible-total">£0</strong><small>Account and sale rules apply</small></div>
-                <div class="summary-row"><span>Total assets</span><strong id="asset-total">£0</strong></div>
-                <div class="summary-row summary-debt"><span>Total debt</span><strong id="debt-total">£0</strong></div>
-                <div class="mix-overview"><div id="mix-bar" class="mix-bar" role="img" aria-label="Asset mix"></div><div id="mix-legend" class="mix-legend"></div></div>
-                <span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span>
+          <section id="first-piece" class="first-piece" aria-labelledby="first-piece-title" hidden>
+            <div class="first-piece-copy">
+              <p class="section-kicker">Your first step</p>
+              <h2 id="first-piece-title">Add the first piece of your picture</h2>
+              <p>Start with something you know. An estimate is fine, and you can change it later.</p>
+              <button id="first-piece-add" class="button button-primary" type="button">Add what you own <span aria-hidden="true">→</span></button>
+            </div>
+            <div class="first-piece-options" aria-label="Common places to start">
+              <span>Or start with</span>
+              <button type="button" data-first-kind="home">Home</button>
+              <button type="button" data-first-kind="cash">Savings</button>
+              <button type="button" data-first-kind="isa">ISA investment</button>
+              <button type="button" data-first-kind="dc-pension">Pension</button>
+              <button type="button" data-first-kind="other">Something else</button>
+            </div>
+            <p class="first-piece-note">You can add debts and shared items later. Nothing is calculated from an empty picture.</p>
           </section>
-          <details id="access-review" class="access-review" hidden>
-            <summary><span aria-hidden="true">◎</span> <span id="access-review-count"></span><span class="review-action">Review details</span></summary>
-            <div id="access-review-items" class="access-review-items"></div>
-          </details>
-          <section class="picture-panel" aria-label="Assets and debts by owner and access">
-            <div class="picture-top"><span>YOUR HOUSEHOLD · THREE PARTS, ONE PICTURE</span><span>Tap an item to edit</span></div>
+          <section class="constellation-centre" aria-label="Combined household totals">
+            <div class="summary-topline"><span class="centre-kicker">The complete picture</span><span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span></div>
+            <div class="summary-content">
+              <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong><small>What you own, less what you owe</small></div>
+              <div class="summary-support">
+                <p class="summary-explainer">How it adds up</p>
+                <div class="summary-equation">
+                  <div class="summary-row"><span>Total assets</span><strong id="asset-total">£0</strong></div>
+                  <span class="summary-minus" aria-hidden="true">−</span>
+                  <div class="summary-row summary-debt"><span>Total debt</span><strong id="debt-total">£0</strong></div>
+                </div>
+                <div class="summary-accessible"><span>Generally accessible assets</span><strong id="accessible-total">£0</strong><small>Part of total assets · account and sale rules apply</small></div>
+              </div>
+            </div>
+          </section>
+          <section class="explore-panel" aria-labelledby="explore-title">
+            <div class="explore-heading">
+              <div><p class="section-kicker">Explore the picture</p><h2 id="explore-title">What makes up your assets?</h2></div>
+              <div class="explore-tabs" role="group" aria-label="Break down assets by">
+                <button type="button" data-chart-view="owner" aria-pressed="true">Person</button>
+                <button type="button" data-chart-view="type" aria-pressed="false">Asset type</button>
+                <button type="button" data-chart-view="access" aria-pressed="false">Access</button>
+              </div>
+            </div>
+            <p id="chart-context" class="chart-context">Each slice is a share of total assets. Debt is shown separately below.</p>
+            <div class="explore-body">
+              <div class="donut-wrap"><svg id="asset-donut" viewBox="0 0 240 240" role="img" aria-labelledby="donut-title donut-description"><title id="donut-title">Assets by person</title><desc id="donut-description">Select a category in the list to see its items.</desc></svg><div class="donut-centre"><span>Total assets</span><strong id="donut-total">£0</strong></div></div>
+              <div id="chart-categories" class="chart-categories" aria-label="Asset breakdown"></div>
+            </div>
+            <div id="chart-drilldown" class="chart-drilldown" hidden></div>
+          </section>
+          <section class="picture-panel people-panel" aria-labelledby="people-title">
+            <div class="people-heading"><div><p class="section-kicker">Your entries</p><h2 id="people-title">People and shared items</h2></div><p>Add or change an item here; the totals and chart above update immediately.</p></div>
             <p id="value-context" class="value-context">Example values are illustrative estimates. Edit anything to make it yours.</p>
             <div id="constellation" class="constellation">
               <div id="orbit-items" class="orbit-items"></div>
             </div>
             <p class="picture-equation">Shared items count once. Equity shows an asset’s value after its linked debt.</p>
           </section>
+          <details id="access-review" class="access-review" hidden>
+            <summary><span aria-hidden="true">◎</span> <span id="access-review-count"></span><span class="review-action">Review details</span></summary>
+            <div id="access-review-items" class="access-review-items"></div>
+          </details>
           <p class="snapshot-caveat">Today’s values only. Rent and interest rates are details, not added to net worth. “Accessible” means generally available, subject to each account’s rules. Confirm pension and employee share access before using them in a plan.</p>
+          <div id="next-flow" class="next-flow"><div><p class="section-kicker">Next part of your picture</p><h2>What comes in and goes out each month?</h2><p>Your assets show what you have today. Add monthly income and spending to see how money moves through your household.</p></div><button id="continue-flow" class="button button-primary" type="button">Continue to income &amp; spending <span aria-hidden="true">→</span></button></div>
 
-          <details class="list-disclosure"><summary>View every detail as a list</summary><div class="board-grid">
-            <section class="ledger-panel" aria-labelledby="asset-section-title">
-              <div class="section-top">
-                <div>
-                  <p class="section-kicker">01 · What you own</p>
-                  <h2 id="asset-section-title">Your assets</h2>
-                </div>
-                <button id="add-asset-button" class="button button-add" type="button">＋ Add asset</button>
+        </section>
+        <section id="flow-screen" class="flow-screen" aria-labelledby="flow-title" hidden>
+          <nav class="picture-steps" aria-label="Your picture sections"><button id="step-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>2</span> Income &amp; spending</span></nav>
+          <div class="flow-heading"><div><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> An annualised monthly picture</p><h1 id="flow-title" tabindex="-1">Where your money goes.</h1><p>See estimated take-home pay, other money received, and spending as a monthly average. A yearly bonus is spread over 12 months here; actual pay may differ. This is not a retirement forecast.</p></div><button id="back-to-assets" class="heading-action heading-action-secondary" type="button">← Back to assets</button></div>
+          <section class="flow-result" aria-label="Monthly money summary"><div><span id="flow-result-label">Not assigned to spending</span><strong id="flow-result-value">£0</strong><p id="flow-result-context">This amount is not automatically savings.</p></div><div class="flow-result-maths"><div><span>Money in</span><strong id="flow-income-total">£0</strong></div><span aria-hidden="true">−</span><div><span>Spending</span><strong id="flow-spending-total">£0</strong></div></div></section>
+          <section id="flow-dated-panel" class="flow-dated-panel" aria-labelledby="flow-dated-title">
+            <div class="flow-dated-heading"><div><p class="section-kicker">Your entries</p><h2 id="flow-dated-title">Income and expense entries</h2><p>Give each item its own name, amount and dates. Entries active in <span id="flow-dated-asof">this month</span> appear in the diagram. Future and ended items stay here for a later projection.</p></div><div class="flow-dated-actions"><button id="flow-add-income" class="heading-action heading-action-secondary" type="button">+ Add income</button><button id="flow-add-expense" class="heading-action heading-action-secondary" type="button">+ Add expense</button></div></div>
+            <div id="flow-entry-overview" class="flow-entry-overview" aria-label="Pay and regular monthly spending"></div>
+            <div id="flow-dated-list" class="flow-dated-list"></div><p id="flow-dated-empty" class="flow-dated-empty">No extra entries yet. Add income or an expense here; your totals and diagram update when it applies.</p>
+            <form id="flow-dated-form" class="flow-dated-form" hidden novalidate>
+              <h3 id="flow-dated-form-title">Add income</h3>
+              <div class="flow-dated-form-grid">
+                <label>Type<select id="flow-dated-side"><option value="income">Income received</option><option value="spending">Expense paid</option></select></label>
+                <label>Name<input id="flow-dated-label" type="text" maxlength="80" placeholder="e.g. Part-time work or school fees" required /></label>
+                <label>Amount (£)<input id="flow-dated-amount" type="number" min="0" max="100000000" step="0.01" inputmode="decimal" placeholder="0" required /></label>
+                <label>How often?<select id="flow-dated-frequency"><option value="monthly">Each month</option><option value="yearly">Each year</option><option value="once">One-off</option></select></label>
+                <label>Start month <span id="flow-dated-start-hint" class="optional">Optional</span><input id="flow-dated-start" type="month" /></label>
+                <label id="flow-dated-end-row">End month <span class="optional">Optional</span><input id="flow-dated-end" type="month" /></label>
               </div>
-              <div id="asset-list" class="entry-list"></div>
-            </section>
-
-            <section class="ledger-panel debt-panel" aria-labelledby="debt-section-title">
-              <div class="section-top">
-                <div>
-                  <p class="section-kicker">02 · What you owe</p>
-                  <h2 id="debt-section-title">Your debts</h2>
-                </div>
-                <button id="add-debt-button" class="button button-add button-add-debt" type="button">＋ Add debt</button>
-              </div>
-              <div id="debt-list" class="entry-list"></div>
-              <p id="link-tip" class="link-tip" hidden>Tip: drag a mortgage onto a property to link them, or use “Linked to” when editing. The totals stay the same.</p>
-            </section>
-          </div></details>
-
-          <aside class="access-note" aria-label="What these assets mean">
-            <span class="access-note-icon" aria-hidden="true">✳</span>
-            <div>
-              <h2>One total, different kinds of access.</h2>
-              <p>Cash and ISAs are generally accessible; pension access depends on the rules that apply to you. Employee shares may have sale restrictions. Property and possessions would usually need to be sold or borrowed against. This screen only describes today’s entered values.</p>
-            </div>
-          </aside>
+              <p class="flow-dated-help">Leave start blank if it already applies; leave end blank if ongoing. A one-off item needs its month. Use income actually received after tax. Yearly amounts are shown as monthly averages. Avoid entering a cost already included in the spending categories above.</p>
+              <p id="flow-dated-error" class="form-error" role="alert" hidden></p>
+              <div class="flow-dated-form-actions"><button id="flow-dated-delete" class="text-button text-button-danger" type="button" hidden>Remove entry</button><button id="flow-dated-cancel" class="heading-action heading-action-secondary" type="button">Cancel</button><button class="button button-primary" type="submit">Save entry</button></div>
+            </form>
+          </section>
+          <section class="flow-map-panel" aria-labelledby="flow-map-title"><div class="flow-map-heading"><div><p class="section-kicker">Follow the money</p><h2 id="flow-map-title">Monthly flow</h2></div><p><span class="flow-desktop-explain">Ribbons show the size of each monthly average. </span><span class="flow-mobile-explain">The lists show each amount. </span>Select an item below to change its figure. Amounts are shown on the diagram.</p></div><div id="flow-empty" class="flow-empty" hidden>Start with an amount below to build your monthly flow.</div><svg id="flow-sankey" viewBox="0 0 1000 430" role="img" aria-labelledby="flow-svg-title flow-svg-desc"><title id="flow-svg-title">Monthly money in and spending</title><desc id="flow-svg-desc">An illustrative flow of monthly average income to spending. Each flow label shows a monthly amount; the lists below give full labels and exact amounts.</desc></svg><div id="flow-list-grid" class="flow-list-grid"><div><h3>Money in</h3><div id="flow-source-list" class="flow-item-list"></div></div><div><h3>Spending and remainder</h3><div id="flow-use-list" class="flow-item-list"></div></div></div></section>
+          <section id="flow-link-panel" class="flow-link-panel" aria-labelledby="flow-link-title"><div><p class="section-kicker">Linked to assets &amp; debt</p><h2 id="flow-link-title">Property cash flows</h2><p id="flow-link-description">Rent and an entered or calculated mortgage payment can appear here.</p></div><div id="flow-rent-list" class="flow-rent-list"></div><div id="flow-mortgage-list" class="flow-rent-list"></div><label id="flow-rent-toggle-row" class="flow-rent-toggle"><input id="flow-include-rent" type="checkbox" /> Include recorded rent in money in</label><label id="flow-mortgage-toggle-row" class="flow-rent-toggle"><input id="flow-include-mortgage" type="checkbox" /> Include mortgage payment in spending</label><p class="flow-link-caveat">Rent is shown before property costs and tax. Add any relevant property costs to spending; rental income tax is not estimated here.</p></section>
+          <details id="flow-editor" class="flow-editor"><summary>Edit pay and monthly amounts <span>Yearly pay, pension contributions, and what you spend</span></summary><div class="flow-pay-section"><h3>Pay details, by person</h3><p>Enter yearly base salary, bonus and pension contributions. We estimate take-home pay for the chart, or you can enter the actual yearly amount from payslips. For each pension contribution, use either a percentage of base salary or a yearly amount. Employee contributions are deducted once; employer contributions go directly to pension.</p><div id="flow-pay-inputs" class="flow-pay-grid"></div><p class="flow-tax-caveat">Rough 2026–27 estimate for England, Wales or Northern Ireland. Assumes a standard tax code, employee NI category A, and a net-pay pension scheme (employee contribution reduces Income Tax but not NI). Current rules, subject to change. It excludes student loans, benefits, other income and any payroll differences. Check your payslip; <a href="https://www.gov.uk/income-tax-rates" target="_blank" rel="noopener noreferrer">Income Tax rates</a> and <a href="https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027" target="_blank" rel="noopener noreferrer">NI rates</a> are from GOV.UK.</p></div><div class="flow-edit-grid"><fieldset><legend>Money in each month</legend><div id="flow-income-inputs"></div></fieldset><fieldset><legend>Spending each month</legend><div id="flow-spending-inputs"></div></fieldset></div><div class="flow-assumptions"><label for="flow-inflation-rate">Annual inflation assumption <span class="optional">Optional · for a later projection</span></label><div class="unit-input"><input id="flow-inflation-rate" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="No assumption entered" /><span aria-hidden="true">%</span></div><p>This is stored as an assumption only. It does not change the monthly picture.</p></div><p id="flow-input-error" role="alert" hidden></p><p>Enter other monthly amounts you know. Keep mortgage payments separate from home running costs. Pension pots and asset values are not income.</p></details>
+          <p class="flow-caveat">Snapshot only · Illustration, not advice. Pay end dates, contributions and mortgage payments are recorded as inputs for a later projection. This screen only estimates current-year pay tax; it does not project future tax, inflation or retirement outcomes.</p>
         </section>
       </main>
 
@@ -161,7 +200,7 @@
         <div id="cash-rate-field" class="form-field" hidden><label for="item-cash-rate">Current cash interest rate <span class="optional">Optional</span></label><div class="unit-input"><input id="item-cash-rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" /><span aria-hidden="true">%</span></div><p class="field-help">Shown as context; future interest is not calculated.</p></div>
         <div id="investment-field" class="form-field" hidden><label for="item-investment-label">Invested in <span class="optional">Optional</span></label><input id="item-investment-label" type="text" maxlength="80" placeholder="e.g. S&amp;P" /><p class="field-help">A description of your holding, not a growth forecast.</p></div>
         <details id="mortgage-fields" class="optional-fields" hidden>
-          <summary>Mortgage details <span>Interest rate and years left · optional</span></summary>
+          <summary>Mortgage details <span>Rate, years left and payment · optional</span></summary>
           <div class="field-pair">
             <div class="form-field">
               <label for="item-interest-rate">Current interest rate <span class="optional">Optional</span></label>
@@ -172,7 +211,7 @@
               <div class="unit-input"><input id="item-remaining-years" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 18" /><span aria-hidden="true">years</span></div>
             </div>
           </div>
-          <p class="field-help">These details are recorded for context. We do not calculate future repayments here.</p>
+          <div class="form-field"><label for="item-monthly-payment">Monthly payment <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-payment" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Leave blank to estimate a level repayment from the balance, rate and remaining years. Enter the actual amount paid to override the estimate.</p></div><p class="field-help">The estimate assumes a repayment mortgage and an unchanged interest rate. Your lender’s payment may differ; this payment is not added to debt balance.</p>
         </details>
         <div id="debt-link-field" class="form-field" hidden>
           <label for="item-linked-asset">Linked to an asset? <span class="optional">Optional</span></label>

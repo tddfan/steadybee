@@ -9,6 +9,8 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow } from "./monthly-flow.mjs";
+import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -22,27 +24,21 @@ const make = (tag, className, content) => {
   return node;
 };
 
-const assetGroups = [
-  { key: "available", title: "Available savings", barLabel: "Available", subtitle: "Cash and ISA", kinds: ["cash", "isa"], color: "#17674f" },
-  { key: "investments", title: "Shares", subtitle: "Sale rules may vary", kinds: ["shares"], color: "#326b80" },
-  { key: "pension", title: "Pension", barLabel: "Pension", subtitle: "Access depends on your rules", kinds: ["dc-pension"], color: "#5d4a81" },
-  { key: "property", title: "Property", barLabel: "Property", subtitle: "Usually tied up in a home", kinds: ["home", "other-property"], color: "#9f6728" },
-  { key: "possessions", title: "Possessions", barLabel: "Possessions", subtitle: "Usually sold to release value", kinds: ["car"], color: "#506e83" },
-  { key: "other", title: "Other assets", barLabel: "Other", subtitle: "Access varies", kinds: ["other"], color: "#536b58" },
-];
-const debtGroups = [
-  { key: "property", title: "Property borrowing", barLabel: "Mortgage", subtitle: "Mortgages", kinds: ["mortgage"], color: "#ad5331" },
-  { key: "other", title: "Other borrowing", barLabel: "Other debt", subtitle: "Loans and cards", kinds: ["loan", "credit-card", "other"], color: "#95603b" },
-];
-
 let draft = createAlexExample();
+let flowDraft = createExampleMonthlyFlow();
 let mode = "example";
 let dialogType = null;
 let editingId = null;
-let draggedDebtId = null;
 let lastTrigger = null;
 let addOwner = "primary";
 let addTrigger = null;
+let returnToFlowAssetId = null;
+let editingFlowEntryId = null;
+let flowEntryTrigger = null;
+let chartView = "owner";
+let chartSelection = null;
+const openOwners = new Set();
+const openCategories = new Set();
 
 function announce(message) { $("live-message").textContent = message; }
 function itemName(item, types) { return item.label?.trim() || types[item.kind].label; }
@@ -58,21 +54,109 @@ function setTotals() {
   $("net-worth").style.fontSize = netWorthText.length > 15 ? "1.12rem" : netWorthText.length > 11 ? "1.4rem" : "";
   $("asset-count").textContent = countLabel(draft.assets.length, "asset");
   $("debt-count").textContent = countLabel(draft.debts.length, "debt");
-  const labels = { accessible: "Accessible", pension: "Pensions", illiquid: "Property & things", review: "Check access" };
-  const mix = $("mix-bar");
-  const legend = $("mix-legend");
-  mix.replaceChildren();
-  legend.replaceChildren();
-  for (const bucket of ACCESS_BUCKETS) {
-    const value = summary.accessTotals[bucket];
-    if (!value) continue;
-    const segment = make("span", `mix-segment mix-${bucket}`);
-    segment.style.width = `${value / summary.assetTotal * 100}%`;
-    mix.append(segment);
-    legend.append(make("span", `mix-key mix-${bucket}`, `${labels[bucket]} ${compactMoney(value)}`));
-  }
-  mix.setAttribute("aria-label", summary.assetTotal ? ACCESS_BUCKETS.map((bucket) => `${labels[bucket]} ${money(summary.accessTotals[bucket])}`).join(", ") : "No assets entered");
   return summary;
+}
+
+const chartColours = ["#28745f", "#8064a4", "#bb893f", "#5d8191", "#ad674e", "#687a54", "#956f76", "#486c77"];
+const chartViews = {
+  owner: { title: "Assets by person", context: "Shared assets count once. Select a person to open their items below." },
+  type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
+  access: { title: "Assets by access", context: "Access describes when money may generally be available; account and sale rules still apply." },
+};
+const accessLabels = { accessible: "Generally accessible", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm" };
+const share = (value, total) => `${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value / total * 100)}%`;
+
+function chartGroups(summary) {
+  if (chartView === "owner") return ["primary", "partner", "shared"]
+    .filter((owner) => owner !== "partner" && owner !== "shared" || draft.partnerName?.trim())
+    .map((owner) => ({ key: owner, label: ownerName(owner), value: summary.ownership[owner].assetTotal,
+      assets: draft.assets.filter((asset) => (asset.owner || "primary") === owner),
+      debts: draft.debts.filter((debt) => (debt.owner || "primary") === owner) }));
+  if (chartView === "type") return summary.assetGroups.map((group) => ({
+    key: group.kind, label: group.label, value: group.total,
+    assets: draft.assets.filter((asset) => asset.kind === group.kind),
+    debts: draft.debts.filter((debt) => draft.assets.some((asset) => asset.kind === group.kind && asset.id === debt.linkedAssetId)),
+  }));
+  return ACCESS_BUCKETS.map((bucket) => ({ key: bucket, label: accessLabels[bucket], value: summary.accessTotals[bucket],
+    assets: draft.assets.filter((asset) => accessBucket(asset) === bucket), debts: [] }));
+}
+
+function renderChart(summary) {
+  const groups = chartGroups(summary).filter((group) => group.value > 0);
+  if (!groups.some((group) => group.key === chartSelection)) chartSelection = null;
+  for (const button of document.querySelectorAll("[data-chart-view]")) button.setAttribute("aria-pressed", String(button.dataset.chartView === chartView));
+  $("donut-title").textContent = chartViews[chartView].title;
+  $("chart-context").textContent = `${chartViews[chartView].context} Shares use total assets; debt is deducted separately from net worth.`;
+  $("donut-total").textContent = money(summary.assetTotal);
+  const svg = $("asset-donut");
+  svg.querySelectorAll("circle").forEach((circle) => circle.remove());
+  const ns = "http://www.w3.org/2000/svg";
+  const track = document.createElementNS(ns, "circle");
+  track.setAttribute("cx", "120"); track.setAttribute("cy", "120"); track.setAttribute("r", "88");
+  track.setAttribute("fill", "none"); track.setAttribute("stroke", "#e4e8e2"); track.setAttribute("stroke-width", "30");
+  svg.append(track);
+  let offset = 0;
+  const circumference = 2 * Math.PI * 88;
+  for (const [index, group] of groups.entries()) {
+    const fraction = group.value / summary.assetTotal;
+    const segment = document.createElementNS(ns, "circle");
+    segment.setAttribute("cx", "120"); segment.setAttribute("cy", "120"); segment.setAttribute("r", "88");
+    segment.setAttribute("fill", "none"); segment.setAttribute("stroke", chartColours[index % chartColours.length]);
+    segment.setAttribute("stroke-width", chartSelection === group.key ? "37" : "30");
+    segment.setAttribute("stroke-dasharray", `${Math.max(0, fraction * circumference - 2)} ${circumference}`);
+    segment.setAttribute("stroke-dashoffset", String(-offset * circumference));
+    segment.setAttribute("transform", "rotate(-90 120 120)");
+    segment.setAttribute("class", "donut-slice"); segment.dataset.chartKey = group.key;
+    segment.setAttribute("tabindex", "0"); segment.setAttribute("role", "button");
+    segment.setAttribute("aria-label", `${group.label}, ${money(group.value)}, ${share(group.value, summary.assetTotal)} of assets. View items`);
+    svg.append(segment);
+    offset += fraction;
+  }
+  const list = $("chart-categories");
+  list.replaceChildren();
+  if (!groups.length) {
+    list.append(make("p", "chart-empty", "Add your first asset to see the breakdown."));
+    const add = make("button", "button button-primary chart-add", "＋ Add an asset");
+    add.type = "button"; add.dataset.chartAdd = "";
+    list.append(add);
+  }
+  for (const [index, group] of groups.entries()) {
+    const button = make("button", "chart-category");
+    button.type = "button"; button.dataset.chartKey = group.key;
+    button.setAttribute("aria-pressed", String(chartSelection === group.key));
+    const swatch = make("span", "chart-swatch"); swatch.style.background = chartColours[index % chartColours.length];
+    button.append(swatch, make("span", "chart-category-name", group.label), make("strong", "", money(group.value)), make("small", "", `${share(group.value, summary.assetTotal)} of assets →`));
+    list.append(button);
+  }
+  const detail = $("chart-drilldown");
+  detail.replaceChildren(); detail.hidden = !chartSelection || chartView === "owner";
+  if (!chartSelection || chartView === "owner") return;
+  const group = groups.find((entry) => entry.key === chartSelection);
+  const heading = make("div", "drill-heading");
+  const back = make("button", "drill-back", "← All categories"); back.type = "button"; back.dataset.chartBack = "";
+  heading.append(back, make("h3", "", group.label), make("strong", "", money(group.value)));
+  detail.append(heading);
+  const items = make("div", "drill-items");
+  for (const asset of group.assets) {
+    const button = make("button", "drill-item"); button.type = "button"; button.dataset.drillType = "asset"; button.dataset.drillId = asset.id;
+    button.append(make("span", "", itemName(asset, ASSET_TYPES)), make("strong", "", money(asset.value)));
+    items.append(button);
+  }
+  detail.append(items);
+  if (group.debts.length) {
+    detail.append(make("p", "drill-debt-label", "Related debt · deducted from net worth, not from the asset slices"));
+    const debtItems = make("div", "drill-items");
+    for (const debt of group.debts) {
+      const button = make("button", "drill-item drill-debt"); button.type = "button"; button.dataset.drillType = "debt"; button.dataset.drillId = debt.id;
+      button.append(make("span", "", itemName(debt, DEBT_TYPES)), make("strong", "", `−${money(debt.balance)}`));
+      debtItems.append(button);
+    }
+    detail.append(debtItems);
+  }
+  if (chartView === "owner" && group.debts.length) {
+    const net = group.value - group.debts.reduce((sum, debt) => sum + debt.balance, 0);
+    detail.append(make("p", "drill-net", `${group.label} net today: ${money(net)}`));
+  }
 }
 
 const iconPaths = {
@@ -115,6 +199,11 @@ function debtContext(debt) {
   const notes = [];
   if (debt.interestRate !== undefined) notes.push(`${plain(debt.interestRate)}% mortgage rate`);
   if (debt.remainingYears !== undefined) notes.push(`${plain(debt.remainingYears)} years left`);
+  if (debt.monthlyPayment !== undefined) notes.push(`${money(debt.monthlyPayment)}/month payment`);
+  else if (debt.kind === "mortgage") {
+    const estimate = estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears });
+    if (estimate !== null) notes.push(`Estimated ${money(estimate)}/month repayment`);
+  }
   return notes.join(" · ");
 }
 function ownerName(owner = "primary") {
@@ -144,13 +233,13 @@ function renderAccessReview() {
     list.append(button);
   }
 }
-function showAddChoices(owner, trigger) {
+function showAddChoices(owner, trigger, assetOnly = false) {
   addOwner = owner;
   addTrigger = trigger;
   $("add-dialog-title").textContent = `Add for ${ownerName(owner)}`;
   const choices = $("add-choices");
   choices.replaceChildren();
-  for (const [type, types] of [["asset", ASSET_TYPES], ["debt", DEBT_TYPES]]) {
+  for (const [type, types] of (assetOnly ? [["asset", ASSET_TYPES]] : [["asset", ASSET_TYPES], ["debt", DEBT_TYPES]])) {
     choices.append(make("p", "add-choice-label", type === "asset" ? "Something you own" : "Something you owe"));
     for (const [kind, info] of Object.entries(types)) {
       const button = make("button", `add-choice add-choice-${type}`);
@@ -187,16 +276,22 @@ function renderOrbit(summary) {
     add.setAttribute("aria-label", `Add an asset or debt for ${ownerName(owner)}`);
     header.append(add);
     const balance = make("div", "owner-balance");
-    balance.append(make("span", "", "Net today"), make("strong", "owner-cluster-net", money(subtotal.netWorth)));
+    for (const [label, value, className] of [["Assets", subtotal.assetTotal, "owner-assets"], ["Debt", subtotal.debtTotal, "owner-debt"], ["Net today", subtotal.netWorth, "owner-cluster-net"]]) {
+      const metric = make("div", "owner-metric");
+      metric.append(make("span", "", label), make("strong", className, money(value)));
+      balance.append(metric);
+    }
     const cells = ["accessible", "pension", "illiquid", "debt", "review"].flatMap((bucket) => {
-      const cell = make("div", `bucket-cell bucket-${bucket}`);
+      const cell = make("details", `bucket-cell bucket-${bucket}`);
       cell.dataset.bucket = bucket;
+      cell.dataset.ownerBucket = `${owner}:${bucket}`;
+      cell.open = openCategories.has(cell.dataset.ownerBucket);
       const members = bucket === "debt" ? debts.map((item) => ({ type: "debt", item })) : assets.filter((item) => accessBucket(item) === bucket).map((item) => ({ type: "asset", item }));
       if (!members.length) return [];
       const total = members.reduce((sum, { type, item }) => sum + (type === "debt" ? item.balance : item.value), 0);
-      const heading = make("div", "bucket-heading");
+      const heading = make("summary", "bucket-heading");
       heading.append(make("span", "bucket-mobile-label", { accessible: "Available now", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm", debt: "Borrowing" }[bucket]));
-      if (members.length > 1) heading.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
+      heading.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
       cell.append(heading);
       const nodes = make("div", "owner-nodes");
       for (const { type, item } of members) {
@@ -226,141 +321,268 @@ function renderOrbit(summary) {
       cell.append(nodes);
       return cell;
     });
-    group.append(header, balance, ...cells);
-    if (!assets.length && !debts.length) group.append(make("p", "owner-empty", "Start with one thing you own or owe. Use + Add above."));
+    const details = make("details", "owner-details");
+    details.dataset.ownerDetails = owner;
+    details.open = openOwners.has(owner);
+    const itemCount = assets.length + debts.length;
+    const categoryGrid = make("div", "owner-category-grid");
+    categoryGrid.append(...cells);
+    details.append(make("summary", "", `View ${itemCount} item${itemCount === 1 ? "" : "s"}`), categoryGrid);
+    group.classList.toggle("owner-selected", chartView === "owner" && chartSelection === owner);
+    group.append(header, balance);
+    if (itemCount) group.append(details);
+    else group.append(make("p", "owner-empty", "No items yet. Use Add to get started."));
     for (const asset of assets) {
       const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
       if (equity?.linkedDebtTotal) {
         const pair = make("div", "linked-pair-note");
         pair.append(make("span", "", `${itemName(asset, ASSET_TYPES)} ${compactMoney(asset.value)} − ${compactMoney(equity.linkedDebtTotal)} debt`), make("strong", "", `= ${compactMoney(equity.equity)} equity`));
-        group.append(pair);
+        cells.find((cell) => cell.dataset.bucket === "illiquid")?.append(pair);
       }
     }
     container.append(group);
   }
   container.classList.toggle("single-owner", !draft.partnerName?.trim());
-  document.querySelector(".picture-top > span").textContent = draft.partnerName?.trim() ? "YOUR HOUSEHOLD · THREE PARTS, ONE PICTURE" : "YOUR ASSETS & DEBTS";
-}
-
-function renderAsset(asset, group, summary) {
-  const card = make("div", "entry-card");
-  card.dataset.assetId = asset.id;
-  card.style.setProperty("--entry-color", group.color);
-  const details = make("div", "entry-details");
-  details.append(make("p", "entry-name", itemName(asset, ASSET_TYPES)));
-  details.append(make("p", "entry-meta", ASSET_TYPES[asset.kind].label));
-  details.append(make("p", "entry-meta", `Owner: ${ownerName(asset.owner)}`));
-  if (assetContext(asset)) details.append(make("p", "entry-extra", assetContext(asset)));
-  const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
-  if (equity?.linkedDebtTotal > 0) {
-    details.append(make("p", "entry-extra", `Equity after linked debt: ${money(equity.equity)}`));
-  }
-  const side = make("div", "entry-side");
-  side.append(make("strong", "entry-amount", money(asset.value)));
-  const edit = make("button", "entry-edit", "Edit");
-  edit.type = "button";
-  edit.dataset.editAsset = asset.id;
-  edit.setAttribute("aria-label", `Edit ${itemName(asset, ASSET_TYPES)}`);
-  side.append(edit);
-  card.append(details, side);
-  if (["home", "other-property"].includes(asset.kind)) {
-    card.addEventListener("dragover", (event) => {
-      if (!draggedDebtId) return;
-      event.preventDefault();
-      card.classList.add("is-drop-target");
-    });
-    card.addEventListener("dragleave", () => card.classList.remove("is-drop-target"));
-    card.addEventListener("drop", (event) => {
-      event.preventDefault();
-      card.classList.remove("is-drop-target");
-      const debt = draft.debts.find((entry) => entry.id === draggedDebtId);
-      draggedDebtId = null;
-      if (!debt || debt.kind !== "mortgage") return;
-      debt.linkedAssetId = asset.id;
-      render();
-      announce(`${itemName(debt, DEBT_TYPES)} linked to ${itemName(asset, ASSET_TYPES)}. Totals have not changed.`);
-    });
-  }
-  return card;
-}
-
-function renderDebt(debt, group) {
-  const card = make("div", "entry-card");
-  card.dataset.debtId = debt.id;
-  card.style.setProperty("--entry-color", group.color);
-  const details = make("div", "entry-details");
-  details.append(make("p", "entry-name", itemName(debt, DEBT_TYPES)));
-  let meta = DEBT_TYPES[debt.kind].label;
-  if (debt.interestRate !== undefined) meta += ` · ${plain(debt.interestRate)}% current rate`;
-  if (debt.remainingYears !== undefined) meta += ` · ${plain(debt.remainingYears)} years left`;
-  details.append(make("p", "entry-meta", meta));
-  details.append(make("p", "entry-meta", `Responsibility: ${ownerName(debt.owner)}`));
-  const linked = draft.assets.find((asset) => asset.id === debt.linkedAssetId);
-  if (linked) details.append(make("p", "entry-extra", `Linked to ${itemName(linked, ASSET_TYPES)}`));
-  const side = make("div", "entry-side");
-  side.append(make("strong", "entry-amount", money(debt.balance)));
-  const edit = make("button", "entry-edit", "Edit");
-  edit.type = "button";
-  edit.dataset.editDebt = debt.id;
-  edit.setAttribute("aria-label", `Edit ${itemName(debt, DEBT_TYPES)}`);
-  side.append(edit);
-  card.append(details, side);
-  if (debt.kind === "mortgage" && draft.assets.some((asset) => ["home", "other-property"].includes(asset.kind))) {
-    card.draggable = true;
-    card.title = "Drag onto a property to link, or use Edit";
-    card.addEventListener("dragstart", (event) => {
-      draggedDebtId = debt.id;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", debt.id);
-      card.classList.add("is-dragging");
-    });
-    card.addEventListener("dragend", () => {
-      draggedDebtId = null;
-      card.classList.remove("is-dragging");
-      document.querySelectorAll(".is-drop-target").forEach((target) => target.classList.remove("is-drop-target"));
-    });
-  }
-  return card;
-}
-
-function renderList(id, items, groups, summary, type) {
-  const list = $(id);
-  list.replaceChildren();
-  if (!items.length) {
-    const empty = make("div", "empty-state");
-    empty.append(make("span", "empty-icon", type === "asset" ? "＋" : "−"));
-    empty.append(make("strong", "empty-title", type === "asset" ? "Your picture starts here" : "No debts entered yet"));
-    empty.append(make("p", "", type === "asset" ? "Add a home, savings, pension or something else you own." : "Add a mortgage, loan or other amount you owe."));
-    list.append(empty);
-    return;
-  }
-  for (const group of groups) {
-    const members = items.filter((item) => group.kinds.includes(item.kind));
-    if (!members.length) continue;
-    const section = make("section", "entry-group");
-    const heading = make("div", "entry-group-heading");
-    heading.append(make("span", "", group.title));
-    heading.append(make("span", "group-subtitle", group.subtitle));
-    const stack = make("div", "entry-stack");
-    for (const item of members) stack.append(type === "asset" ? renderAsset(item, group, summary) : renderDebt(item, group));
-    section.append(heading, stack);
-    list.append(section);
-  }
 }
 
 function render() {
   const summary = setTotals();
+  const hasItems = draft.assets.length + draft.debts.length > 0;
+  $("first-piece").hidden = hasItems || mode === "example";
+  document.querySelector(".constellation-centre").hidden = !hasItems && mode !== "example";
+  document.querySelector(".explore-panel").hidden = draft.assets.length === 0 && mode !== "example";
+  document.querySelector(".people-panel").hidden = !hasItems && mode !== "example";
+  document.querySelector(".snapshot-caveat").hidden = !hasItems && mode !== "example";
+  renderChart(summary);
   $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
-  $("snapshot-description").textContent = `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
+  $("snapshot-description").textContent = !hasItems && mode !== "example"
+    ? `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · Your picture is ready for its first item.`
+    : `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
   $("value-context").textContent = mode === "example" ? "Example values are illustrative estimates. Edit anything to make it yours." : "Start with what you know. Mark values as exact, estimated, or needing review in the editor.";
   renderAccessReview();
   renderOrbit(summary);
-  renderList("asset-list", draft.assets, assetGroups, summary, "asset");
-  renderList("debt-list", draft.debts, debtGroups, summary, "debt");
-  $("link-tip").hidden = !(draft.debts.some((debt) => debt.kind === "mortgage") && draft.assets.some((asset) => ["home", "other-property"].includes(asset.kind)));
+  renderFlow();
+}
+
+const flowColors = {
+  primaryPay: "#28745f", partnerPay: "#8064a4", pensionIncome: "#5f8093", otherIncome: "#78916d",
+  homeBills: "#b68849", everyday: "#ce9d62", transport: "#7893a5", lifestyle: "#9b80a8", other: "#9b8770",
+  rent: "#659277", mortgage: "#aa7251", datedIncome: "#3d8276", datedSpending: "#b87961", unallocated: "#8ba99a", gap: "#b25d45",
+};
+const svgNS = "http://www.w3.org/2000/svg";
+function svgElement(tag, attributes = {}) {
+  const node = document.createElementNS(svgNS, tag);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
+  return node;
+}
+function flowColor(item) { return flowColors[item.key] || flowColors[item.kind] || "#78916d"; }
+function flowBand(x1, y1, x2, y2, height) {
+  const middle = (x1 + x2) / 2;
+  return `M ${x1} ${y1} C ${middle} ${y1} ${middle} ${y2} ${x2} ${y2} L ${x2} ${y2 + height} C ${middle} ${y2 + height} ${middle} ${y1 + height} ${x1} ${y1 + height} Z`;
+}
+function flowPositions(items, scale, chartHeight) {
+  const gap = 9;
+  const totalHeight = items.reduce((sum, item) => sum + item.amount * scale, 0) + Math.max(0, items.length - 1) * gap;
+  let y = Math.max(52, (chartHeight - totalHeight) / 2);
+  return items.map((item) => {
+    const position = { ...item, y, height: item.amount * scale };
+    y += position.height + gap;
+    return position;
+  });
+}
+function labelPositions(items, chartHeight) {
+  const labels = items.map((item) => item.y + item.height / 2);
+  for (let index = 1; index < labels.length; index++) labels[index] = Math.max(labels[index], labels[index - 1] + 25);
+  const excess = labels.at(-1) - (chartHeight - 42);
+  if (excess > 0) for (let index = 0; index < labels.length; index++) labels[index] -= excess;
+  return labels;
+}
+function renderSankey(summary) {
+  const svg = $("flow-sankey");
+  [...svg.children].filter((child) => !["title", "desc"].includes(child.tagName.toLowerCase())).forEach((child) => child.remove());
+  svg.hidden = !summary.hasEntries;
+  $("flow-empty").hidden = summary.hasEntries;
+  if (!summary.hasEntries) return;
+  const chartHeight = Math.max(430, 120 + Math.max(summary.sources.length, summary.uses.length) * 36);
+  const centreHeight = chartHeight - 160;
+  svg.setAttribute("viewBox", `0 0 1000 ${chartHeight}`);
+  const scale = centreHeight / summary.chartTotal;
+  const left = flowPositions(summary.sources, scale, chartHeight);
+  const right = flowPositions(summary.uses, scale, chartHeight);
+  const addText = (x, y, label, anchor = "start", className = "flow-svg-label") => {
+    const node = svgElement("text", { x, y, "text-anchor": anchor, class: className });
+    node.textContent = label;
+    svg.append(node);
+  };
+  addText(218, 30, "MONEY IN", "end", "flow-svg-heading");
+  addText(500, 30, "MONTHLY AVERAGE", "middle", "flow-svg-heading");
+  addText(790, 30, "SPENDING & LEFT", "start", "flow-svg-heading");
+  let centreY = 80;
+  for (const item of left) {
+    const path = svgElement("path", { d: flowBand(230, item.y, 492, centreY, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
+    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
+    path.append(title); svg.append(path);
+    centreY += item.height;
+  }
+  centreY = 80;
+  for (const item of right) {
+    const path = svgElement("path", { d: flowBand(508, centreY, 770, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
+    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
+    path.append(title); svg.append(path);
+    centreY += item.height;
+  }
+  svg.append(svgElement("rect", { x: 492, y: 80, width: 16, height: centreHeight, rx: 6, fill: "#315b4d" }));
+  for (const [items, x, labelX, anchor] of [[left, 216, 202, "end"], [right, 770, 796, "start"]]) {
+    const labelY = labelPositions(items, chartHeight);
+    items.forEach((item, index) => {
+      svg.append(svgElement("rect", { x, y: item.y, width: 14, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
+      const chartName = item.key === "unallocated" ? "Unassigned" : item.key === "gap" ? "Gap" : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "pensionIncome" ? "Pension income" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} pay` : item.label.length > 16 ? `${item.label.slice(0, 15)}…` : item.label;
+      addText(labelX, labelY[index] + 5, `${chartName} · ${money(item.amount)}`, anchor);
+    });
+  }
+}
+function flowListItem(item, side) {
+  const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
+  const editable = payOwner || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
+  const node = make(editable || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending" ? "button" : "div", "flow-list-item");
+  if (node.tagName === "BUTTON") {
+    node.type = "button";
+    if (payOwner) node.dataset.flowPay = payOwner;
+    else if (editable) node.dataset.flowFocus = `${side}:${item.key}`;
+    else if (item.kind === "datedIncome" || item.kind === "datedSpending") node.dataset.flowEntry = item.key.slice(6);
+    else if (item.kind === "mortgage") node.dataset.flowDebt = item.key.slice(9);
+    else node.dataset.flowAsset = item.key.slice(5);
+  }
+  const swatch = make("span", "flow-list-swatch"); swatch.style.background = flowColor(item);
+  node.append(swatch, make("span", "flow-list-label", item.label), make("strong", "", money(item.amount)));
+  return node;
+}
+function flowMonthLabel(month) {
+  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
+}
+function renderDatedEntries(summary) {
+  const overview = $("flow-entry-overview"); overview.replaceChildren();
+  for (const detail of summary.payDetails) {
+    const button = make("button", "flow-overview-card"); button.type = "button"; button.dataset.flowPay = detail.owner;
+    button.append(make("span", "flow-overview-kicker", detail.enteredTakeHome ? "Yearly pay · entered monthly take-home" : "Yearly pay · estimated monthly take-home"), make("strong", "", detail.person), make("span", "flow-overview-amount", `${money(detail.monthlyTakeHome)}/month`), make("span", "flow-overview-edit", "Edit pay →"));
+    overview.append(button);
+  }
+  const regular = summary.uses.filter((item) => item.kind === "spending").reduce((sum, item) => sum + item.amount, 0);
+  const spending = make("button", "flow-overview-card"); spending.type = "button"; spending.dataset.flowRegular = "spending";
+  spending.append(make("span", "flow-overview-kicker", "Regular categories"), make("strong", "", "Everyday spending"), make("span", "flow-overview-amount", `${money(regular)}/month`), make("span", "flow-overview-edit", "Edit amounts →"));
+  overview.append(spending);
+  $("flow-dated-asof").textContent = flowMonthLabel(summary.asOfMonth);
+  $("flow-dated-empty").hidden = summary.entryDetails.length > 0;
+  const list = $("flow-dated-list"); list.replaceChildren();
+  for (const entry of summary.entryDetails) {
+    const row = make("button", "flow-dated-row"); row.type = "button"; row.dataset.flowEntry = entry.id;
+    const main = make("span", "flow-dated-row-main");
+    const dates = entry.frequency === "once" ? `In ${flowMonthLabel(entry.startMonth)}` : `${entry.startMonth ? `From ${flowMonthLabel(entry.startMonth)}` : "Already started"} · ${entry.endMonth ? `Until ${flowMonthLabel(entry.endMonth)}` : "Ongoing"}`;
+    const amountLabel = entry.frequency === "yearly" ? `${money(entry.amount)}/year` : entry.frequency === "once" ? `${money(entry.amount)} once` : `${money(entry.amount)}/month`;
+    main.append(make("strong", "", entry.label), make("small", "", `${entry.side === "income" ? "Income" : "Expense"} · ${dates} · ${amountLabel}`));
+    const status = make("span", `flow-dated-status is-${entry.status}`, entry.status === "active" ? "In diagram" : entry.status === "future" ? "Starts later" : "Ended");
+    row.append(main, make("span", "flow-dated-row-amount", entry.frequency === "yearly" ? `${money(entry.monthlyAmount)}/month here` : "Edit →"), status);
+    list.append(row);
+  }
+}
+function renderFlow() {
+  const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
+  $("flow-income-total").textContent = money(summary.incomeTotal);
+  $("flow-spending-total").textContent = money(summary.spendingTotal);
+  $("flow-result-value").textContent = summary.hasEntries ? money(Math.abs(summary.remainder)) : "—";
+  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Not assigned to spending";
+  const payEstimated = summary.payDetails.some((detail) => !detail.enteredTakeHome && detail.annualGross > 0);
+  $("flow-result-context").textContent = !summary.hasEntries ? "Enter money in or spending below to see the flow." : summary.remainder < 0 ? "This gap is not assumed to be funded from your assets." : `This amount is not automatically savings or available for a plan.${payEstimated ? " Pay is an estimate; use actual take-home for a more reliable figure." : ""}`;
+  $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
+  for (const detail of summary.payDetails) {
+    $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
+    $(`flow-pay-${detail.owner}-monthly`).textContent = detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in diagram` : "Enter yearly salary or actual take-home pay to start.";
+    $(`flow-pay-${detail.owner}-tax`).textContent = detail.annualGross ? `Rough 2026–27 estimate: Income Tax ${money(detail.estimate.incomeTax)}, employee NI ${money(detail.estimate.employeeNI)}, employee pension ${money(detail.employeePension)}${detail.employerPension ? `, employer pension ${money(detail.employerPension)}` : ""} per year. Employer pension is outside take-home pay.` : "";
+  }
+  $("flow-include-rent").checked = flowDraft.includeLinkedRent;
+  $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
+  $("flow-link-panel").hidden = summary.linkedRents.length === 0 && summary.linkedMortgages.length === 0;
+  $("flow-rent-toggle-row").hidden = summary.linkedRents.length === 0;
+  $("flow-mortgage-toggle-row").hidden = summary.linkedMortgages.length === 0;
+  $("flow-link-description").textContent = "Recorded rent and mortgage payments can flow into this picture. A repayment estimate needs the balance, current rate and remaining term; enter your actual payment to replace it.";
+  const rents = $("flow-rent-list"); rents.replaceChildren();
+  for (const rent of summary.linkedRents) {
+    const row = make("button", "flow-rent-row"); row.type = "button"; row.dataset.flowAsset = rent.id;
+    row.append(make("span", "", `${rent.label} · recorded in assets`), make("strong", "", `${money(rent.amount)}/month`), make("span", "flow-rent-edit", "Edit property →"));
+    rents.append(row);
+  }
+  const mortgages = $("flow-mortgage-list"); mortgages.replaceChildren();
+  for (const mortgage of summary.linkedMortgages) {
+    const row = make("button", "flow-rent-row"); row.type = "button"; row.dataset.flowDebt = mortgage.id;
+    const basis = mortgage.estimated ? `${money(mortgage.balance)} balance · ${plain(mortgage.annualRate)}% · ${plain(mortgage.remainingYears)} years left` : "entered payment";
+    row.append(make("span", "", `${mortgage.label} · ${basis}`), make("strong", "", `${money(mortgage.amount)}/month${mortgage.estimated ? " est." : ""}`), make("span", "flow-rent-edit", "Edit mortgage →"));
+    mortgages.append(row);
+  }
+  const sources = $("flow-source-list"); sources.replaceChildren(...summary.sources.map((item) => flowListItem(item, "income")));
+  const uses = $("flow-use-list"); uses.replaceChildren(...summary.uses.map((item) => flowListItem(item, "spending")));
+  $("flow-list-grid").hidden = !summary.hasEntries;
+  renderSankey(summary);
+  renderDatedEntries(summary);
+}
+function setupFlowInputs() {
+  for (const owner of ["primary", "partner"]) {
+    const card = make("fieldset", "flow-pay-card");
+    const legend = make("legend"); legend.id = `flow-pay-${owner}-name`; legend.textContent = owner === "primary" ? "Your pay" : "Partner's pay";
+    card.append(legend);
+    for (const [key, label] of [["annualGross", "Yearly base salary"], ["annualBonus", "Yearly bonus"], ["employeePensionRate", "Your pension (base pay rate)"], ["employeePension", "Your pension (yearly amount)"], ["employerPensionRate", "Employer pension (base pay rate)"], ["employerPension", "Employer pension (yearly amount)"], ["annualTakeHome", "Actual take-home (yearly)"]]) {
+      const row = make("label", "flow-input-row"); row.append(make("span", "", label));
+      const wrapper = make("span", "flow-money-input"); const input = make("input");
+      const percent = key.endsWith("Rate");
+      input.type = "number"; input.min = "0"; input.max = percent ? "100" : "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = key === "annualTakeHome" ? "Use estimate" : "0";
+      input.dataset.flowPayOwner = owner; input.dataset.flowPayKey = key; input.id = `flow-pay-${owner}-${key}`;
+      wrapper.append(make("span", "", percent ? "%" : "£"), input); row.append(wrapper); card.append(row);
+    }
+    const dateRow = make("label", "flow-input-row"); dateRow.append(make("span", "", "Expected pay end month"));
+    const date = make("input", "flow-date-input"); date.type = "month"; date.dataset.flowPayOwner = owner; date.dataset.flowPayKey = "endDate"; date.id = `flow-pay-${owner}-endDate`; dateRow.append(date); card.append(dateRow);
+    card.append(make("p", "flow-pay-monthly", "")); const monthly = card.lastChild; monthly.id = `flow-pay-${owner}-monthly`;
+    card.append(make("p", "flow-pay-tax", "")); card.lastChild.id = `flow-pay-${owner}-tax`;
+    $("flow-pay-inputs").append(card);
+  }
+  for (const [side, fields] of [["income", INCOME_FIELDS], ["spending", SPENDING_FIELDS]]) {
+    const container = $(`flow-${side}-inputs`);
+    for (const { key, label } of fields) {
+      const row = make("label", "flow-input-row");
+      const name = make("span", "", label); name.id = `flow-${side}-${key}-label`;
+      const moneyField = make("span", "flow-money-input");
+      const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0";
+      input.dataset.flowSide = side; input.dataset.flowKey = key;
+      moneyField.append(make("span", "", "£"), input);
+      row.append(name, moneyField); container.append(row);
+    }
+  }
+}
+function syncFlowInputs() {
+  editingFlowEntryId = null;
+  $("flow-dated-form").hidden = true;
+  for (const input of document.querySelectorAll("[data-flow-side]")) {
+    const value = flowDraft[input.dataset.flowSide][input.dataset.flowKey];
+    input.value = value ? String(value) : "";
+  }
+  for (const input of document.querySelectorAll("[data-flow-pay-owner]")) {
+    const value = flowDraft.pay[input.dataset.flowPayOwner][input.dataset.flowPayKey];
+    input.value = value || "";
+  }
+  $("flow-include-rent").checked = flowDraft.includeLinkedRent;
+  $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
+  $("flow-inflation-rate").value = flowDraft.assumptions.annualInflation ?? "";
+}
+function showScreen(screen) {
+  $("canvas-screen").hidden = screen !== "assets";
+  $("flow-screen").hidden = screen !== "flow";
+  if (screen === "flow") {
+    renderFlow();
+    if (mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) $("flow-editor").open = true;
+  }
+  (screen === "flow" ? $("flow-title") : $("canvas-title")).focus();
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 function populateKinds(type, selected = "") {
@@ -428,6 +650,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-label").value = item?.label || "";
   $("item-amount").value = item ? String(type === "asset" ? item.value : item.balance) : "";
   $("item-interest-rate").value = type === "debt" ? item?.interestRate ?? "" : "";
+  $("item-monthly-payment").value = type === "debt" ? item?.monthlyPayment ?? "" : "";
   $("item-monthly-rent").value = item?.monthlyRent ?? "";
   $("item-cash-rate").value = type === "asset" ? item?.interestRate ?? "" : "";
   $("item-investment-label").value = item?.investmentLabel ?? "";
@@ -435,7 +658,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-confidence").value = item?.confidence || "estimate";
   $("item-access-bucket").value = item?.accessBucket || "review";
   $("item-pension-access-age").value = item?.pensionAccessAge ?? "";
-  $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined);
+  $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined || item?.monthlyPayment !== undefined);
   updateDialogFields(item?.linkedAssetId);
   $("item-dialog").showModal();
   $(item || initialKind ? "item-amount" : "item-kind").focus();
@@ -461,6 +684,7 @@ function itemFromForm() {
   if (kind === "mortgage") {
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
     if ($("item-remaining-years").value.trim()) debt.remainingYears = Number($("item-remaining-years").value);
+    if ($("item-monthly-payment").value.trim()) debt.monthlyPayment = Number($("item-monthly-payment").value);
   }
   if (!$("debt-link-field").hidden && $("item-linked-asset").value) debt.linkedAssetId = $("item-linked-asset").value;
   return debt;
@@ -485,8 +709,153 @@ $("welcome-form").addEventListener("submit", (event) => {
 });
 for (const id of ["person-name", "person-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
-$("add-asset-button").addEventListener("click", (event) => showItemDialog("asset", null, event.currentTarget));
-$("add-debt-button").addEventListener("click", (event) => showItemDialog("debt", null, event.currentTarget));
+$("first-piece-add").addEventListener("click", (event) => showAddChoices("primary", event.currentTarget, true));
+$("first-piece").addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-first-kind]");
+  if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
+});
+for (const id of ["step-to-flow", "continue-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
+for (const id of ["step-to-assets", "back-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
+$("flow-editor").addEventListener("input", (event) => {
+  const input = event.target.closest("[data-flow-side], [data-flow-pay-owner]");
+  if (!input) return;
+  if (input.dataset.flowPayKey === "endDate") { flowDraft.pay[input.dataset.flowPayOwner].endDate = input.value; renderFlow(); return; }
+  const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : Number(input.value);
+  const maximum = input.dataset.flowPayKey?.endsWith("Rate") ? 100 : 100_000_000;
+  if (value !== null && (!Number.isFinite(value) || value < 0 || value > maximum || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)) {
+    $("flow-input-error").textContent = maximum === 100 ? "Enter a pension contribution rate from 0% to 100%." : "Enter an amount from £0 to £100,000,000, with no more than two decimal places.";
+    $("flow-input-error").hidden = false;
+    return;
+  }
+  $("flow-input-error").hidden = true;
+  if (input.dataset.flowPayOwner) {
+    const pay = flowDraft.pay[input.dataset.flowPayOwner];
+    const key = input.dataset.flowPayKey; pay[key] = value;
+    if (value && ["employeePension", "employeePensionRate", "employerPension", "employerPensionRate"].includes(key)) {
+      const paired = key.endsWith("Rate") ? key.slice(0, -4) : `${key}Rate`;
+      pay[paired] = 0; $(`flow-pay-${input.dataset.flowPayOwner}-${paired}`).value = "";
+    }
+  }
+  else flowDraft[input.dataset.flowSide][input.dataset.flowKey] = value;
+  renderFlow();
+});
+$("flow-include-rent").addEventListener("change", (event) => {
+  flowDraft.includeLinkedRent = event.currentTarget.checked;
+  renderFlow();
+});
+$("flow-inflation-rate").addEventListener("input", (event) => {
+  const value = event.currentTarget.value.trim();
+  const valid = value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 30);
+  $("flow-input-error").hidden = valid;
+  if (valid) flowDraft.assumptions.annualInflation = value === "" ? null : Number(value);
+  else $("flow-input-error").textContent = "Enter an annual inflation assumption from 0% to 30%.";
+});
+$("flow-include-mortgage").addEventListener("change", (event) => {
+  flowDraft.includeLinkedMortgage = event.currentTarget.checked;
+  renderFlow();
+});
+function showDatedForm(side, id = null, trigger = null) {
+  const entry = flowDraft.datedEntries.find((item) => item.id === id);
+  editingFlowEntryId = entry?.id || null;
+  flowEntryTrigger = trigger;
+  $("flow-dated-side").value = entry?.side || side;
+  $("flow-dated-label").value = entry?.label || "";
+  $("flow-dated-amount").value = entry?.amount ?? "";
+  $("flow-dated-frequency").value = entry?.frequency || "monthly";
+  $("flow-dated-start").value = entry?.startMonth || "";
+  $("flow-dated-end").value = entry?.endMonth || "";
+  syncDatedFrequency();
+  $("flow-dated-form-title").textContent = `${entry ? "Edit" : "Add"} ${$("flow-dated-side").value === "income" ? "income" : "expense"}`;
+  $("flow-dated-delete").hidden = !entry;
+  $("flow-dated-error").hidden = true;
+  $("flow-dated-form").hidden = false;
+  $("flow-dated-label").focus();
+  $("flow-dated-form").scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+$("flow-add-income").addEventListener("click", (event) => showDatedForm("income", null, event.currentTarget));
+$("flow-add-expense").addEventListener("click", (event) => showDatedForm("spending", null, event.currentTarget));
+$("flow-dated-side").addEventListener("change", () => {
+  $("flow-dated-form-title").textContent = `${editingFlowEntryId ? "Edit" : "Add"} ${$("flow-dated-side").value === "income" ? "income" : "expense"}`;
+});
+function syncDatedFrequency() {
+  const once = $("flow-dated-frequency").value === "once";
+  $("flow-dated-end-row").hidden = once;
+  $("flow-dated-start-hint").textContent = once ? "Required" : "Optional";
+  if (once) $("flow-dated-end").value = "";
+}
+$("flow-dated-frequency").addEventListener("change", syncDatedFrequency);
+$("flow-dated-list").addEventListener("click", (event) => {
+  const row = event.target.closest("[data-flow-entry]");
+  if (row) showDatedForm("income", row.dataset.flowEntry, row);
+});
+$("flow-entry-overview").addEventListener("click", (event) => {
+  const pay = event.target.closest("[data-flow-pay]");
+  const regular = event.target.closest("[data-flow-regular]");
+  if (!pay && !regular) return;
+  $("flow-editor").open = true;
+  const target = pay ? $(`flow-pay-${pay.dataset.flowPay}-annualGross`) : $("flow-spending-homeBills");
+  target.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  target.focus();
+});
+$("flow-dated-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  try {
+    const amount = Number($("flow-dated-amount").value);
+    if (!$("flow-dated-label").value.trim() || !$("flow-dated-amount").value.trim() || !Number.isFinite(amount) || amount <= 0)
+      throw new RangeError("Give this entry a name and an amount greater than £0.");
+    const entry = { id: editingFlowEntryId || createId("entry"), side: $("flow-dated-side").value, label: $("flow-dated-label").value.trim(), amount, frequency: $("flow-dated-frequency").value, startMonth: $("flow-dated-start").value, endMonth: $("flow-dated-end").value };
+    const entries = flowDraft.datedEntries.filter((item) => item.id !== editingFlowEntryId).concat(entry);
+    summarizeMonthlyFlow({ ...flowDraft, datedEntries: entries }, draft);
+    flowDraft.datedEntries = entries;
+    editingFlowEntryId = null;
+    $("flow-dated-form").hidden = true;
+    renderFlow();
+    document.querySelector(`#flow-dated-list [data-flow-entry="${entry.id}"]`)?.focus();
+    announce(`${entry.label} saved to income and spending.`);
+  } catch (error) {
+    $("flow-dated-error").textContent = error.message;
+    $("flow-dated-error").hidden = false;
+  }
+});
+$("flow-dated-cancel").addEventListener("click", () => {
+  $("flow-dated-form").hidden = true;
+  if (flowEntryTrigger?.isConnected) flowEntryTrigger.focus();
+});
+$("flow-dated-delete").addEventListener("click", () => {
+  if (!editingFlowEntryId) return;
+  flowDraft.datedEntries = flowDraft.datedEntries.filter((entry) => entry.id !== editingFlowEntryId);
+  editingFlowEntryId = null;
+  $("flow-dated-form").hidden = true;
+  renderFlow();
+  $("flow-add-expense").focus();
+  announce("Dated entry removed from the picture.");
+});
+function editLinkedAsset(id, trigger) {
+  const asset = draft.assets.find((entry) => entry.id === id);
+  if (!asset) return;
+  openOwners.add(asset.owner || "primary");
+  openCategories.add(`${asset.owner || "primary"}:illiquid`);
+  renderOrbit(summarizeDraft(draft));
+  showScreen("assets");
+  returnToFlowAssetId = id;
+  showItemDialog("asset", id, trigger);
+}
+for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-mortgage-list"]) $(id).addEventListener("click", (event) => {
+  const entry = event.target.closest("[data-flow-entry]");
+  if (entry) { showDatedForm("income", entry.dataset.flowEntry, entry); return; }
+  const pay = event.target.closest("[data-flow-pay]");
+  if (pay) { $("flow-editor").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
+  const debt = event.target.closest("[data-flow-debt]");
+  if (debt) { showScreen("assets"); returnToFlowAssetId = debt.dataset.flowDebt; showItemDialog("debt", debt.dataset.flowDebt, debt); return; }
+  const asset = event.target.closest("[data-flow-asset]");
+  if (asset) { editLinkedAsset(asset.dataset.flowAsset, asset); return; }
+  const item = event.target.closest("[data-flow-focus]");
+  if (!item) return;
+  const [side, key] = item.dataset.flowFocus.split(":");
+  $("flow-editor").open = true;
+  $(`flow-${side}-${key}`).focus();
+  $("flow-editor").scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+});
 $("add-choices").addEventListener("click", (event) => {
   const button = event.target.closest("[data-quick-kind]");
   if (button) {
@@ -500,23 +869,75 @@ $("access-review-items").addEventListener("click", (event) => {
   const button = event.target.closest("[data-review-id]");
   if (button) showItemDialog("asset", button.dataset.reviewId, button);
 });
-$("asset-list").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-edit-asset]");
-  if (button) showItemDialog("asset", button.dataset.editAsset, button);
-});
-$("debt-list").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-edit-debt]");
-  if (button) showItemDialog("debt", button.dataset.editDebt, button);
-});
 $("orbit-items").addEventListener("click", (event) => {
+  const categorySummary = event.target.closest(".bucket-cell > summary");
+  if (categorySummary) {
+    const category = categorySummary.parentElement;
+    if (category.open) openCategories.delete(category.dataset.ownerBucket);
+    else openCategories.add(category.dataset.ownerBucket);
+    return;
+  }
+  const summary = event.target.closest(".owner-details > summary");
+  if (summary) {
+    const details = summary.parentElement;
+    if (details.open) openOwners.delete(details.dataset.ownerDetails);
+    else openOwners.add(details.dataset.ownerDetails);
+    return;
+  }
   const add = event.target.closest("[data-add-owner]");
   if (add) { showAddChoices(add.dataset.addOwner, add); return; }
   const button = event.target.closest("[data-orbit-id]");
   if (button) showItemDialog(button.dataset.orbitType, button.dataset.orbitId, button);
 });
+document.querySelector(".explore-tabs").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-chart-view]");
+  if (!button) return;
+  chartView = button.dataset.chartView;
+  chartSelection = null;
+  const summary = summarizeDraft(draft);
+  renderChart(summary);
+  renderOrbit(summary);
+});
+function chooseChartCategory(key) {
+  chartSelection = chartSelection === key ? null : key;
+  if (chartView === "owner" && chartSelection) openOwners.add(chartSelection);
+  renderChart(summarizeDraft(draft));
+  const scrollBehaviour = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  if (chartView === "owner") {
+    renderOrbit(summarizeDraft(draft));
+    if (chartSelection) document.querySelector(`[data-owner-group="${chartSelection}"]`)?.scrollIntoView({ block: "center", behavior: scrollBehaviour });
+  } else if (chartSelection) $("chart-drilldown").scrollIntoView({ block: "nearest", behavior: scrollBehaviour });
+}
+$("chart-categories").addEventListener("click", (event) => {
+  const add = event.target.closest("[data-chart-add]");
+  if (add) { showItemDialog("asset", null, add); return; }
+  const button = event.target.closest("[data-chart-key]");
+  if (button) chooseChartCategory(button.dataset.chartKey);
+});
+$("asset-donut").addEventListener("click", (event) => {
+  const slice = event.target.closest("[data-chart-key]");
+  if (slice) chooseChartCategory(slice.dataset.chartKey);
+});
+$("asset-donut").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const slice = event.target.closest("[data-chart-key]");
+  if (slice) { event.preventDefault(); chooseChartCategory(slice.dataset.chartKey); }
+});
+$("chart-drilldown").addEventListener("click", (event) => {
+  if (event.target.closest("[data-chart-back]")) { chartSelection = null; renderChart(summarizeDraft(draft)); return; }
+  const item = event.target.closest("[data-drill-id]");
+  if (item) showItemDialog(item.dataset.drillType, item.dataset.drillId, item);
+});
 $("item-kind").addEventListener("change", () => updateDialogFields());
 $("close-item-button").addEventListener("click", () => $("item-dialog").close());
-$("item-dialog").addEventListener("close", restoreFocus);
+$("item-dialog").addEventListener("close", () => {
+  if (returnToFlowAssetId) {
+    const itemId = returnToFlowAssetId;
+    returnToFlowAssetId = null;
+    showScreen("flow");
+    document.querySelector(`[data-flow-asset="${itemId}"], [data-flow-debt="${itemId}"]`)?.focus();
+  } else restoreFocus();
+});
 $("item-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
@@ -589,28 +1010,37 @@ $("start-own-button").addEventListener("click", () => {
 });
 $("reset-example-button").addEventListener("click", () => {
   draft = createAlexExample();
+  flowDraft = createExampleMonthlyFlow();
+  syncFlowInputs();
+  chartSelection = null;
+  openOwners.clear();
+  openCategories.clear();
   render();
   announce("Alex and Gemma’s fictional example has been reset.");
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 $("confirm-clear-button").addEventListener("click", () => {
   draft = createBlankDraft();
+  flowDraft = createBlankMonthlyFlow();
+  syncFlowInputs();
   mode = "personal";
-  draggedDebtId = null;
   editingId = null;
   lastTrigger = null;
   addTrigger = null;
+  returnToFlowAssetId = null;
   addOwner = "primary";
+  chartSelection = null;
+  openOwners.clear();
+  openCategories.clear();
   $("clear-dialog").close();
   $("welcome-form").reset();
   $("profile-form").reset();
   $("item-form").reset();
-  $("asset-list").replaceChildren();
-  $("debt-list").replaceChildren();
   $("orbit-items").replaceChildren();
-  $("mix-bar").replaceChildren();
-  $("mix-bar").setAttribute("aria-label", "No assets entered");
-  $("mix-legend").replaceChildren();
+  $("chart-categories").replaceChildren();
+  $("chart-drilldown").replaceChildren();
+  $("asset-donut").querySelectorAll("circle").forEach((circle) => circle.remove());
+  $("donut-total").textContent = "£0";
   $("access-review-items").replaceChildren();
   $("access-review-count").textContent = "";
   $("access-review").open = false;
@@ -630,10 +1060,13 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("example-badge").textContent = "Your money picture";
   $("snapshot-description").textContent = "A snapshot from what you’ve entered. Add or change a piece whenever you like.";
   $("canvas-screen").hidden = true;
+  $("flow-screen").hidden = true;
   $("welcome-screen").hidden = false;
   $("person-name").focus();
   announce("Your name, age, assets and debts have been cleared from this tab.");
 });
 
+setupFlowInputs();
+syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
