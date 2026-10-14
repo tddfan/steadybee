@@ -6,7 +6,7 @@
     <meta name="steadybee-version" content="development" />
     <meta name="theme-color" content="#f4f1ea" />
     <title>Your money picture · Steadybee</title>
-    <meta name="description" content="Explore Alex’s editable example, then build a picture of what you own and owe." />
+    <meta name="description" content="Explore Alex and Gemma’s editable household example, then build a picture of what you own and owe." />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./asset-canvas.css" />
     <script type="module" src="./asset-canvas.mjs"></script>
@@ -36,7 +36,7 @@
               </div>
               <button id="start-button" class="button button-primary" type="submit">Start my picture <span aria-hidden="true">→</span></button>
             </form>
-            <p class="privacy-note"><span aria-hidden="true">◎</span> Your entries stay in this tab. Refreshing restores only the fictional Alex example. You can clear your entries anytime.</p>
+            <p class="privacy-note"><span aria-hidden="true">◎</span> Your entries stay in this tab. Refreshing restores only the fictional Alex and Gemma example. You can clear your entries anytime.</p>
           </div>
           <div class="welcome-art" aria-hidden="true">
             <div class="art-grid">
@@ -53,28 +53,30 @@
           <div class="canvas-heading">
             <div>
               <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> <span id="example-badge">Fictional example · edit anything</span></p>
-              <h1 id="canvas-title" tabindex="-1"><span id="person-heading">Alex’s</span> money picture.</h1>
+              <h1 id="canvas-title" tabindex="-1"><span id="person-heading">Alex &amp; Gemma’s</span> money picture.</h1>
               <p id="snapshot-description" class="muted">A snapshot from what you’ve entered. Add or change a piece whenever you like.</p>
             </div>
             <div class="canvas-heading-actions">
               <button id="start-own-button" class="text-button" type="button">Start my own</button>
-              <button id="reset-example-button" class="text-button" type="button">Reset Alex example</button>
-              <button id="edit-profile-button" class="text-button" type="button">Edit name &amp; age</button>
+              <button id="reset-example-button" class="text-button" type="button">Reset example</button>
+              <button id="edit-profile-button" class="text-button" type="button">Edit people</button>
               <button id="clear-button" class="text-button text-button-danger" type="button">Clear everything</button>
             </div>
           </div>
 
           <section class="picture-panel" aria-label="Interactive picture of assets and debts">
-            <div class="picture-top"><span>THE BIG PICTURE</span><span>Tap any piece to edit it</span></div>
+            <div class="picture-top"><span>HOUSEHOLD CONSTELLATION</span><span>Tap a point to edit</span></div>
+            <div class="owner-legend" aria-label="Ownership colours"><span class="legend-primary"><i aria-hidden="true"></i><span id="primary-legend">Alex</span></span><span id="partner-legend-item" class="legend-partner"><i aria-hidden="true"></i><span id="partner-legend">Gemma</span></span><span id="shared-legend-item" class="legend-shared"><i aria-hidden="true"></i>Shared</span><span class="legend-debt"><i aria-hidden="true"></i>Debt</span></div>
             <div id="constellation" class="constellation">
+              <svg id="constellation-lines" class="constellation-lines" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true"></svg>
               <div class="constellation-centre">
-                <span class="centre-kicker">NET WORTH FROM ENTRIES</span>
+                <span class="centre-kicker">HOUSEHOLD NET WORTH</span>
                 <strong id="net-worth">£0</strong>
-                <span class="centre-formula"><span id="asset-total">£0</span> assets <span aria-hidden="true">−</span> <span id="debt-total">£0</span> debts</span>
                 <span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span>
               </div>
               <div id="orbit-items" class="orbit-items"></div>
             </div>
+            <p class="picture-equation"><span>Assets <strong id="asset-total">£0</strong></span><span aria-hidden="true">−</span><span>Debts <strong id="debt-total">£0</strong></span><span aria-hidden="true">=</span><span>Net worth <strong id="net-worth-echo">£0</strong></span></p>
             <div class="picture-actions"><button id="add-asset-button" class="button button-add" type="button"><span aria-hidden="true">＋</span> Add asset</button><button id="add-debt-button" class="button button-add button-add-debt" type="button"><span aria-hidden="true">＋</span> Add debt</button></div>
           </section>
           <p class="snapshot-caveat">Today’s values only. Rent and interest rates are shown as details, not added to net worth. Property and pensions are included in net worth but may not be available to spend.</p>
@@ -106,7 +108,7 @@
             <span class="access-note-icon" aria-hidden="true">✳</span>
             <div>
               <h2>One total, different kinds of access.</h2>
-              <p>Cash and ISAs are generally accessible; pension access depends on the rules that apply to you; property and possessions would usually need to be sold or borrowed against. This screen only describes today’s entered values.</p>
+              <p>Cash and ISAs are generally accessible; pension access depends on the rules that apply to you. Employee shares may have sale restrictions. Property and possessions would usually need to be sold or borrowed against. This screen only describes today’s entered values.</p>
             </div>
           </aside>
         </section>
@@ -129,6 +131,7 @@
           <label for="item-kind">What kind is it?</label>
           <select id="item-kind" required></select>
         </div>
+        <div id="item-owner-field" class="form-field" hidden><label id="item-owner-label" for="item-owner">Whose is it?</label><select id="item-owner"></select><p class="field-help">Shared items are counted once in the household total.</p></div>
         <div class="form-field">
           <label for="item-label">What would you call it? <span class="optional">Optional</span></label>
           <input id="item-label" type="text" maxlength="80" placeholder="e.g. Our home" />
@@ -170,16 +173,17 @@
 
     <dialog id="profile-dialog" class="form-dialog small-dialog" aria-labelledby="profile-dialog-title">
       <form id="profile-form">
-        <div class="dialog-heading"><h2 id="profile-dialog-title">Your details</h2><button id="close-profile-button" class="icon-button" type="button" aria-label="Close without saving">×</button></div>
+        <div class="dialog-heading"><h2 id="profile-dialog-title">People in this picture</h2><button id="close-profile-button" class="icon-button" type="button" aria-label="Close without saving">×</button></div>
         <div class="form-field"><label for="profile-name">What should we call you?</label><input id="profile-name" type="text" maxlength="60" required /></div>
         <div class="form-field"><label for="profile-age">How old are you?</label><input id="profile-age" type="number" min="18" max="120" step="1" required /></div>
+        <div class="form-field"><label for="profile-partner">Partner’s name <span class="optional">Optional</span></label><input id="profile-partner" type="text" maxlength="60" placeholder="e.g. Gemma" /><p class="field-help">You can add a partner without knowing their age yet.</p></div>
         <div class="dialog-actions"><button class="button button-primary" type="submit">Save details</button></div>
       </form>
     </dialog>
 
     <dialog id="clear-dialog" class="form-dialog small-dialog" aria-labelledby="clear-dialog-title">
       <div class="dialog-heading"><h2 id="clear-dialog-title">Clear your picture?</h2><button id="close-clear-button" class="icon-button" type="button" aria-label="Keep my entries">×</button></div>
-      <p class="dialog-intro">This removes your name, age, assets and debts from this tab.</p>
+      <p class="dialog-intro">This removes names, age, assets and debts from this tab.</p>
       <div class="dialog-actions"><button id="cancel-clear-button" class="button button-secondary" type="button">Keep my entries</button><button id="confirm-clear-button" class="button button-danger" type="button">Clear everything</button></div>
     </dialog>
     <p id="live-message" class="visually-hidden" role="status" aria-live="polite"></p>

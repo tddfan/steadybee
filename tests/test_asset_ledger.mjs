@@ -35,7 +35,7 @@ function filledDraft() {
 
 test("blank draft supports an honest zero-entered state", () => {
   const draft = createBlankDraft();
-  assert.deepEqual(draft, { name: "", age: null, assets: [], debts: [] });
+  assert.deepEqual(draft, { name: "", age: null, partnerName: "", assets: [], debts: [] });
   assert.deepEqual(validateDraft(draft), { valid: true, errors: [] });
   assert.deepEqual(summarizeDraft(draft), {
     assetTotal: 0,
@@ -47,14 +47,20 @@ test("blank draft supports an honest zero-entered state", () => {
   });
 });
 
-test("Alex's fictional opening picture reconciles and keeps context out of net worth", () => {
+test("Alex and Gemma's fictional household reconciles shared items once", () => {
   const example = createAlexExample();
   assert.equal(example.age, 43);
+  assert.equal(example.partnerName, "Gemma");
   assert.deepEqual(validateDraft(example), { valid: true, errors: [] });
   const result = summarizeDraft(example);
-  assert.equal(result.assetTotal, 1_905_000);
+  assert.equal(result.assetTotal, 2_525_000);
   assert.equal(result.debtTotal, 380_000);
-  assert.equal(result.netWorth, 1_525_000);
+  assert.equal(result.netWorth, 2_145_000);
+  assert.equal(example.assets.length, 11);
+  assert.equal(example.assets.find((asset) => asset.id === "alex-home").owner, "shared");
+  assert.equal(example.debts[0].owner, "shared");
+  assert.equal(example.assets.find((asset) => asset.id === "alex-shares").value, 100_000);
+  assert.deepEqual(example.assets.filter((asset) => asset.owner === "partner").map((asset) => asset.value), [220_000, 150_000, 150_000]);
   assert.equal(result.linkedEquity.find((entry) => entry.assetId === "alex-home").equity, 400_000);
   assert.equal(example.assets.find((asset) => asset.id === "alex-gurgaon").monthlyRent, 100);
   assert.equal(example.assets.find((asset) => asset.id === "alex-cash").interestRate, 4);
@@ -63,13 +69,25 @@ test("Alex's fictional opening picture reconciles and keeps context out of net w
   assert.equal(createAlexExample().assets[0].value, 780_000);
 });
 
+test("ownership labels do not change value and partner items require a partner", () => {
+  const draft = createAlexExample();
+  const before = summarizeDraft(draft);
+  draft.assets.find((asset) => asset.id === "alex-shares").owner = "partner";
+  assert.equal(summarizeDraft(draft).netWorth, before.netWorth);
+  draft.partnerName = "";
+  assert.ok(validateDraft(draft).errors.some((error) => error.path.endsWith(".owner")));
+  draft.partnerName = 12;
+  assert.ok(validateDraft(draft).errors.some((error) => error.path === "partnerName"));
+});
+
 test("known item kinds have clear labels and asset-access groups", () => {
   assert.deepEqual(Object.keys(ASSET_TYPES), [
-    "home", "other-property", "cash", "isa", "dc-pension", "car", "other",
+    "home", "other-property", "cash", "isa", "shares", "dc-pension", "car", "other",
   ]);
   assert.deepEqual(Object.keys(DEBT_TYPES), ["mortgage", "loan", "credit-card", "other"]);
   assert.equal(ASSET_TYPES.cash.group, "available");
   assert.equal(ASSET_TYPES.isa.group, "available");
+  assert.equal(ASSET_TYPES.shares.group, "investments");
   assert.equal(ASSET_TYPES["dc-pension"].group, "pension");
   assert.equal(ASSET_TYPES.home.group, "property");
   assert.equal(ASSET_TYPES.car.group, "possessions");
@@ -143,6 +161,8 @@ test("invalid money, rates, terms, and profile values are rejected", () => {
     ["assets[0].monthlyRent", (draft) => { draft.assets[0].monthlyRent = -1; }],
     ["assets[1].interestRate", (draft) => { draft.assets[1].interestRate = 4; }],
     ["assets[1].investmentLabel", (draft) => { draft.assets[1].investmentLabel = "a".repeat(81); }],
+    ["assets[0].owner", (draft) => { draft.assets[0].owner = "someone else"; }],
+    ["assets[0].owner", (draft) => { draft.assets[0].owner = "shared"; }],
   ];
   for (const [path, mutate] of cases) {
     const draft = filledDraft();

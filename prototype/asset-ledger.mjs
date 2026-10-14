@@ -1,10 +1,11 @@
-/** A one-person, present-day balance sheet. No growth, income, tax or advice. */
+/** A present-day household balance sheet. No growth, income, tax or advice. */
 
 export const ASSET_TYPES = Object.freeze({
   home: Object.freeze({ label: "Home", group: "property" }),
   "other-property": Object.freeze({ label: "Other property", group: "property" }),
   cash: Object.freeze({ label: "Cash", group: "available" }),
   isa: Object.freeze({ label: "ISA", group: "available" }),
+  shares: Object.freeze({ label: "Shares", group: "investments" }),
   "dc-pension": Object.freeze({ label: "DC pension", group: "pension" }),
   car: Object.freeze({ label: "Car", group: "possessions" }),
   other: Object.freeze({ label: "Other asset", group: "other" }),
@@ -34,24 +35,28 @@ const pennies = (value) => Math.round(value * 100);
 const pounds = (value) => value / 100;
 
 export function createBlankDraft() {
-  return { name: "", age: null, assets: [], debts: [] };
+  return { name: "", age: null, partnerName: "", assets: [], debts: [] };
 }
 
 /** Fictional, editable opening example. Values are pounds at today's prices. */
 export function createAlexExample() {
   return {
-    name: "Alex", age: 43,
+    name: "Alex", age: 43, partnerName: "Gemma",
     assets: [
-      { id: "alex-home", kind: "home", label: "Main home", value: 780_000 },
-      { id: "alex-gurgaon", kind: "other-property", label: "Gurgaon", value: 200_000, monthlyRent: 100 },
-      { id: "alex-pension", kind: "dc-pension", label: "Pension", value: 490_000, investmentLabel: "S&P" },
-      { id: "alex-isa", kind: "isa", label: "ISA investment", value: 230_000 },
-      { id: "alex-cash", kind: "cash", label: "Cash in account", value: 160_000, interestRate: 4 },
-      { id: "alex-car", kind: "car", label: "Car", value: 15_000 },
-      { id: "alex-property", kind: "other-property", label: "Other property", value: 30_000 },
+      { id: "alex-home", kind: "home", label: "Main home", value: 780_000, owner: "shared" },
+      { id: "alex-gurgaon", kind: "other-property", label: "Gurgaon", value: 200_000, monthlyRent: 100, owner: "primary" },
+      { id: "alex-pension", kind: "dc-pension", label: "Pension", value: 490_000, investmentLabel: "S&P", owner: "primary" },
+      { id: "alex-isa", kind: "isa", label: "ISA investment", value: 230_000, owner: "primary" },
+      { id: "alex-cash", kind: "cash", label: "Cash in account", value: 160_000, interestRate: 4, owner: "primary" },
+      { id: "alex-car", kind: "car", label: "Car", value: 15_000, owner: "primary" },
+      { id: "alex-property", kind: "other-property", label: "Other property", value: 30_000, owner: "primary" },
+      { id: "alex-shares", kind: "shares", label: "Employee shares", value: 100_000, owner: "primary" },
+      { id: "gemma-pension", kind: "dc-pension", label: "Pension", value: 220_000, owner: "partner" },
+      { id: "gemma-isa", kind: "isa", label: "ISA · S&P", value: 150_000, investmentLabel: "S&P", owner: "partner" },
+      { id: "gemma-cash", kind: "cash", label: "Cash", value: 150_000, owner: "partner" },
     ],
     debts: [
-      { id: "alex-mortgage", kind: "mortgage", label: "Main home mortgage", balance: 380_000, interestRate: 4.7, linkedAssetId: "alex-home" },
+      { id: "alex-mortgage", kind: "mortgage", label: "Main home mortgage", balance: 380_000, interestRate: 4.7, linkedAssetId: "alex-home", owner: "shared" },
     ],
   };
 }
@@ -72,6 +77,8 @@ export function validateDraft(draft) {
 
   if (typeof draft.name !== "string" || draft.name.length > 60)
     error("name", "Use a name of at most 60 characters.");
+  if (!isBlank(draft.partnerName) && (typeof draft.partnerName !== "string" || draft.partnerName.length > 60))
+    error("partnerName", "Use a partner name of at most 60 characters.");
   if (
     !isBlank(draft.age) &&
     (typeof draft.age !== "number" ||
@@ -107,6 +114,10 @@ export function validateDraft(draft) {
       (typeof item.label !== "string" || item.label.length > 80)
     )
       error(`${path}.label`, "Use a label of at most 80 characters.");
+    if (!isBlank(item.owner) && !["primary", "partner", "shared"].includes(item.owner))
+      error(`${path}.owner`, "Choose who owns or owes this item.");
+    if (["partner", "shared"].includes(item.owner) && !(typeof draft.partnerName === "string" && draft.partnerName.trim()))
+      error(`${path}.owner`, "Add a partner name before assigning items to a partner or both people.");
     return true;
   };
 

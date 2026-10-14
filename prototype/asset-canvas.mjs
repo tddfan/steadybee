@@ -22,6 +22,7 @@ const make = (tag, className, content) => {
 
 const assetGroups = [
   { key: "available", title: "Available savings", barLabel: "Available", subtitle: "Cash and ISA", kinds: ["cash", "isa"], color: "#17674f" },
+  { key: "investments", title: "Shares", subtitle: "Sale rules may vary", kinds: ["shares"], color: "#326b80" },
   { key: "pension", title: "Pension", barLabel: "Pension", subtitle: "Access depends on your rules", kinds: ["dc-pension"], color: "#5d4a81" },
   { key: "property", title: "Property", barLabel: "Property", subtitle: "Usually tied up in a home", kinds: ["home", "other-property"], color: "#9f6728" },
   { key: "possessions", title: "Possessions", barLabel: "Possessions", subtitle: "Usually sold to release value", kinds: ["car"], color: "#506e83" },
@@ -47,7 +48,10 @@ function setTotals() {
   const summary = summarizeDraft(draft);
   $("asset-total").textContent = money(summary.assetTotal);
   $("debt-total").textContent = money(summary.debtTotal);
-  $("net-worth").textContent = money(summary.netWorth);
+  const netWorthText = money(summary.netWorth);
+  $("net-worth").textContent = netWorthText;
+  $("net-worth").style.fontSize = netWorthText.length > 15 ? "1.12rem" : netWorthText.length > 11 ? "1.4rem" : "";
+  $("net-worth-echo").textContent = netWorthText;
   $("asset-count").textContent = countLabel(draft.assets.length, "asset");
   $("debt-count").textContent = countLabel(draft.debts.length, "debt");
   return summary;
@@ -58,6 +62,7 @@ const iconPaths = {
   "other-property": "M4 21V6l8-3 8 3v15M4 21h16M8 9h1m6 0h1M8 13h1m6 0h1M8 17h1m6 0h1",
   cash: "M3 6h18v12H3zM12 9c-2 0-3 1-3 3s1 3 3 3 3-1 3-3-1-3-3-3ZM6 9h.01M18 15h.01",
   isa: "M4 20h16M6 17l4-5 3 2 5-8M15 6h3v3",
+  shares: "M4 20h16M5 16l4-5 4 2 5-7M16 6h2v2",
   "dc-pension": "M4 20h16M6 20V9l6-5 6 5v11M9 12h6M9 16h6",
   car: "M4 16 6 9h12l2 7M4 16h16v3H4zM7 19v2m10-2v2M7 16h.01M17 16h.01",
   mortgage: "M3 10 12 3l9 7M5 9v12h14V9M9 16h6M12 13v6",
@@ -92,9 +97,26 @@ function debtContext(debt) {
   if (debt.remainingYears !== undefined) notes.push(`${plain(debt.remainingYears)} years left`);
   return notes.join(" · ");
 }
+function ownerName(owner = "primary") {
+  return owner === "partner" ? draft.partnerName : owner === "shared" ? "Shared" : draft.name;
+}
+function compactMoney(value) {
+  if (value >= 1_000_000_000 && value % 1_000_000 === 0) return `£${plain(value / 1_000_000_000)}bn`;
+  if (value >= 1_000_000 && value % 1_000 === 0) return `£${plain(value / 1_000_000)}m`;
+  if (value >= 1000 && value % 1000 === 0) return `£${plain(value / 1000)}k`;
+  return money(value);
+}
+function svgLine(x1, y1, x2, y2, className) {
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line.setAttribute(name, String(value));
+  line.setAttribute("class", className);
+  return line;
+}
 function renderOrbit() {
   const container = $("orbit-items");
   container.replaceChildren();
+  const lines = $("constellation-lines");
+  lines.replaceChildren();
   const items = [
     ...draft.assets.flatMap((item) => [
       { type: "asset", item },
@@ -102,24 +124,38 @@ function renderOrbit() {
     ]),
     ...draft.debts.filter((debt) => !draft.assets.some((asset) => asset.id === debt.linkedAssetId)).map((item) => ({ type: "debt", item })),
   ];
-  $("constellation").classList.toggle("orbit-grid", items.length !== 8);
-  for (const { type, item } of items) {
+  $("constellation").classList.toggle("orbit-grid", items.length > 16 || items.length === 0);
+  const coordinates = new Map();
+  for (const [index, { type, item }] of items.entries()) {
     const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
     const value = type === "asset" ? item.value : item.balance;
     const context = type === "asset" ? assetContext(item) : debtContext(item);
-    const button = make("button", `orbit-card orbit-${type}`);
+    const owner = item.owner || "primary";
+    const angle = ((items.length >= 10 ? -105 : -90) + index * (360 / items.length)) * Math.PI / 180;
+    const x = 50 + 42 * Math.cos(angle);
+    const y = 50 + 33 * Math.sin(angle);
+    coordinates.set(item.id, { x: x * 10, y: y * 6 });
+    const button = make("button", `orbit-card orbit-${type} orbit-owner-${owner}`);
     button.type = "button";
+    button.style.setProperty("--x", `${x}%`);
+    button.style.setProperty("--y", `${y}%`);
     button.dataset.orbitType = type;
     button.dataset.orbitId = item.id;
-    button.setAttribute("aria-label", `Edit ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
+    button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}`);
     const pictogram = make("span", "orbit-icon");
     pictogram.append(icon(item.kind));
     const words = make("span", "orbit-words");
+    words.append(make("span", "orbit-owner", ownerName(owner)));
     words.append(make("span", "orbit-name", itemName(item, types)));
-    words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${money(value)}`));
-    if (context) words.append(make("span", "orbit-context", context));
+    words.append(make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
     button.append(pictogram, words);
     container.append(button);
+    lines.append(svgLine(500, 300, x * 10, y * 6, `constellation-ray ray-${owner}`));
+  }
+  for (const debt of draft.debts) {
+    const start = coordinates.get(debt.id);
+    const end = coordinates.get(debt.linkedAssetId);
+    if (start && end) lines.append(svgLine(start.x, start.y, end.x, end.y, "constellation-link"));
   }
   if (!items.length) container.append(make("p", "orbit-empty", "Your picture starts with a plus. Add an asset or a debt below."));
 }
@@ -131,6 +167,7 @@ function renderAsset(asset, group, summary) {
   const details = make("div", "entry-details");
   details.append(make("p", "entry-name", itemName(asset, ASSET_TYPES)));
   details.append(make("p", "entry-meta", ASSET_TYPES[asset.kind].label));
+  details.append(make("p", "entry-meta", `Owner: ${ownerName(asset.owner)}`));
   if (assetContext(asset)) details.append(make("p", "entry-extra", assetContext(asset)));
   const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
   if (equity?.linkedDebtTotal > 0) {
@@ -175,6 +212,7 @@ function renderDebt(debt, group) {
   if (debt.interestRate !== undefined) meta += ` · ${plain(debt.interestRate)}% current rate`;
   if (debt.remainingYears !== undefined) meta += ` · ${plain(debt.remainingYears)} years left`;
   details.append(make("p", "entry-meta", meta));
+  details.append(make("p", "entry-meta", `Responsibility: ${ownerName(debt.owner)}`));
   const linked = draft.assets.find((asset) => asset.id === debt.linkedAssetId);
   if (linked) details.append(make("p", "entry-extra", `Linked to ${itemName(linked, ASSET_TYPES)}`));
   const side = make("div", "entry-side");
@@ -230,9 +268,13 @@ function renderList(id, items, groups, summary, type) {
 
 function render() {
   const summary = setTotals();
-  $("person-heading").textContent = `${draft.name.trim() || "Your"}’s`;
-  $("snapshot-description").textContent = `Age ${draft.age} · ${mode === "example" ? "Explore Alex’s editable example." : "A snapshot from what you’ve entered."} Tap a piece to see or change its details.`;
+  $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
+  $("snapshot-description").textContent = `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap a point to see or change its details.`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
+  $("primary-legend").textContent = draft.name;
+  $("partner-legend").textContent = draft.partnerName || "Partner";
+  $("partner-legend-item").hidden = !draft.partnerName?.trim();
+  $("shared-legend-item").hidden = !draft.partnerName?.trim();
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
   renderOrbit();
@@ -250,6 +292,19 @@ function populateKinds(type, selected = "") {
   for (const [kind, info] of Object.entries(type === "asset" ? ASSET_TYPES : DEBT_TYPES)) {
     select.add(new Option(info.label, kind, false, kind === selected));
   }
+}
+
+function populateOwners(type, selected = "primary") {
+  const field = $("item-owner-field");
+  const select = $("item-owner");
+  field.hidden = !draft.partnerName?.trim();
+  select.replaceChildren(new Option(draft.name, "primary"));
+  if (!field.hidden) {
+    select.add(new Option(draft.partnerName, "partner"));
+    select.add(new Option("Shared", "shared"));
+  }
+  select.value = selected || "primary";
+  $("item-owner-label").textContent = type === "asset" ? "Who owns it?" : "Who owes it?";
 }
 
 function populateLinks(selected = "") {
@@ -286,6 +341,7 @@ function showItemDialog(type, id = null, trigger = null) {
   $("save-item-button").textContent = item ? "Save changes" : "Add to my picture";
   $("delete-item-button").hidden = !item;
   populateKinds(type, item?.kind);
+  populateOwners(type, item?.owner);
   $("item-label").value = item?.label || "";
   $("item-amount").value = item ? String(type === "asset" ? item.value : item.balance) : "";
   $("item-interest-rate").value = type === "debt" ? item?.interestRate ?? "" : "";
@@ -307,13 +363,13 @@ function itemFromForm() {
   if (!rawAmount) throw new Error(dialogType === "asset" ? "Enter its current value." : "Enter the balance still owed.");
   const amount = Number(rawAmount);
   if (dialogType === "asset") {
-    const asset = { id: editingId || createId("asset"), kind, label, value: amount };
+    const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary" };
     if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
     if (!$("cash-rate-field").hidden && $("item-cash-rate").value.trim()) asset.interestRate = Number($("item-cash-rate").value);
     if (!$("investment-field").hidden && $("item-investment-label").value.trim()) asset.investmentLabel = $("item-investment-label").value.trim();
     return asset;
   }
-  const debt = { id: editingId || createId("debt"), kind, label, balance: amount };
+  const debt = { id: editingId || createId("debt"), kind, label, balance: amount, owner: $("item-owner").value || "primary" };
   if (kind === "mortgage") {
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
     if ($("item-remaining-years").value.trim()) debt.remainingYears = Number($("item-remaining-years").value);
@@ -396,6 +452,7 @@ $("delete-item-button").addEventListener("click", () => {
 $("edit-profile-button").addEventListener("click", () => {
   $("profile-name").value = draft.name;
   $("profile-age").value = draft.age;
+  $("profile-partner").value = draft.partnerName || "";
   $("profile-dialog").showModal();
   $("profile-name").focus();
 });
@@ -403,7 +460,7 @@ $("close-profile-button").addEventListener("click", () => $("profile-dialog").cl
 $("profile-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!event.currentTarget.reportValidity()) return;
-  const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value) };
+  const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value), partnerName: $("profile-partner").value.trim() };
   if (!candidate.name) {
     $("profile-name").setCustomValidity("Enter a name or nickname.");
     $("profile-name").reportValidity();
@@ -411,7 +468,7 @@ $("profile-form").addEventListener("submit", (event) => {
   }
   const check = validateDraft(candidate);
   if (!check.valid) {
-    const field = check.errors[0].path === "name" ? $("profile-name") : $("profile-age");
+    const field = check.errors[0].path === "name" ? $("profile-name") : check.errors[0].path === "age" ? $("profile-age") : $("profile-partner");
     field.setCustomValidity(check.errors[0].message);
     field.reportValidity();
     return;
@@ -419,9 +476,9 @@ $("profile-form").addEventListener("submit", (event) => {
   draft = candidate;
   $("profile-dialog").close();
   render();
-  announce("Name and age updated.");
+  announce("People in the picture updated.");
 });
-for (const id of ["profile-name", "profile-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
+for (const id of ["profile-name", "profile-age", "profile-partner"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
 $("clear-button").addEventListener("click", () => $("clear-dialog").showModal());
 $("start-own-button").addEventListener("click", () => {
@@ -430,7 +487,7 @@ $("start-own-button").addEventListener("click", () => {
 $("reset-example-button").addEventListener("click", () => {
   draft = createAlexExample();
   render();
-  announce("Alex’s fictional example has been reset.");
+  announce("Alex and Gemma’s fictional example has been reset.");
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 $("confirm-clear-button").addEventListener("click", () => {
@@ -446,14 +503,19 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("asset-list").replaceChildren();
   $("debt-list").replaceChildren();
   $("orbit-items").replaceChildren();
+  $("constellation-lines").replaceChildren();
   $("item-linked-asset").replaceChildren();
   $("item-kind").replaceChildren();
+  $("item-owner").replaceChildren();
   $("asset-total").textContent = "£0";
   $("debt-total").textContent = "£0";
   $("net-worth").textContent = "£0";
+  $("net-worth-echo").textContent = "£0";
   $("asset-count").textContent = "Nothing entered yet";
   $("debt-count").textContent = "Nothing entered yet";
   $("person-heading").textContent = "Your";
+  $("primary-legend").textContent = "You";
+  $("partner-legend").textContent = "Partner";
   $("example-badge").textContent = "Your money picture";
   $("snapshot-description").textContent = "A snapshot from what you’ve entered. Add or change a piece whenever you like.";
   $("canvas-screen").hidden = true;

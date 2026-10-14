@@ -73,6 +73,7 @@ async function addItem(browserPage, type, kind, label, amount, extras = {}) {
   await browserPage.locator(type === "asset" ? "#add-asset-button" : "#add-debt-button").click();
   await browserPage.locator("#item-dialog").waitFor({ state: "visible" });
   await browserPage.locator("#item-kind").selectOption(kind);
+  if (extras.owner) await browserPage.locator("#item-owner").selectOption(extras.owner);
   if (label) await browserPage.locator("#item-label").fill(label);
   await browserPage.locator("#item-amount").fill(String(amount));
   if (extras.rate !== undefined || extras.years !== undefined) await browserPage.locator("#mortgage-fields summary").click();
@@ -178,7 +179,7 @@ test("profile edits, deliberate zero and a negative entered balance stay distinc
   await p.locator("#profile-name").fill("Sam");
   await p.locator("#profile-age").fill("60");
   await p.locator("#profile-form button[type=submit]").click();
-  assert.match(await p.locator(".canvas-heading").innerText(), /Sam’s money picture\.[\s\S]*Age 60/);
+  assert.match(await p.locator(".canvas-heading").innerText(), /Sam’s money picture\.[\s\S]*Sam, age 60/);
   await addItem(p, "asset", "car", "Old car", 0);
   assert.match(await p.locator("#asset-count").innerText(), /1 asset entered/);
   assert.match(await p.locator("#orbit-items").innerText(), /£0/);
@@ -186,7 +187,7 @@ test("profile edits, deliberate zero and a negative entered balance stay distinc
   assert.equal(await displayedAmount(p, "#net-worth"), -5000);
   await p.reload();
   assert.equal(await p.locator("#canvas-screen").isVisible(), true);
-  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
   assert.equal(await p.locator("#person-name").inputValue(), "");
   await p.close();
 });
@@ -215,23 +216,30 @@ test("clear removes entered details, and the canvas fits a narrow phone", async 
   assert.deepEqual(storage, { local: 0, session: 0 });
   await p.reload();
   assert.equal(await p.locator("#canvas-screen").isVisible(), true);
-  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
   await p.close();
 });
 
-test("Alex's opening picture includes editable details and reconciles exactly", async () => {
+test("Alex and Gemma's opening constellation is editable and reconciles shared values once", async () => {
   const p = await page();
-  assert.equal(await displayedAmount(p, "#asset-total"), 1905000);
+  assert.equal(await displayedAmount(p, "#asset-total"), 2525000);
   assert.equal(await displayedAmount(p, "#debt-total"), 380000);
-  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
-  assert.equal(await p.locator(".orbit-card").count(), 8);
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
+  assert.equal(await p.locator(".orbit-card").count(), 12);
+  assert.equal(await p.locator(".constellation-ray").count(), 12);
+  assert.equal(await p.locator(".constellation-link").count(), 1);
+  assert.equal(await p.locator('[data-orbit-id="alex-home"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
+  assert.equal(await p.locator('[data-orbit-id="alex-mortgage"]').getAttribute("class").then((text) => text.includes("orbit-owner-shared")), true);
+  assert.equal(await p.locator('[data-orbit-id="gemma-pension"]').getAttribute("class").then((text) => text.includes("orbit-owner-partner")), true);
   assert.match(await p.locator("#example-badge").innerText(), /Fictional example/);
   await p.locator('[data-orbit-id="alex-gurgaon"]').click();
   assert.equal(await p.locator("#item-monthly-rent").inputValue(), "100");
   await p.locator("#item-monthly-rent").fill("125");
   await p.locator("#save-item-button").click();
-  assert.match(await p.locator('[data-orbit-id="alex-gurgaon"]').innerText(), /£125\/month rent/);
-  assert.equal(await displayedAmount(p, "#net-worth"), 1525000);
+  assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
+  await p.locator('[data-orbit-id="alex-gurgaon"]').click();
+  assert.equal(await p.locator("#item-monthly-rent").inputValue(), "125");
+  await p.locator("#close-item-button").click();
   await p.locator('[data-orbit-id="alex-cash"]').click();
   assert.equal(await p.locator("#item-cash-rate").inputValue(), "4");
   await p.locator("#close-item-button").click();
@@ -240,8 +248,60 @@ test("Alex's opening picture includes editable details and reconciles exactly", 
   await p.locator("#close-item-button").click();
   await p.locator('[data-orbit-id="alex-mortgage"]').click();
   assert.equal(await p.locator("#item-interest-rate").inputValue(), "4.7");
+  assert.equal(await p.locator("#item-owner").inputValue(), "shared");
+  await p.locator("#close-item-button").click();
+  await p.locator('[data-orbit-id="gemma-isa"]').focus();
+  await p.keyboard.press("Enter");
+  assert.equal(await p.locator("#item-owner").inputValue(), "partner");
+  assert.equal(await p.locator("#item-investment-label").inputValue(), "S&P");
+  await p.locator("#close-item-button").click();
+  await p.locator('[data-orbit-id="alex-shares"]').click();
+  assert.equal(await p.locator("#item-amount").inputValue(), "100000");
   await p.locator("#close-item-button").click();
   await p.locator("#reset-example-button").click();
-  assert.match(await p.locator('[data-orbit-id="alex-gurgaon"]').innerText(), /£100\/month rent/);
+  await p.locator('[data-orbit-id="alex-gurgaon"]').click();
+  assert.equal(await p.locator("#item-monthly-rent").inputValue(), "100");
+  await p.locator("#close-item-button").click();
+  await p.setViewportSize({ width: 320, height: 800 });
+  const layout = await p.evaluate(() => {
+    const centre = document.querySelector(".constellation-centre").getBoundingClientRect();
+    const amount = document.querySelector("#net-worth").getBoundingClientRect();
+    return { width: document.documentElement.scrollWidth, viewport: innerWidth, centre: centre.toJSON(), amount: amount.toJSON() };
+  });
+  assert.ok(layout.width <= layout.viewport + 1);
+  assert.ok(layout.amount.left >= layout.centre.left && layout.amount.right <= layout.centre.right, "Central amount stays inside its circle");
+  await p.close();
+});
+
+test("partner ownership can be edited without duplicating a shared home", async () => {
+  const p = await page();
+  await start(p, "Pat", 48);
+  await p.locator("#edit-profile-button").click();
+  await p.locator("#profile-partner").fill("Robin");
+  await p.locator("#profile-form button[type=submit]").click();
+  await addItem(p, "asset", "home", "Our flat", 300000, { owner: "shared" });
+  await addItem(p, "asset", "isa", "Robin ISA", 20000, { owner: "partner" });
+  assert.equal(await displayedAmount(p, "#asset-total"), 320000);
+  assert.equal(await p.locator(".orbit-owner-shared").count(), 1);
+  assert.equal(await p.locator(".orbit-owner-partner").count(), 1);
+  await p.locator("#edit-profile-button").click();
+  await p.locator("#profile-partner").fill("");
+  await p.locator("#profile-form button[type=submit]").click();
+  assert.equal(await p.locator("#profile-dialog").isVisible(), true, "A partner with items cannot disappear silently");
+  await p.close();
+});
+
+test("a large entered total stays inside the centre", async () => {
+  const p = await page(true);
+  await start(p);
+  await addItem(p, "asset", "other", "Large holding", 100000000000);
+  assert.equal(await displayedAmount(p, "#net-worth"), 100000000000);
+  const fit = await p.evaluate(() => {
+    const circle = document.querySelector(".constellation-centre").getBoundingClientRect();
+    const amount = document.querySelector("#net-worth");
+    const text = amount.getBoundingClientRect();
+    return { inside: text.left >= circle.left && text.right <= circle.right, scroll: amount.scrollWidth, width: amount.clientWidth };
+  });
+  assert.ok(fit.inside && fit.scroll <= fit.width + 1, JSON.stringify(fit));
   await p.close();
 });
