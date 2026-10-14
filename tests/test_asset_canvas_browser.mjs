@@ -70,7 +70,8 @@ async function start(browserPage, name = "Alex", age = 52) {
 }
 
 async function addItem(browserPage, type, kind, label, amount, extras = {}) {
-  await browserPage.locator(type === "asset" ? "#add-asset-button" : "#add-debt-button").click();
+  await browserPage.locator(`[data-add-owner="${extras.owner || "primary"}"]`).click();
+  await browserPage.locator(`[data-quick-type="${type}"][data-quick-kind="${kind}"]`).click();
   await browserPage.locator("#item-dialog").waitFor({ state: "visible" });
   await browserPage.locator("#item-kind").selectOption(kind);
   if (extras.owner) await browserPage.locator("#item-owner").selectOption(extras.owner);
@@ -143,7 +144,8 @@ test("a mortgage can be linked with the keyboard, without dragging", async () =>
   const p = await page();
   await start(p);
   await addItem(p, "asset", "home", "Flat", 250000);
-  await p.locator("#add-debt-button").click();
+  await p.locator('[data-add-owner="primary"]').click();
+  await p.locator('[data-quick-type="debt"][data-quick-kind="mortgage"]').click();
   await p.locator("#item-kind").selectOption("mortgage");
   const link = p.locator("#item-linked-asset");
   assert.equal(await link.isVisible(), true);
@@ -230,7 +232,12 @@ test("Alex and Gemma's opening constellation is editable and reconciles shared v
   assert.match(await p.locator('[data-owner-group="primary"]').innerText(), /Alex[\s\S]*£1,225,000/);
   assert.match(await p.locator('[data-owner-group="partner"]').innerText(), /Gemma[\s\S]*£520,000/);
   assert.match(await p.locator('[data-owner-group="shared"]').innerText(), /Shared[\s\S]*£400,000/);
-  assert.match(await p.locator('[data-owner-group="shared"] [data-bucket="illiquid"]').innerText(), /Main home[\s\S]*equity £400k/);
+  assert.match(await p.locator('[data-owner-group="shared"] .linked-pair-note').innerText(), /Main home £780k − £380k debt[\s\S]*£400k equity/);
+  assert.deepEqual(await p.locator('[data-owner-group="shared"] [data-bucket]').evaluateAll((cells) => cells.map((cell) => cell.dataset.bucket)), ["accessible", "pension", "illiquid", "debt", "review"]);
+  const hierarchy = await p.evaluate(() => document.querySelector('.constellation-centre').getBoundingClientRect().bottom < document.querySelector('.picture-panel').getBoundingClientRect().top);
+  assert.equal(hierarchy, true, "The household summary leads the grid");
+  assert.equal(await displayedAmount(p, "#accessible-total"), 690000);
+  assert.doesNotMatch(await p.locator('#orbit-items').innerText(), /Estimate|Scheme age\?/);
   assert.match(await p.locator('[data-owner-group="shared"] [data-bucket="debt"]').innerText(), /Main home mortgage/);
   assert.match(await p.locator('#mix-legend').innerText(), /Accessible £690k[\s\S]*Pensions £710k[\s\S]*Property & things £1\.03m[\s\S]*Check access £100k/);
   assert.equal(await p.locator('[data-owner-group="shared"] .orbit-card').count(), 2);
@@ -323,8 +330,10 @@ test("a large entered total stays inside the household summary", async () => {
 
 test("quick add and access review update the matrix without changing net worth", async () => {
   const p = await page();
+  assert.match(await p.locator('#access-review-count').innerText(), /3 access details/);
+  await p.locator('#access-review summary').click();
   assert.equal(await p.locator('[data-owner-group="primary"] [data-bucket="review"] [data-orbit-id="alex-shares"]').count(), 1);
-  await p.locator('[data-orbit-id="alex-shares"]').click();
+  await p.locator('[data-review-id="alex-shares"]').click();
   assert.equal(await p.locator("#item-access-bucket").inputValue(), "review");
   await p.locator("#item-access-bucket").selectOption("accessible");
   await p.locator("#item-confidence").selectOption("exact");
@@ -332,13 +341,24 @@ test("quick add and access review update the matrix without changing net worth",
   assert.equal(await p.locator('[data-owner-group="primary"] [data-bucket="accessible"] [data-orbit-id="alex-shares"]').count(), 1);
   assert.match(await p.locator("#mix-legend").innerText(), /Accessible £790k/);
   assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
-  await p.locator('[data-orbit-id="alex-pension"]').click();
+  assert.equal(await displayedAmount(p, "#accessible-total"), 790000);
+  assert.match(await p.locator('#access-review-count').innerText(), /2 access details/);
+  await p.locator('[data-review-id="alex-pension"]').click();
   await p.locator("#item-pension-access-age").fill("55");
   await p.locator("#save-item-button").click();
   assert.match(await p.locator('[data-orbit-id="alex-pension"]').innerText(), /Age 55/);
+  await p.locator('[data-review-id="gemma-pension"]').click();
+  await p.locator('#item-pension-access-age').fill('57');
+  await p.locator('#save-item-button').click();
+  assert.equal(await p.locator('#access-review').isVisible(), false);
+  await p.locator('[data-add-owner="partner"]').click();
+  await p.keyboard.press('Escape');
+  await p.locator('#add-dialog').waitFor({ state: 'hidden' });
+  await p.waitForFunction(() => document.activeElement?.dataset.addOwner === 'partner');
+  await p.keyboard.press('Enter');
   await p.locator('[data-quick-kind="isa"]').click();
   assert.equal(await p.locator("#item-kind").inputValue(), "isa");
-  await p.locator("#item-owner").selectOption("partner");
+  assert.equal(await p.locator("#item-owner").inputValue(), "partner", "The row preselects its owner");
   await p.locator("#item-amount").fill("25000");
   await p.locator("#save-item-button").click();
   assert.equal(await displayedAmount(p, "#net-worth"), 2170000);

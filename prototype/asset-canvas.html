@@ -64,31 +64,27 @@
             </div>
           </div>
 
-          <section class="picture-panel" aria-label="Assets and debts by owner and access">
-            <div class="picture-top"><span>WHO OWNS IT · WHEN CAN YOU USE IT?</span><span>Tap an item to edit</span></div>
-            <div class="quick-add" role="group" aria-label="Quick add an item">
-              <span class="quick-add-label">Add a piece</span>
-              <button class="quick-add-chip" data-quick-kind="cash" type="button">＋ Cash</button>
-              <button class="quick-add-chip" data-quick-kind="isa" type="button">＋ ISA</button>
-              <button class="quick-add-chip" data-quick-kind="dc-pension" type="button">＋ Pension</button>
-              <button class="quick-add-chip" data-quick-kind="home" type="button">＋ Property</button>
-              <button class="quick-add-chip" data-quick-kind="mortgage" type="button">＋ Mortgage</button>
-              <button class="quick-add-chip" data-quick-kind="loan" type="button">＋ Loan</button>
-            </div>
-            <div id="constellation" class="constellation">
-              <div class="bucket-headings" aria-hidden="true"><span>Owner</span><span>Accessible <small>Cash &amp; ISAs</small></span><span>Pensions <small>Scheme rules apply</small></span><span>Property &amp; things <small>Value tied up</small></span><span>Check access <small>Sale rules unknown</small></span><span>Debts <small>What you owe</small></span><span>Net</span></div>
-              <div id="orbit-items" class="orbit-items"></div>
-              <div class="constellation-centre" aria-label="Combined household totals">
+          <section class="constellation-centre" aria-label="Combined household totals">
                 <span class="centre-kicker">THE COMPLETE PICTURE</span>
-                <div class="mix-overview"><div id="mix-bar" class="mix-bar" role="img" aria-label="Asset mix"></div><div id="mix-legend" class="mix-legend"></div></div>
+                <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong></div>
+                <div class="summary-accessible"><span>Generally accessible</span><strong id="accessible-total">£0</strong><small>Account and sale rules apply</small></div>
                 <div class="summary-row"><span>Total assets</span><strong id="asset-total">£0</strong></div>
                 <div class="summary-row summary-debt"><span>Total debt</span><strong id="debt-total">£0</strong></div>
-                <div class="summary-net"><span>Household net worth</span><strong id="net-worth">£0</strong></div>
+                <div class="mix-overview"><div id="mix-bar" class="mix-bar" role="img" aria-label="Asset mix"></div><div id="mix-legend" class="mix-legend"></div></div>
                 <span class="centre-detail"><span id="asset-count">Nothing entered yet</span> · <span id="debt-count">Nothing entered yet</span></span>
-              </div>
+          </section>
+          <details id="access-review" class="access-review" hidden>
+            <summary><span aria-hidden="true">◎</span> <span id="access-review-count"></span><span class="review-action">Review details</span></summary>
+            <div id="access-review-items" class="access-review-items"></div>
+          </details>
+          <section class="picture-panel" aria-label="Assets and debts by owner and access">
+            <div class="picture-top"><span>WHO OWNS IT · WHEN CAN YOU USE IT?</span><span>Tap an item to edit</span></div>
+            <p id="value-context" class="value-context">Example values are illustrative estimates. Edit anything to make it yours.</p>
+            <div id="constellation" class="constellation">
+              <div class="bucket-headings" aria-hidden="true"><span>Owner</span><span>Accessible <small>Cash &amp; ISAs</small></span><span>Pensions <small>Scheme rules apply</small></span><span>Property &amp; things <small>Value tied up</small></span><span>Debts <small>What you owe</small></span><span>Check access <small>Sale rules unknown</small></span><span>Net</span></div>
+              <div id="orbit-items" class="orbit-items"></div>
             </div>
-            <p class="picture-equation">The mortgage sits beside the shared home. The £400k equity is a view of that pair, not an extra asset. Shared items count once.</p>
-            <div class="picture-actions"><button id="add-asset-button" class="button button-add" type="button"><span aria-hidden="true">＋</span> Add asset</button><button id="add-debt-button" class="button button-add button-add-debt" type="button"><span aria-hidden="true">＋</span> Add debt</button></div>
+            <p class="picture-equation">Shared items count once. Equity shows an asset’s value after its linked debt.</p>
           </section>
           <p class="snapshot-caveat">Today’s values only. Rent and interest rates are details, not added to net worth. “Accessible” means generally available, subject to each account’s rules. Confirm pension and employee share access before using them in a plan.</p>
 
@@ -99,6 +95,7 @@
                   <p class="section-kicker">01 · What you own</p>
                   <h2 id="asset-section-title">Your assets</h2>
                 </div>
+                <button id="add-asset-button" class="button button-add" type="button">＋ Add asset</button>
               </div>
               <div id="asset-list" class="entry-list"></div>
             </section>
@@ -109,6 +106,7 @@
                   <p class="section-kicker">02 · What you owe</p>
                   <h2 id="debt-section-title">Your debts</h2>
                 </div>
+                <button id="add-debt-button" class="button button-add button-add-debt" type="button">＋ Add debt</button>
               </div>
               <div id="debt-list" class="entry-list"></div>
               <p id="link-tip" class="link-tip" hidden>Tip: drag a mortgage onto a property to link them, or use “Linked to” when editing. The totals stay the same.</p>
@@ -128,6 +126,11 @@
       <footer class="site-footer"><span>Steadybee · A working prototype</span><span>Snapshot only · Illustration, not advice</span></footer>
     </div>
 
+    <dialog id="add-dialog" class="form-dialog small-dialog" aria-labelledby="add-dialog-title">
+      <div class="dialog-heading"><h2 id="add-dialog-title">Add a piece</h2><button id="close-add-button" class="icon-button" type="button" aria-label="Close asset choices">×</button></div>
+      <p class="dialog-intro">Choose what you want to add. Start with its value; details can come later.</p>
+      <div id="add-choices" class="add-choices"></div>
+    </dialog>
     <dialog id="item-dialog" class="form-dialog" aria-labelledby="item-dialog-title">
       <form id="item-form" novalidate>
         <div class="dialog-heading">
