@@ -587,6 +587,7 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-view-switch button[aria-pressed="true"] { border-color: #66947a; background: #fffefa; color: #1d563e; box-shadow: 0 1px 3px #173c2820; }
 .flow-view-switch button:hover { color: #18543b; }
 .flow-view-switch button:focus-visible { outline: 3px solid #7eb1c3; outline-offset: 2px; }
+.flow-view-switch { max-width: min(100%, 390px); overflow-x: auto; }
 .flow-view-help { margin: 11px 0 0; color: #53665a; font-size: .94rem; }
 .flow-table-scroll { overflow-x: auto; margin-top: 20px; border: 1px solid #d9e4d9; border-radius: 12px; }
 .flow-table { width: 100%; border-collapse: collapse; color: #274437; font-variant-numeric: tabular-nums; }
@@ -699,6 +700,33 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-bridge-items strong { color: #294e3b; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .flow-bridge-gap { margin: 10px 0 0; color: #a3462f; font-weight: 700; }
 @media (max-width: 760px) { .flow-bridge-equation { flex-wrap: wrap; } .flow-bridge-amount { flex-basis: 40%; } .flow-bridge-breakdown-heading { align-items: start; flex-direction: column; gap: 3px; } .flow-bridge-groups { grid-template-columns: 1fr; } }
+.flow-hierarchy-view { grid-column: 1 / -1; margin-top: 18px; }
+.flow-hierarchy-view[hidden] { display: none; }
+.flow-hierarchy-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 44px; color: #325b45; }
+.flow-hierarchy-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.flow-hierarchy-crumb,.flow-hierarchy-back { min-height: 40px; padding: 6px 10px; border: 1px solid #cbdccd; border-radius: 8px; background: #f8faf6; color: #285d46; font: inherit; cursor: pointer; }
+.flow-hierarchy-total { margin-left: auto; color: #254d3a; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.flow-hierarchy-help { margin: 2px 0 14px; color: #52675a; font-size: .9rem; }
+.flow-hierarchy-view:not([hidden]) { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,.48fr); align-items: center; gap: 0 22px; }
+.flow-hierarchy-view[hidden] { display: none; }
+.flow-hierarchy-view > .flow-hierarchy-nav,.flow-hierarchy-view > .flow-hierarchy-help { grid-column: 1 / -1; }
+.flow-hierarchy-svg { display: block; width: min(100%, 680px); max-height: 540px; margin: 0 auto; overflow: visible; }
+.flow-sunburst { width: min(100%, 520px); }
+.flow-drill-donut { width: min(100%, 520px); }
+.flow-hierarchy-legend { display: grid; align-content: start; gap: 7px; max-height: 510px; overflow-y: auto; }
+.flow-hierarchy-legend-item { display: grid; grid-template-columns: 13px minmax(0,1fr) auto; align-items: center; gap: 10px; min-height: 46px; padding: 8px 10px; border: 1px solid #d9e4da; border-radius: 9px; background: #fffefa; color: #2b4c3c; text-align: left; font: inherit; cursor: pointer; }
+.flow-hierarchy-legend-item:disabled { cursor: default; }
+.flow-hierarchy-legend-item:not(:disabled):hover { border-color: #83a990; background: #f5faf4; }
+.flow-hierarchy-legend-item strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-hierarchy-swatch { width: 12px; height: 12px; border-radius: 3px; }
+.flow-hierarchy-svg path[data-flow-chart-path],.flow-hierarchy-svg rect[data-flow-chart-path] { cursor: pointer; }
+.flow-hierarchy-svg [data-flow-chart-path]:focus-visible { outline: 3px solid #174f3c; outline-offset: 2px; }
+.flow-chart-centre-label { fill: #355e49; font: 650 13px "Avenir Next", Avenir, "Segoe UI", sans-serif; }
+.flow-chart-centre-value { fill: #203f30; font: 750 14px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+.flow-treemap-label { fill: #fffefa; font: 700 13px "Avenir Next", Avenir, "Segoe UI", sans-serif; paint-order: stroke; stroke: #203f30aa; stroke-width: 2px; stroke-linejoin: round; }
+.flow-treemap-amount { fill: #fffefa; font: 650 12px "Avenir Next", Avenir, "Segoe UI", sans-serif; paint-order: stroke; stroke: #203f30aa; stroke-width: 2px; stroke-linejoin: round; }
+.flow-chart-empty { grid-column: 1 / -1; padding: 30px; color: #52675a; }
+@media (max-width: 760px) { .flow-hierarchy-view:not([hidden]) { grid-template-columns: 1fr; } .flow-hierarchy-legend { grid-template-columns: 1fr; max-height: none; } .flow-hierarchy-total { margin-left: auto; } }
 .flow-empty { margin-top: 20px; padding: 36px 25px; border: 1px dashed #adbfaf; border-radius: 12px; background: #f6faf6; color: #3b604c; }
 .flow-list-swatch { width: 10px; height: 10px; border-radius: 50%; }
 .flow-link-panel { display: grid; grid-template-columns: minmax(0,1fr) minmax(270px,.85fr); gap: 9px 25px; background: #f7faf6; }

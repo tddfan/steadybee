@@ -36,6 +36,7 @@ let returnToFlowAssetId = null;
 let editingFlowEntryId = null;
 let flowEntryTrigger = null;
 let flowDatedRequireStart = false;
+let flowChartPath = [];
 let chartView = "owner";
 let chartSelection = null;
 const openOwners = new Set();
@@ -556,6 +557,168 @@ function renderFlowBridge(diagram) {
   }
   section.append(list); root.append(section);
 }
+const flowChartPalette = ["#2d8067", "#c38a55", "#8b6ca7", "#678ba0", "#bd6e58", "#82965f", "#d0a844", "#6f8c7b"];
+function flowChartHierarchy(diagram) {
+  const uses = diagram.uses.filter((item) => ["spending", "mortgage", "datedSpending"].includes(item.kind));
+  const spendingGroups = [
+    ["Home", (item) => item.key === "homeBills" || item.kind === "mortgage"],
+    ["Everyday", (item) => ["everyday", "transport"].includes(item.key)],
+    ["Lifestyle", (item) => item.key === "lifestyle"],
+    ["Other and dated", (item) => item.key === "other" || item.kind === "datedSpending"],
+  ].map(([label, matches], index) => {
+    const children = uses.filter(matches).map((item) => ({ id: `item:${item.key}`, label: item.label, amount: item.amount, color: flowChartPalette[(index + 1) % flowChartPalette.length], children: [] }));
+    return { id: `group:${index}`, label, amount: children.reduce((sum, item) => sum + item.amount, 0), color: flowChartPalette[(index + 1) % flowChartPalette.length], children };
+  }).filter((group) => group.amount > 0);
+  const spendTotal = spendingGroups.reduce((sum, group) => sum + group.amount, 0);
+  const savingItems = diagram.uses.filter((item) => item.kind === "saving");
+  const saveTotal = savingItems.reduce((sum, item) => sum + item.amount, 0);
+  const children = [];
+  if (spendTotal > 0) children.push({ id: "spending", label: "Spending", amount: spendTotal, color: "#bd8555", children: spendingGroups });
+  if (saveTotal > 0) children.push({ id: "saving", label: "Saving", amount: saveTotal, color: "#398568", children: savingItems.map((item, index) => ({ id: `saving:${index}`, label: item.label, amount: item.amount, color: flowChartPalette[index], children: [] })) });
+  return { id: "outgoings", label: "Spending and saving", amount: children.reduce((sum, item) => sum + item.amount, 0), color: "#315b4d", children, remainder: diagram.remainder };
+}
+function nodeAtPath(root, path) { return path.reduce((node, id) => node?.children?.find((child) => child.id === id), root) || root; }
+function flowHierarchyHeader(root, path, container) {
+  const nav = make("div", "flow-hierarchy-nav");
+  if (path.length) {
+    const back = make("button", "flow-hierarchy-back", "← Back"); back.type = "button"; back.addEventListener("click", () => { flowChartPath.pop(); renderFlow(); }); nav.append(back);
+  }
+  const crumbs = make("div", "flow-hierarchy-crumbs");
+  const crumbNodes = [{ node: root, path: [] }];
+  let branch = root;
+  const validPath = [];
+  path.forEach((id) => { branch = branch?.children?.find((item) => item.id === id); if (branch) validPath.push(id); });
+  if (validPath.length !== path.length) flowChartPath = validPath;
+  branch = root;
+  validPath.forEach((id, index) => { branch = branch.children.find((item) => item.id === id); crumbNodes.push({ node: branch, path: validPath.slice(0, index + 1) }); });
+  crumbNodes.forEach(({ node, path: crumbPath }, index) => {
+    if (index) crumbs.append(make("span", "", " / "));
+    if (index === crumbNodes.length - 1) crumbs.append(make("strong", "", node.label));
+    else { const crumb = make("button", "flow-hierarchy-crumb", node.label); crumb.type = "button"; crumb.addEventListener("click", () => { flowChartPath = crumbPath; renderFlow(); }); crumbs.append(crumb); }
+  });
+  nav.append(crumbs, make("strong", "flow-hierarchy-total", money(nodeAtPath(root, path).amount)));
+  container.append(nav);
+  const selected = nodeAtPath(root, path);
+  const help = make("p", "flow-hierarchy-help", selected.children.length ? "Select a section to open its next level." : "This is the most detailed level in the current entries.");
+  container.append(help);
+  return selected;
+}
+function chartPathFor(node, start, end, inner, outer, cx, cy) {
+  const point = (radius, angle) => [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+  const [x1, y1] = point(outer, start), [x2, y2] = point(outer, end), [x3, y3] = point(inner, end), [x4, y4] = point(inner, start);
+  if (end - start >= Math.PI * 2 - 0.001) {
+    const [xo, yo] = point(outer, start + Math.PI), [xi, yi] = point(inner, start + Math.PI);
+    return `M ${x1} ${y1} A ${outer} ${outer} 0 1 1 ${xo} ${yo} A ${outer} ${outer} 0 1 1 ${x1} ${y1} L ${x4} ${y4} A ${inner} ${inner} 0 1 0 ${xi} ${yi} A ${inner} ${inner} 0 1 0 ${x4} ${y4} Z`;
+  }
+  const large = end - start > Math.PI ? 1 : 0;
+  return `M ${x1} ${y1} A ${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`;
+}
+function hierarchyEntries(root) {
+  const result = [];
+  const visit = (node, path = [], depth = 0, parentAmount = root.amount) => {
+    for (const child of node.children || []) {
+      const next = [...path, child.id];
+      result.push({ node: child, path: next, depth, parentAmount });
+      visit(child, next, depth + 1, child.amount);
+    }
+  };
+  visit(root);
+  return result;
+}
+function flowChartGap(container, diagram) {
+  if (diagram.remainder < 0) container.append(make("p", "flow-hierarchy-gap", `${money(-diagram.remainder)} monthly gap: spending is greater than recorded income. No funding source is assumed.`));
+}
+function hierarchyLegend(container, selected) {
+  const list = make("div", "flow-hierarchy-legend");
+  for (const child of selected.children) {
+    const button = make("button", "flow-hierarchy-legend-item"); button.type = "button";
+    if (child.children.length) button.addEventListener("click", () => { flowChartPath.push(child.id); renderFlow(); });
+    else button.disabled = true;
+    const swatch = make("span", "flow-hierarchy-swatch"); swatch.style.background = child.color;
+    button.append(swatch, make("span", "", child.label), make("strong", "", money(child.amount)));
+    list.append(button);
+  }
+  container.append(list);
+}
+function installChartNavigation(container) {
+  if (container.dataset.navigationInstalled) return;
+  container.dataset.navigationInstalled = "true";
+  const activate = (event) => {
+    const hit = event.target.closest("[data-flow-chart-path]");
+    if (!hit) return;
+    const path = JSON.parse(hit.dataset.flowChartPath);
+    if (path.length) { flowChartPath = path; renderFlow(); }
+  };
+  container.addEventListener("click", activate);
+  container.addEventListener("keydown", (event) => { if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-flow-chart-path]")) { event.preventDefault(); activate(event); } });
+}
+function renderSunburst(diagram) {
+  const root = flowChartHierarchy(diagram), container = $("flow-sunburst-view"); container.replaceChildren();
+  const selected = flowHierarchyHeader(root, flowChartPath, container);
+  flowChartGap(container, diagram);
+  const chart = svgElement("svg", { viewBox: "0 0 520 440", class: "flow-hierarchy-svg flow-sunburst", role: "img", "aria-label": "Sunburst of spending and saving; select a ring to drill down" });
+  const chartTitle = svgElement("title"); chartTitle.textContent = "Sunburst of monthly spending and saving"; chart.append(chartTitle);
+  const cx = 220, cy = 220, entries = hierarchyEntries(root);
+  const angles = new Map([["outgoings", [-Math.PI / 2, Math.PI * 1.5]]]);
+  for (const entry of entries) {
+    const [start, end] = angles.get(entry.path.length === 1 ? "outgoings" : entry.path.at(-2)) || [-Math.PI / 2, Math.PI * 1.5];
+    const siblings = entry.path.length === 1 ? root.children : nodeAtPath(root, entry.path.slice(0, -1)).children;
+    const before = siblings.slice(0, siblings.indexOf(entry.node)).reduce((sum, item) => sum + item.amount, 0);
+    const total = siblings.reduce((sum, item) => sum + item.amount, 0) || 1;
+    const a0 = start + (end - start) * before / total;
+    const a1 = a0 + (end - start) * entry.node.amount / total;
+    angles.set(entry.node.id, [a0, a1]);
+    const inner = 48 + entry.depth * 49, outer = inner + 46;
+    const sector = svgElement("path", { d: chartPathFor(entry.node, a0, a1, inner, outer, cx, cy), fill: entry.node.color, stroke: "#fffefa", "stroke-width": 2, tabindex: "0", role: entry.node.children.length ? "button" : "img", "aria-label": `${entry.node.label}, ${money(entry.node.amount)}${entry.node.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(entry.node.children.length ? entry.path : []) });
+    const title = svgElement("title"); title.textContent = `${entry.node.label}: ${money(entry.node.amount)}`; sector.append(title); chart.append(sector);
+  }
+  const centreLabel = svgElement("text", { x: cx, y: cy - 4, "text-anchor": "middle", class: "flow-chart-centre-label" }); centreLabel.textContent = selected.label;
+  const centreValue = svgElement("text", { x: cx, y: cy + 19, "text-anchor": "middle", class: "flow-chart-centre-value" }); centreValue.textContent = money(selected.amount);
+  chart.append(centreLabel, centreValue); container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
+}
+function renderTreemap(diagram) {
+  const root = flowChartHierarchy(diagram), container = $("flow-treemap-view"); container.replaceChildren();
+  const selected = flowHierarchyHeader(root, flowChartPath, container);
+  flowChartGap(container, diagram);
+  const chart = svgElement("svg", { viewBox: "0 0 860 420", class: "flow-hierarchy-svg flow-treemap", role: "img", "aria-label": "Treemap of spending and saving; select a rectangle to drill down" });
+  const chartTitle = svgElement("title"); chartTitle.textContent = "Treemap of monthly spending and saving"; chart.append(chartTitle);
+  const children = selected.children;
+  if (!children.length) {
+    const empty = svgElement("text", { x: 430, y: 210, "text-anchor": "middle", class: "flow-chart-empty" }); empty.textContent = "No further breakdown for this section."; chart.append(empty);
+  } else {
+    const total = children.reduce((sum, item) => sum + item.amount, 0) || 1;
+    const horizontal = children.length <= 3;
+    let offset = 0;
+    children.forEach((child) => {
+      const ratio = child.amount / total;
+      const x = horizontal ? offset : 0, y = horizontal ? 0 : offset;
+      const width = horizontal ? 860 * ratio : 860, height = horizontal ? 420 : 420 * ratio;
+      const inset = 4, nx = x + inset, ny = y + inset, nw = Math.max(0, width - inset * 2), nh = Math.max(0, height - inset * 2);
+      const rect = svgElement("rect", { x: nx, y: ny, width: nw, height: nh, rx: 7, fill: child.color, stroke: "#fffefa", "stroke-width": 2, tabindex: child.children.length ? "0" : "-1", role: child.children.length ? "button" : "img", "aria-label": `${child.label}, ${money(child.amount)}${child.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(child.children.length ? [...flowChartPath, child.id] : []) });
+      const title = svgElement("title"); title.textContent = `${child.label}: ${money(child.amount)}`; rect.append(title); chart.append(rect);
+      const label = svgElement("text", { x: nx + 16, y: ny + Math.min(34, nh / 2), class: "flow-treemap-label", "pointer-events": "none" }); label.textContent = child.label; chart.append(label);
+      if (nw > 120 && nh > 52) { const amount = svgElement("text", { x: nx + 16, y: ny + Math.min(62, nh / 2 + 26), class: "flow-treemap-amount", "pointer-events": "none" }); amount.textContent = money(child.amount); chart.append(amount); }
+      offset += horizontal ? 860 * ratio : 420 * ratio;
+    });
+  }
+  container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
+}
+function renderDrillDonut(diagram) {
+  const root = flowChartHierarchy(diagram), container = $("flow-donut-view"); container.replaceChildren();
+  const selected = flowHierarchyHeader(root, flowChartPath, container);
+  flowChartGap(container, diagram);
+  const chart = svgElement("svg", { viewBox: "0 0 520 390", class: "flow-hierarchy-svg flow-drill-donut", role: "img", "aria-label": "Drill-down donut of monthly spending and saving" });
+  const chartTitle = svgElement("title"); chartTitle.textContent = `${selected.label}: ${money(selected.amount)}`; chart.append(chartTitle);
+  const cx = 195, cy = 195, radius = 145, inner = 78; let angle = -Math.PI / 2;
+  selected.children.forEach((node) => {
+    const portion = node.amount / (selected.amount || 1), end = angle + Math.PI * 2 * portion;
+    const sector = svgElement("path", { d: chartPathFor(node, angle, end, inner, radius, cx, cy), fill: node.color, stroke: "#fffefa", "stroke-width": 2, tabindex: node.children.length ? "0" : "-1", role: node.children.length ? "button" : "img", "aria-label": `${node.label}, ${money(node.amount)}${node.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(node.children.length ? [...flowChartPath, node.id] : []) });
+    const title = svgElement("title"); title.textContent = `${node.label}: ${money(node.amount)}`; sector.append(title); chart.append(sector); angle = end;
+  });
+  const centreLabel = svgElement("text", { x: cx, y: cy - 4, "text-anchor": "middle", class: "flow-chart-centre-label" }); centreLabel.textContent = selected.label;
+  const centreValue = svgElement("text", { x: cx, y: cy + 19, "text-anchor": "middle", class: "flow-chart-centre-value" }); centreValue.textContent = money(selected.amount);
+  chart.append(centreLabel, centreValue); container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
+}
 function flowListItem(item, side) {
   const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
   const editable = payOwner || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
@@ -703,6 +866,9 @@ function renderFlow() {
   $("flow-table-empty").hidden = summary.hasEntries;
   renderSankey(diagram);
   renderFlowBridge(diagram);
+  renderSunburst(diagram);
+  renderTreemap(diagram);
+  renderDrillDonut(diagram);
   $("flow-payroll-note").hidden = !diagram.payrollEstimated;
   $("flow-split").hidden = !diagram.hasPartner || summary.remainder <= 0;
   $("flow-split-summary").textContent = `${draft.name || "First person"} ${diagram.primaryShare.toFixed(1)}% · ${draft.partnerName || "Partner"} ${(100 - diagram.primaryShare).toFixed(1)}% · Change split`;
@@ -935,19 +1101,39 @@ $("flow-primary-share").addEventListener("input", (event) => {
 function setFlowView(view) {
   const table = view === "table";
   const bridge = view === "bridge";
-  $("flow-diagram-view").hidden = table || bridge;
+  const sunburst = view === "sunburst";
+  const treemap = view === "treemap";
+  const donut = view === "donut";
+  if (flowChartPath.length) {
+    flowChartPath = [];
+    const diagram = buildMonthlyFlowDiagram(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
+    renderSunburst(diagram); renderTreemap(diagram); renderDrillDonut(diagram);
+  }
+  $("flow-diagram-view").hidden = table || bridge || sunburst || treemap || donut;
   $("flow-bridge-view").hidden = !bridge;
+  $("flow-sunburst-view").hidden = !sunburst;
+  $("flow-treemap-view").hidden = !treemap;
+  $("flow-donut-view").hidden = !donut;
   $("flow-table-view").hidden = !table;
-  $("flow-view-diagram").setAttribute("aria-pressed", String(!table && !bridge));
+  $("flow-view-diagram").setAttribute("aria-pressed", String(view === "diagram"));
   $("flow-view-bridge").setAttribute("aria-pressed", String(bridge));
+  $("flow-view-sunburst").setAttribute("aria-pressed", String(sunburst));
+  $("flow-view-treemap").setAttribute("aria-pressed", String(treemap));
+  $("flow-view-donut").setAttribute("aria-pressed", String(donut));
   $("flow-view-table").setAttribute("aria-pressed", String(table));
   $("flow-view-help").textContent = table
     ? "Exact monthly averages from the same entries, including estimated payroll deductions. Use Edit to change a figure."
     : bridge ? "Follow the calculation, then open a spending group to see its entries. Saving is the amount left after spending."
-    : "Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose Table for exact figures.";
+    : sunburst ? "Each ring shows a deeper level. Select a ring to focus on its children."
+      : treemap ? "Rectangle size shows each amount's share. Select a section to open its detail."
+        : donut ? "Select a slice to open its next level. Use the breadcrumb or Back to return."
+          : "Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose another view for detail.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
+$("flow-view-sunburst").addEventListener("click", () => setFlowView("sunburst"));
+$("flow-view-treemap").addEventListener("click", () => setFlowView("treemap"));
+$("flow-view-donut").addEventListener("click", () => setFlowView("donut"));
 $("flow-view-table").addEventListener("click", () => setFlowView("table"));
 $("flow-editor").addEventListener("input", (event) => {
   const input = event.target.closest("[data-flow-side], [data-flow-pay-owner]");
