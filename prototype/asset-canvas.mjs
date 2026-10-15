@@ -413,7 +413,7 @@ function flowPositions(items, scale, chartHeight) {
 }
 function labelPositions(items, chartHeight) {
   const labels = items.map((item) => item.y + item.height / 2);
-  for (let index = 1; index < labels.length; index++) labels[index] = Math.max(labels[index], labels[index - 1] + 25);
+  for (let index = 1; index < labels.length; index++) labels[index] = Math.max(labels[index], labels[index - 1] + 32);
   const excess = labels.at(-1) - (chartHeight - 42);
   if (excess > 0) for (let index = 0; index < labels.length; index++) labels[index] -= excess;
   return labels;
@@ -424,8 +424,8 @@ function renderSankey(summary) {
   svg.hidden = !summary.hasEntries;
   $("flow-empty").hidden = summary.hasEntries;
   if (!summary.hasEntries) return;
-  const chartHeight = Math.max(430, 125 + Math.max(summary.sources.length, summary.uses.length) * 39);
-  const streamHeight = chartHeight - 150;
+  const chartHeight = Math.max(620, 150 + Math.max(summary.sources.length, summary.uses.length) * 56);
+  const streamHeight = chartHeight - 160;
   svg.setAttribute("viewBox", `0 0 1150 ${chartHeight}`);
   const scale = streamHeight / Math.max(summary.chartTotal, 1);
   const position = (items, start) => { let y = start; return items.map((item) => { const placed = { ...item, y, height: item.amount * scale }; y += placed.height; return placed; }); };
@@ -460,7 +460,6 @@ function renderSankey(summary) {
   if (netHeight > 0) {
     svg.append(svgElement("path", { d: flowBand(464, netStart, 650, netStart, netHeight), fill: "#5a9b7c", class: "flow-ribbon flow-ribbon-net" }));
     svg.append(svgElement("rect", { x: 650, y: netStart, width: 15, height: netHeight, rx: 5, fill: "#28745f" }));
-    addText(680, netStart + 22, `${summary.remainder < 0 ? "Income + gap" : "After deductions"} · ${money(netTotal)}`);
   }
   centreY = netStart;
   for (const item of right) {
@@ -468,6 +467,12 @@ function renderSankey(summary) {
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
     path.append(title); svg.append(path);
     centreY += item.height;
+  }
+  if (netHeight > 0) {
+    const pillCentre = netStart + netHeight / 2;
+    const label = `${summary.remainder < 0 ? "Income + gap" : "Net money in"} · ${money(netTotal)}`;
+    svg.append(svgElement("rect", { x: 681, y: pillCentre - 18, width: 197, height: 34, rx: 17, fill: "#fffefa", stroke: "#b6d1bf", class: "flow-net-label-bg" }));
+    addText(691, pillCentre + 5, label, "start", "flow-svg-net-label");
   }
   for (const [items, x, labelX, anchor] of [[left, 212, 194, "end"], [right, 887, 917, "start"]]) {
     const labelY = labelPositions(items, chartHeight);

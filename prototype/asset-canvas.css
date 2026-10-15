@@ -669,8 +669,9 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-split input { width: 70px; min-height: 40px; border: 1px solid #9fb9a5; border-radius: 7px; padding: 5px; font: inherit; }
 .flow-split p { margin: 6px 0 0; }
 @media (max-width: 700px) { .flow-timeline { grid-template-columns: 1fr; padding: 12px; } .flow-timeline-heading { display: flex; flex-direction: row; justify-content: space-between; } .flow-timeline-heading label { flex: none; } .flow-result { grid-template-columns: 1fr; padding: 13px 16px; } .flow-result-maths { padding: 4px 0 0; border: 0; } .flow-timeline-events { max-width: 100%; } }
-.flow-svg-heading { fill: #4d6757; font: 700 16px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .04em; }
-.flow-svg-label { fill: #2b4c3c; font: 650 16px "Avenir Next", Avenir, "Segoe UI", sans-serif; }
+.flow-svg-heading { fill: #4d6757; font: 700 14px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .025em; }
+.flow-svg-label { fill: #2b4c3c; font: 650 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
+.flow-svg-net-label { fill: #285943; font: 700 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
 .flow-empty { margin-top: 20px; padding: 36px 25px; border: 1px dashed #adbfaf; border-radius: 12px; background: #f6faf6; color: #3b604c; }
 .flow-list-swatch { width: 10px; height: 10px; border-radius: 50%; }
 .flow-link-panel { display: grid; grid-template-columns: minmax(0,1fr) minmax(270px,.85fr); gap: 9px 25px; background: #f7faf6; }
