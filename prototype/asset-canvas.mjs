@@ -449,18 +449,26 @@ function renderSankey(summary) {
 function flowListItem(item, side) {
   const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
   const editable = payOwner || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
-  const node = make(editable || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending" ? "button" : "div", "flow-list-item");
-  if (node.tagName === "BUTTON") {
-    node.type = "button";
-    if (payOwner) node.dataset.flowPay = payOwner;
-    else if (editable) node.dataset.flowFocus = `${side}:${item.key}`;
-    else if (item.kind === "datedIncome" || item.kind === "datedSpending") node.dataset.flowEntry = item.key.slice(6);
-    else if (item.kind === "mortgage") node.dataset.flowDebt = item.key.slice(9);
-    else node.dataset.flowAsset = item.key.slice(5);
-  }
+  const row = make("tr", "flow-table-row");
+  const label = make("th"); label.scope = "row";
+  const labelText = make("span", "flow-table-label", item.label);
   const swatch = make("span", "flow-list-swatch"); swatch.style.background = flowColor(item);
-  node.append(swatch, make("span", "flow-list-label", item.label), make("strong", "", money(item.amount)));
-  return node;
+  label.append(swatch, labelText);
+  const amount = make("td", "flow-table-amount", money(item.amount));
+  const action = make("td", "flow-table-action");
+  if (editable || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending") {
+    const button = make("button", "flow-table-edit", "Edit");
+    button.type = "button";
+    button.setAttribute("aria-label", `Edit ${item.label}`);
+    if (payOwner) button.dataset.flowPay = payOwner;
+    else if (editable) button.dataset.flowFocus = `${side}:${item.key}`;
+    else if (item.kind === "datedIncome" || item.kind === "datedSpending") button.dataset.flowEntry = item.key.slice(6);
+    else if (item.kind === "mortgage") button.dataset.flowDebt = item.key.slice(9);
+    else button.dataset.flowAsset = item.key.slice(5);
+    action.append(button);
+  }
+  row.append(label, amount, action);
+  return row;
 }
 function flowMonthLabel(month) {
   return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
@@ -553,10 +561,16 @@ function renderFlow() {
     ? summary.uses.filter((item) => item.kind !== "unallocated").concat(plan.allocations.filter((item) => item.monthlyAmount > 0).map((item) => ({ ...item, amount: item.monthlyAmount, key: `plan:${item.bucket}`, kind: item.bucket })))
     : summary.uses;
   const diagram = { ...summary, uses };
-  const sources = $("flow-source-list"); sources.replaceChildren(...summary.sources.map((item) => flowListItem(item, "income")));
-  const destinations = $("flow-use-list"); destinations.replaceChildren(...uses.map((item) => flowListItem(item, "spending")));
-  $("flow-breakdown").hidden = !summary.hasEntries;
-  if (window.matchMedia("(max-width: 700px)").matches) $("flow-breakdown").open = true;
+  const groupRow = (title) => {
+    const row = make("tr", "flow-table-group");
+    const heading = make("th", "", title); heading.scope = "rowgroup"; heading.colSpan = 3;
+    row.append(heading);
+    return row;
+  };
+  const sources = $("flow-source-list"); sources.replaceChildren(groupRow("Money in"), ...summary.sources.map((item) => flowListItem(item, "income")));
+  const destinations = $("flow-use-list"); destinations.replaceChildren(groupRow("Spending and remainder"), ...uses.map((item) => flowListItem(item, "spending")));
+  $("flow-table-scroll").hidden = !summary.hasEntries;
+  $("flow-table-empty").hidden = summary.hasEntries;
   renderSankey(diagram);
   renderAllocationOverview(plan);
 
@@ -762,6 +776,18 @@ $("first-piece").addEventListener("click", (event) => {
 });
 for (const id of ["step-to-flow", "continue-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
 for (const id of ["step-to-assets", "back-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
+function setFlowView(view) {
+  const table = view === "table";
+  $("flow-diagram-view").hidden = table;
+  $("flow-table-view").hidden = !table;
+  $("flow-view-diagram").setAttribute("aria-pressed", String(!table));
+  $("flow-view-table").setAttribute("aria-pressed", String(table));
+  $("flow-view-help").textContent = table
+    ? "Exact monthly averages from the same entries. Use Edit to change a figure."
+    : "Ribbon widths show relative monthly amounts. Choose Table for exact figures and edit links.";
+}
+$("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
+$("flow-view-table").addEventListener("click", () => setFlowView("table"));
 $("flow-editor").addEventListener("input", (event) => {
   const input = event.target.closest("[data-flow-side], [data-flow-pay-owner]");
   if (!input) return;
@@ -1168,7 +1194,6 @@ function organizeFlowInputs() {
   panel.querySelector(".section-kicker").textContent = "1 · Start with monthly amounts";
   $("flow-dated-title").textContent = "Build your monthly picture";
   panel.querySelector(".flow-dated-heading p:last-child").textContent = "Start with pay and regular spending. Edit a card to change its figures; the monthly flow above updates immediately.";
-  $("flow-map-title").parentElement.parentElement.querySelector("p:last-child").textContent = "A monthly average from your entries below. Ribbon widths show relative amounts.";
   const editor = $("flow-editor");
   editor.querySelector("summary").firstChild.textContent = "Edit pay and regular amounts ";
   const payDetail = document.createElement("details");

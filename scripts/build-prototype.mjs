@@ -38,7 +38,9 @@ for (const path of files.filter((path) => path.endsWith(".html"))) {
   if (!marker.test(html))
     throw new Error(`Missing deployment version marker in ${path}`);
   if (path === "asset-canvas.html")
-    html = html.replace(/asset-canvas\.mjs\?v=[^"]+/, `asset-canvas.mjs?v=${version}`);
+    html = html
+      .replace(/asset-canvas\.mjs\?v=[^"]+/, `asset-canvas.mjs?v=${version}`)
+      .replace(/asset-canvas\.css\?v=[^"]+/, `asset-canvas.css?v=${version}`);
   await writeFile(
     join(output, path),
     html.replace(marker, (match) =>

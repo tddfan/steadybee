@@ -8,8 +8,8 @@
     <title>Your money picture · Steadybee</title>
     <meta name="description" content="Explore Alex and Gemma’s editable household example, then build a picture of what you own and owe." />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./asset-canvas.css?v=20261015d" />
-    <script type="module" src="./asset-canvas.mjs?v=20261015e"></script>
+    <link rel="stylesheet" href="./asset-canvas.css?v=20261015e" />
+    <script type="module" src="./asset-canvas.mjs?v=20261015f"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -136,10 +136,10 @@
           <div class="flow-heading"><div><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> An annualised monthly picture</p><h1 id="flow-title" tabindex="-1">Where your money goes.</h1><p>See estimated take-home pay, other money received, and spending as a monthly average. A yearly bonus is spread over 12 months here; actual pay may differ. This is not a retirement forecast.</p></div><button id="back-to-assets" class="heading-action heading-action-secondary" type="button">← Back to assets</button></div>
           <section class="flow-result" aria-label="Monthly money summary"><div><span id="flow-result-label">Not assigned to spending</span><strong id="flow-result-value">£0</strong><p id="flow-result-context">This amount is not automatically savings.</p></div><div class="flow-result-maths"><div><span>Money in</span><strong id="flow-income-total">£0</strong></div><span aria-hidden="true">−</span><div><span>Spending</span><strong id="flow-spending-total">£0</strong></div></div></section>
           <section class="flow-map-panel" aria-labelledby="flow-map-title">
-            <div class="flow-map-heading"><div><p class="section-kicker">Follow the money</p><h2 id="flow-map-title">Monthly flow</h2></div><p>The ribbon widths show average monthly amounts. Edit figures in Your entries below.</p></div>
-            <div id="flow-empty" class="flow-empty" hidden>Start with income or spending to build your monthly flow.</div>
-            <svg id="flow-sankey" viewBox="0 0 1000 430" role="img" aria-labelledby="flow-svg-title flow-svg-desc"><title id="flow-svg-title">Monthly money in and spending</title><desc id="flow-svg-desc">An illustrative flow of monthly average income to spending and any destinations you choose for the remainder.</desc></svg>
-            <details id="flow-breakdown" class="flow-breakdown"><summary>View exact amounts and edit entries</summary><div id="flow-list-grid" class="flow-list-grid"><div><h3>Money in</h3><div id="flow-source-list" class="flow-item-list"></div></div><div><h3>Spending and remainder</h3><div id="flow-use-list" class="flow-item-list"></div></div></div></details>
+            <div class="flow-map-heading"><div><p class="section-kicker">Follow the money</p><h2 id="flow-map-title">Monthly flow</h2></div><div class="flow-view-switch" role="group" aria-label="Monthly flow view"><button id="flow-view-diagram" type="button" aria-pressed="true">Diagram</button><button id="flow-view-table" type="button" aria-pressed="false">Table</button></div></div>
+            <p id="flow-view-help" class="flow-view-help">Ribbon widths show relative monthly amounts. Choose Table for exact figures and edit links.</p>
+            <div id="flow-diagram-view"><div id="flow-empty" class="flow-empty" hidden>Start with income or spending to build your monthly flow.</div><svg id="flow-sankey" viewBox="0 0 1000 430" role="img" aria-labelledby="flow-svg-title flow-svg-desc"><title id="flow-svg-title">Monthly money in and spending</title><desc id="flow-svg-desc">An illustrative flow of monthly average income to spending and any destinations you choose for the remainder.</desc></svg></div>
+            <div id="flow-table-view" hidden><p id="flow-table-empty" class="flow-empty" hidden>No monthly amounts entered yet. Add pay, income or spending below to build this table.</p><div id="flow-table-scroll" class="flow-table-scroll"><table class="flow-table"><caption>Monthly money in, spending and remainder</caption><thead><tr><th scope="col">Entry</th><th scope="col">Monthly average</th><th scope="col"><span class="visually-hidden">Action</span></th></tr></thead><tbody id="flow-source-list"></tbody><tbody id="flow-use-list"></tbody></table></div></div>
           </section>
           <section id="flow-allocation-panel" class="flow-allocation-panel" aria-labelledby="flow-allocation-title">
             <div class="flow-allocation-heading"><div><p class="section-kicker">After spending</p><h2 id="flow-allocation-title">What happens to the remainder?</h2><p id="flow-allocation-context">No destination is assumed. You can illustrate how you intend to use this month's remaining money.</p></div></div>

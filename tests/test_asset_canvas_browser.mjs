@@ -133,6 +133,12 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await displayedAmount(p, "#flow-result-value"), 3770.41);
   assert.match(await p.locator("#flow-sankey").textContent(), /Alex pay · £9,190.93/);
   assert.match(await p.locator("#flow-sankey").textContent(), /Mortgage · £2,375.30/);
+  assert.equal(await p.locator("#flow-view-diagram").getAttribute("aria-pressed"), "true");
+  await p.locator("#flow-view-table").click();
+  assert.equal(await p.locator("#flow-sankey").isVisible(), false);
+  assert.match(await p.locator("#flow-source-list").innerText(), /Alex's estimated take-home pay[\s\S]*£9,190.93/);
+  await p.locator("#flow-view-diagram").click();
+  assert.equal(await p.locator("#flow-sankey").isVisible(), true);
   assert.equal(await p.locator("#flow-pay-primary-annualGross").inputValue(), "146500");
   assert.equal(await p.locator("#flow-pay-primary-annualBonus").inputValue(), "50000");
   assert.equal(await p.locator("#flow-pay-primary-employeePensionRate").inputValue(), "7");
@@ -219,7 +225,7 @@ test("personal monthly flow starts empty and shows an unfunded gap honestly", as
   await p.locator("#flow-spending-homeBills").fill("3500");
   assert.equal(await p.locator("#flow-result-label").innerText(), "More spent than recorded income");
   assert.equal(await displayedAmount(p, "#flow-result-value"), 500);
-  await p.locator("#flow-breakdown > summary").click();
+  await p.locator("#flow-view-table").click();
   assert.equal(await p.locator("#flow-source-list").innerText().then((text) => text.includes("Amount not covered")), true);
   await p.close();
 });
