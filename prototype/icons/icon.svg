@@ -1,18 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Steadybee">
-  <defs>
-    <clipPath id="body"><ellipse cx="256" cy="291" rx="55" ry="87"/></clipPath>
-  </defs>
-  <rect width="512" height="512" fill="#083f3b"/>
-  <path d="M239 230 C220 172 172 148 140 169 C109 190 130 227 187 244 L237 255Z" fill="#fff8e8"/>
-  <path d="M273 230 C292 172 340 148 372 169 C403 190 382 227 325 244 L275 255Z" fill="#fff8e8"/>
-  <path d="M232 244 C185 230 152 240 156 265 C159 288 192 291 238 269Z" fill="#e8eedb"/>
-  <path d="M280 244 C327 230 360 240 356 265 C353 288 320 291 274 269Z" fill="#e8eedb"/>
-  <path d="M245 177 C241 154 232 143 216 138 M267 177 C271 154 280 143 296 138" fill="none" stroke="#e8a12c" stroke-width="12" stroke-linecap="round"/>
-  <path d="M246 369 L256 386 L266 369Z" fill="#e8a12c"/>
-  <ellipse cx="256" cy="291" rx="55" ry="87" fill="#e8a12c"/>
-  <g clip-path="url(#body)" fill="#083f3b">
-    <rect x="192" y="267" width="128" height="18"/>
-    <rect x="192" y="309" width="128" height="18"/>
-  </g>
-  <circle cx="256" cy="199" r="33" fill="#e8a12c"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#104f48"/>
+  <circle cx="256" cy="256" r="154" fill="none" stroke="#f8f5ec" stroke-width="68"/>
+  <path d="M256 102a154 154 0 0 1 145.6 104" fill="none" stroke="#e97857" stroke-width="68" stroke-linecap="round"/>
+  <text x="256" y="292" text-anchor="middle" dominant-baseline="middle" fill="#f8f5ec" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700">£</text>
 </svg>

@@ -9,11 +9,13 @@ test('deployment contains one active app, redirects old routes and versions nest
  const read=path=>readFile(new URL(`../dist/${path}`,import.meta.url),'utf8');
  const files=await readdir(new URL('../dist/',import.meta.url));
  for(const retired of ['app.mjs','state.mjs','landing.mjs','fixtures.mjs','workspace.css'])assert.equal(files.includes(retired),false);
- assert.match(await read('index.html'),/asset-canvas.html#assets/);
- assert.match(await read('plan.html'),/asset-canvas.html#planning/);
- assert.equal(JSON.parse(await read('manifest.webmanifest')).start_url,'/asset-canvas.html');
+ assert.match(await read('index.html'),/app.html#assets/);
+ assert.match(await read('asset-canvas.html'),/app.html#assets/);
+ assert.match(await read('plan.html'),/app.html#planning/);
+ assert.equal(JSON.parse(await read('manifest.webmanifest')).start_url,'/app.html');
  const version=JSON.parse(await read('version.json')).version;
- assert.ok((await read('asset-canvas.html')).includes(`asset-canvas.mjs?v=${version}`));
+ assert.ok((await read('app.html')).includes(`asset-canvas.mjs?v=${version}`));
+ assert.ok((await read('app.html')).includes('manifest.webmanifest'));
  assert.ok((await read('planning-view.mjs')).includes(`planning.mjs?v=${version}`));
  assert.ok((await read('planning.mjs')).includes(`withdrawals.mjs?v=${version}`));
 });

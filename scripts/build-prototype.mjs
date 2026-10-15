@@ -37,7 +37,7 @@ for (const path of files.filter((path) => path.endsWith(".html"))) {
     /<meta\s+name="steadybee-version"\s+content="development"\s*\/?>/;
   if (!marker.test(html))
     throw new Error(`Missing deployment version marker in ${path}`);
-  if (path === "asset-canvas.html")
+  if (path === "app.html")
     html = html
       .replace(/asset-canvas\.mjs\?v=[^"]+/, `asset-canvas.mjs?v=${version}`)
       .replace(/asset-canvas\.css\?v=[^"]+/, `asset-canvas.css?v=${version}`);
