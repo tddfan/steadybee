@@ -45,6 +45,9 @@ export function mountPlanning(root,getInputs) {
     <details class="plan-method"><summary>Assumptions, starting figures & calculation details</summary><p class="plan-facts-note">Recorded inputs stay unchanged. Adjustments apply only to your scenario.</p><div id="plan-method-body"></div></details>
     <p class="plan-disclaimer">Illustration, not advice. Current rules, subject to change.</p>`;
   const $=id=>root.querySelector(`#${id}`);
+  const toolbar=el('div','plan-toolbar');
+  toolbar.append(document.querySelector('.planning-heading'),root.querySelector('.plan-source'));
+  root.prepend(toolbar);
   $('plan-growth-slot').append(growthPanel);
   growthPanel.open=false;
   growthPanel.querySelector('summary').textContent='Growth & inflation';

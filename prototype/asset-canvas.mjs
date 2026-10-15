@@ -10,7 +10,7 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261015main12";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
-import { mountPlanning } from "./planning-view.mjs?v=20261015compact2";
+import { mountPlanning } from "./planning-view.mjs?v=20261015planning3";
 import { estimateStatePension } from "./state-pension.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 

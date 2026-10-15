@@ -1561,3 +1561,35 @@ h2 { font-size:26px; }
  .plan-adjust-row .button { font-weight:500; }
  .planning-heading > p:last-child { margin:0; }
 }
+
+/* Planning leads with the comparison and chart, in a compact workspace header. */
+.plan-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 20px; min-height:44px; }
+.plan-toolbar .planning-heading { margin:0; }
+.plan-toolbar .planning-heading h1 { margin:0; font-size:30px; }
+.plan-toolbar .plan-source { margin:0; gap:20px; }
+.plan-toolbar .plan-source > div { gap:14px; }
+.plan-toolbar .plan-text-button { padding:5px 0; white-space:nowrap; }
+.plan-comparison { margin:8px 0; }
+.plan-comparison .plan-gap { grid-column:1/-1; margin:4px 0 0; }
+@media(min-width:900px) {
+ .plan-comparison { display:grid; grid-template-columns:190px minmax(0,1fr); gap:16px; align-items:center; padding:10px 16px; }
+ .plan-comparison-caption { display:flex; flex-direction:column; align-items:start; gap:2px; margin:0; }
+ .plan-comparison-figures { gap:20px; }
+ .plan-comparison-figures > div { min-width:0; padding-left:20px; border-left:1px solid #d4e0d7; }
+ .plan-comparison-figures > div:last-child { padding-top:0; }
+ .plan-comparison-figures strong { font-size:26px; margin-top:2px; }
+}
+@media(min-width:1000px) {
+ .plan-root { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 16px; }
+ .plan-toolbar { grid-column:1; grid-row:1; }
+ .plan-adjust-row { grid-column:2; grid-row:1; margin:0; align-self:center; }
+ #plan-confirm,#plan-error,#plan-comparison,#plan-workspace,.plan-root > .plan-method,.plan-root > .plan-disclaimer { grid-column:1/-1; }
+ #plan-comparison { margin:0; }
+ .plan-root > .plan-method { margin-top:4px; }
+}
+@media(max-width:780px) {
+ .plan-toolbar { display:block; }
+ .plan-toolbar .planning-heading h1 { font-size:28px; margin-bottom:6px; }
+ .plan-toolbar .plan-source { justify-content:space-between; gap:6px; }
+ .plan-toolbar .plan-source > div { gap:10px; }
+}

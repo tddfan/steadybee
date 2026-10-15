@@ -49,3 +49,7 @@ Persistent saving/resume and backup/import, printable report/export, full UK tax
 - Slimmed the monthly timeline while keeping the full month/year field, event selector and today’s-money basis visible.
 - Planning uses a native chart selector on phones. Detailed chart explanations are under “How to read these figures”; desktop tabs remain available.
 - Checked the running app at 320px, 390px and 1280px CSS widths; no page overflow. Checked More/clear cancellation, storage disclosure and mobile chart selection. Build regression check and JavaScript syntax checks pass. Financial calculation code is unchanged.
+
+### Planning header refinement
+
+Removed the repeated planning eyebrow and introduction. The title, starting month, undo/reset and change disclosure now share a desktop toolbar; the comparison is a 91px horizontal strip at 1280px. The graph starts at about 469px. Phone layouts retain stacked comparison figures and 44px controls without horizontal overflow.
