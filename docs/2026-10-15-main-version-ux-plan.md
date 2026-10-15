@@ -40,3 +40,12 @@ Required Superpowers workflow skills were searched for and are not installed in 
 ### Still missing before a public release
 
 Persistent saving/resume and backup/import, printable report/export, full UK tax-year reconciliation and excluded tax categories, complete DB scheme-specific details, verified pension eligibility, observed usability testing and a full assistive-technology audit. The archive preserves earlier useful capture/report/storage code for migration; it is not exposed as a competing version.
+
+## Compact layout review
+
+- Reduced shared header, navigation, heading sizes and section padding; retained 18px base text, at least 16px utility text and 44px action targets.
+- Replaced the large storage paragraph with an explicit “Demo · not saved” disclosure. Reset and clear live under More, with outside-click and Escape dismissal.
+- Shortened repeated explanations, reduced granular amount weights and kept the household summary within the first phone screen.
+- Slimmed the monthly timeline while keeping the full month/year field, event selector and today’s-money basis visible.
+- Planning uses a native chart selector on phones. Detailed chart explanations are under “How to read these figures”; desktop tabs remain available.
+- Checked the running app at 320px, 390px and 1280px CSS widths; no page overflow. Checked More/clear cancellation, storage disclosure and mobile chart selection. Build regression check and JavaScript syntax checks pass. Financial calculation code is unchanged.

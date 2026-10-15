@@ -10,7 +10,7 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261015main12";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
-import { mountPlanning } from "./planning-view.mjs?v=20261015main12";
+import { mountPlanning } from "./planning-view.mjs?v=20261015compact2";
 import { estimateStatePension } from "./state-pension.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
@@ -91,7 +91,7 @@ function renderChart(summary) {
   if (!groups.some((group) => group.key === chartSelection)) chartSelection = null;
   for (const button of document.querySelectorAll("[data-chart-view]")) button.setAttribute("aria-pressed", String(button.dataset.chartView === chartView));
   $("donut-title").textContent = chartViews[chartView].title;
-  $("chart-context").textContent = `${chartViews[chartView].context} Shares use total assets; debt is deducted separately from net worth.`;
+  $("chart-context").textContent = chartViews[chartView].context;
   $("donut-total").textContent = money(summary.assetTotal);
   const svg = $("asset-donut");
   svg.querySelectorAll("circle").forEach((circle) => circle.remove());
@@ -362,7 +362,7 @@ function render() {
   $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
   $("snapshot-description").textContent = !hasItems && mode !== "example"
     ? `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, age ${draft.partnerAge}` : ""}` : ""} · Your picture is ready for its first item.`
-    : `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, age ${draft.partnerAge}` : ""}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
+    : `${draft.name}, ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, ${draft.partnerAge}` : ""}` : ""} · ${mode === "example" ? "Editable example" : "Your entries"}`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
@@ -901,11 +901,10 @@ function renderFlowTimeline() {
     button.append(make("span", "flow-timeline-dot"), make("strong", "", flowMonthLabel(month)), make("small", "", labels.join(" · ")));
     rail.append(button);
   }
-  const picker=$("flow-event-select");picker.replaceChildren(new Option('Choose an event',''));
+  const picker=$("flow-event-select");picker.replaceChildren(new Option('Jump to a change',''));
   for(const [month,labels] of grouped)picker.add(new Option(`${flowMonthLabel(month)} · ${labels.join(' / ')}`,month));
   picker.value=grouped.has(flowDraft.asOfMonth) ? flowDraft.asOfMonth : '';
-  const selectedEvents = grouped.get(flowDraft.asOfMonth);
-  $("flow-timeline-context").textContent = `${selectedEvents ? selectedEvents.join(" · ") + ". " : "Drag the bar or select a change. "}Today’s pounds; no inflation or future tax changes.`;
+  $("flow-timeline-context").textContent = "Today’s pounds · no growth, inflation or future tax changes.";
 }
 function renderFlow() {
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
@@ -1282,12 +1281,12 @@ function setFlowView(view) {
   $("flow-view-donut").setAttribute("aria-pressed", String(donut));
   $("flow-view-table").setAttribute("aria-pressed", String(table));
   $("flow-view-help").textContent = table
-    ? "Exact monthly averages from the same entries, including estimated payroll deductions. Use Edit to change a figure."
+    ? "Monthly averages · use Edit to change an entry."
     : bridge ? "Follow the calculation, then open a spending group to see its entries. Saving is the amount left after spending."
     : sunburst ? "Each ring shows a deeper level. Select a ring to focus on its children."
       : treemap ? "Rectangle size shows each amount's share. Select a section to open its detail."
         : donut ? "Select a slice to open its next level. Use the breadcrumb or Back to return."
-          : "Estimated gross pay separates into tax, National Insurance, pension and take-home. Other income joins before spending and saving.";
+          : "Monthly averages · select an income or spending flow to edit.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
@@ -1704,6 +1703,24 @@ $("profile-form").addEventListener("submit", (event) => {
 for (const id of ["profile-name", "profile-age", "profile-partner"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
 $("clear-button").addEventListener("click", () => $("clear-dialog").showModal());
+document.querySelector(".heading-utilities").addEventListener("click", (event) => {
+  if (event.target.closest("button")) event.currentTarget.open = false;
+});
+const headerDisclosures = document.querySelectorAll(".storage-status, .heading-utilities");
+document.addEventListener("click", (event) => {
+  for (const disclosure of headerDisclosures) {
+    if (!disclosure.contains(event.target)) disclosure.open = false;
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  for (const disclosure of headerDisclosures) {
+    if (disclosure.open) {
+      disclosure.open = false;
+      disclosure.querySelector("summary").focus();
+    }
+  }
+});
 $("start-own-button").addEventListener("click", () => {
   $("clear-dialog").showModal();
 });

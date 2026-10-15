@@ -18,17 +18,17 @@ export function mountPlanning(root,getInputs) {
   root.classList.add('plan-root');
   const growthPanel=document.getElementById('flow-growth-panel');
   root.innerHTML=`
-    <div class="plan-source"><span id="plan-source-text"></span><div><button type="button" id="plan-undo" class="plan-text-button" disabled>Undo</button><button type="button" id="plan-reset" class="plan-text-button">Reset scenario</button></div></div><p class="plan-facts-note">Recorded inputs stay unchanged. Adjustments below apply only to your scenario.</p>
+    <div class="plan-source"><span id="plan-source-text"></span><div><button type="button" id="plan-undo" class="plan-text-button" disabled>Undo</button><button type="button" id="plan-reset" class="plan-text-button">Reset scenario</button></div></div>
     <div id="plan-confirm" class="plan-confirm" hidden><p>Check your assets, debt and income entries before exploring this illustration.</p><button type="button" id="plan-confirm-button" class="button button-primary">I’ve checked my starting figures</button></div>
     <p id="plan-error" class="form-error" role="alert" hidden></p>
     <section id="plan-comparison" class="plan-comparison" aria-label="Current plan and scenario comparison"></section><div class="plan-adjust-row"><button type="button" id="plan-adjust" class="button button-primary" aria-expanded="false" aria-controls="plan-controls">Adjust scenario</button><details id="plan-changes"><summary>What changed?</summary><ul id="plan-changes-list"></ul></details></div><div id="plan-workspace" class="plan-workspace">
       <section class="plan-chart-card" aria-label="Your illustration over time">
         <div class="plan-metrics" role="group" aria-label="What to explore"><button type="button" data-metric="netWorth" aria-pressed="true">Net worth</button><button type="button" data-metric="income" aria-pressed="false">Income & spending</button><button type="button" data-metric="saving" aria-pressed="false">Saving</button><button type="button" data-metric="assets" aria-pressed="false">Assets</button><button type="button" data-metric="debts" aria-pressed="false">Debt</button></div>
-        <div class="plan-chart-heading"><div><h2 id="plan-result-title">Income over time</h2><p id="plan-chart-note"></p></div><div class="plan-money-toggle" role="group" aria-label="Value of money"><button type="button" data-money="real" aria-pressed="true">Today’s money</button><button type="button" data-money="nominal" aria-pressed="false">Future value</button></div></div>
-        <p id="plan-money-explainer" class="plan-money-explainer"></p><p id="plan-pension-note" class="plan-pension-note"></p><div class="plan-chart-controls"><div role="group" aria-label="Group the chart"><button type="button" data-group="person" aria-pressed="true">By person</button><button type="button" data-group="type" aria-pressed="false">By type</button></div><div role="group" aria-label="Chart style"><button type="button" data-style="bars" aria-pressed="true">Bars</button><button type="button" data-style="lines" aria-pressed="false">Lines</button></div></div>
+        <select id="plan-metric-select" class="plan-metric-select" aria-label="What to explore"><option value="netWorth">Net worth over time</option><option value="income">Income & spending over time</option><option value="saving">Saving over time</option><option value="assets">Assets over time</option><option value="debts">Debt over time</option></select><div class="plan-chart-heading"><div><h2 id="plan-result-title">Income over time</h2></div><div class="plan-money-toggle" role="group" aria-label="Value of money"><button type="button" data-money="real" aria-pressed="true">Today’s money</button><button type="button" data-money="nominal" aria-pressed="false">Future value</button></div></div>
+        <p id="plan-pension-note" class="plan-pension-note"></p><div class="plan-chart-controls"><div role="group" aria-label="Group the chart"><button type="button" data-group="person" aria-pressed="true">By person</button><button type="button" data-group="type" aria-pressed="false">By type</button></div><div role="group" aria-label="Chart style"><button type="button" data-style="bars" aria-pressed="true">Bars</button><button type="button" data-style="lines" aria-pressed="false">Lines</button></div></div>
         <div id="plan-legend" class="plan-legend"></div>
         <div class="plan-chart-wrap"><svg id="plan-chart" viewBox="0 0 1000 500" role="img" aria-label="Annual projection chart"></svg><div id="plan-chart-tooltip" class="plan-chart-tooltip" role="tooltip" hidden></div></div>
-        <div class="plan-year-control"><label for="plan-year">Explore a year <output id="plan-year-label"></output></label><input id="plan-year" type="range" min="0" max="30" step="1" value="1" /></div>
+        <details class="plan-figure-notes"><summary>How to read these figures</summary><p id="plan-chart-note"></p><p id="plan-money-explainer" class="plan-money-explainer"></p></details><div class="plan-year-control"><label for="plan-year">Explore a year <output id="plan-year-label"></output></label><input id="plan-year" type="range" min="0" max="30" step="1" value="1" /></div>
         <div id="plan-events" class="plan-events" aria-label="Changes on your timeline"></div>
         <div class="plan-year-detail"><div><p id="plan-detail-label"></p><strong id="plan-detail-total"></strong><span id="plan-detail-period"></span></div><dl id="plan-detail-values"></dl></div>
         <div id="plan-withdrawal-detail" class="plan-withdrawal-detail" hidden></div><p id="plan-gap" class="plan-gap" hidden></p><details id="plan-compare" class="plan-compare"><summary>Compare withdrawal orders</summary><p>Same scenario, different account orders. Values are illustrations, not a recommended order.</p><div id="plan-compare-results"></div></details>
@@ -42,7 +42,7 @@ export function mountPlanning(root,getInputs) {
         <details class="plan-control-card plan-mortgage"><summary>Mortgage & debt</summary><div id="plan-mortgage-controls"></div><div id="plan-other-debt-controls" class="plan-other-debts"></div></details><details class="plan-control-card"><summary>Future one-off cost</summary><div class="plan-one-off"><label for="plan-cost">One-off cost (£, today’s pounds)</label><input id="plan-cost" type="number" min="0" max="10000000" step="100" placeholder="0" /><label for="plan-cost-month">When</label><input id="plan-cost-month" type="month" /></div></details>
       </aside>
     </div>
-    <details class="plan-method"><summary>Assumptions, starting figures & calculation details</summary><div id="plan-method-body"></div></details>
+    <details class="plan-method"><summary>Assumptions, starting figures & calculation details</summary><p class="plan-facts-note">Recorded inputs stay unchanged. Adjustments apply only to your scenario.</p><div id="plan-method-body"></div></details>
     <p class="plan-disclaimer">Illustration, not advice. Current rules, subject to change.</p>`;
   const $=id=>root.querySelector(`#${id}`);
   $('plan-growth-slot').append(growthPanel);
@@ -139,6 +139,7 @@ export function mountPlanning(root,getInputs) {
     const negatives=metric==='saving' ? ['withdrawn','unfunded'].filter(key=>rows.some(row=>row[key]>0)) : [];
     chartKeys=[...keys,...negatives];$('plan-chart-tooltip').hidden=true;
     $('plan-chart-note').textContent=meta.note;
+    $('plan-metric-select').value=metric;
     const realRate=((1+projection.assumptions.incomeGrowth/100)/(1+projection.assumptions.inflation/100)-1)*100;
     $('plan-money-explainer').textContent=`${real ? 'Today’s money removes inflation.' : 'Future value includes inflation.'} Pay/rent ${projection.assumptions.incomeGrowth}% nominal with ${projection.assumptions.inflation}% inflation = ${Math.abs(realRate)<.005 ? '0' : realRate.toFixed(1)}% real growth before tax.`;
     for(const button of root.querySelectorAll('[data-money]'))button.setAttribute('aria-pressed',String(button.dataset.money===(real ? 'real' : 'nominal')));
@@ -262,7 +263,7 @@ export function mountPlanning(root,getInputs) {
   function refresh() {
     const {flow,holdings,mode}=getInputs();buildControls(flow,holdings);
     const sourceKey=JSON.stringify([holdings,flow.pay,flow.income,flow.spending,flow.customSpending,flow.datedEntries,flow.statePensions,flow.includeLinkedRent,flow.includeLinkedMortgage]);
-    $('plan-source-text').textContent=`Starting ${flow.timelineStartMonth || flow.asOfMonth} · ${holdings.assets.length} assets · ${holdings.debts.length} debt${holdings.debts.length===1 ? "" : "s"}${mode==='example' ? ' · fictional example' : ''}`;
+    $('plan-source-text').textContent=`From ${new Date(`${flow.timelineStartMonth || flow.asOfMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
     $('plan-comparison').hidden=mode!=='example' && confirmedKey!==sourceKey;
     const needsConfirmation=mode!=='example' && confirmedKey!==sourceKey;
     $('plan-confirm').hidden=!needsConfirmation;$('plan-workspace').hidden=needsConfirmation;
@@ -318,6 +319,7 @@ export function mountPlanning(root,getInputs) {
   $('plan-chart').addEventListener('focusin',event=>{const year=event.target.closest('[data-year]')?.dataset.year;if(year)showChartTooltip(year,event);});
   $('plan-chart').addEventListener('focusout',()=>{$('plan-chart-tooltip').hidden=true;});
   $('plan-add-spending').addEventListener('click',()=>{const changes=scenario.spendingChanges ||= [];const year=changes.length ? Math.max(...changes.map(change=>change.year))+5 : Number(getInputs().flow.timelineStartMonth.slice(0,4))+5;changes.push({year,percent:changes.at(-1)?.percent ?? 100});renderSpendingChanges(getInputs().flow);refresh();});
+  $('plan-metric-select').addEventListener('change',event=>{metric=event.target.value;renderChart(getInputs().holdings);});
   $('plan-year').addEventListener('input',event=>{selectedYear=annualPlanView(projection)[Number(event.target.value)].year;renderChart(getInputs().holdings);});
   $('plan-chart').addEventListener('click',event=>{const year=event.target.closest('[data-year]')?.dataset.year;if(year){selectedYear=year;renderChart(getInputs().holdings);}});
   $('plan-chart').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Enter',' '].includes(event.key))return;event.preventDefault();const rows=annualPlanView(projection);const index=rows.findIndex(row=>row.year===selectedYear);selectedYear=rows[Math.max(0,Math.min(rows.length-1,index+(event.key==='ArrowRight' ? 1 : event.key==='ArrowLeft' ? -1 : 0)))].year;renderChart(getInputs().holdings);$("plan-chart").querySelector(`[data-year="${selectedYear}"]`)?.focus();});
