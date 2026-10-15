@@ -642,10 +642,11 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 #planning-content .flow-allocation-panel { margin-top: 0; }
 @media (max-width: 800px) { .flow-savings-panel { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .flow-timeline { padding: 20px 18px; } .flow-timeline-heading { align-items: stretch; flex-direction: column; } .flow-timeline-heading label { max-width: 220px; } .flow-savings-panel { padding: 21px 18px; } .flow-next-planning { align-items: start; flex-direction: column; padding: 22px 18px; } #flow-diagram-view { overflow-x: auto; } #flow-sankey { display: block; min-width: 760px; } .picture-steps { overflow-x: auto; padding-bottom: 5px; } .picture-step { flex: none; } }
-.flow-ribbon { opacity: .46; }
-.flow-ribbon-in { opacity: .35; }
-.flow-ribbon-cut { opacity: .62; }
-.flow-ribbon-net { opacity: .26; }
+.flow-ribbon { opacity: .56; stroke: #fffefa; stroke-width: 1.5px; stroke-linejoin: round; }
+.flow-ribbon-in { opacity: .48; }
+.flow-ribbon-cut { opacity: .68; }
+.flow-ribbon-net { opacity: .38; }
+.flow-net-label-bg { stroke-width: 1.5px; }
 .flow-timeline { display: grid; grid-template-columns: 190px minmax(0,1fr); gap: 6px 17px; align-items: center; margin-top: 18px; padding: 12px 18px; }
 .flow-timeline-heading { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
 .flow-timeline-heading .section-kicker { display: none; }
@@ -672,8 +673,8 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-split p { margin: 6px 0 0; }
 @media (max-width: 700px) { .flow-timeline { grid-template-columns: 1fr; padding: 12px; } .flow-timeline-heading { display: flex; flex-direction: row; justify-content: space-between; } .flow-timeline-heading label { flex: none; } .flow-result { grid-template-columns: 1fr; padding: 13px 16px; } .flow-result-maths { padding: 4px 0 0; border: 0; } .flow-timeline-events { max-width: 100%; } }
 .flow-svg-heading { fill: #4d6757; font: 700 14px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .025em; }
-.flow-svg-label { fill: #2b4c3c; font: 650 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
-.flow-svg-net-label { fill: #285943; font: 700 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
+.flow-svg-label { fill: #2b4c3c; font: 500 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.flow-svg-net-label { fill: #285943; font: 600 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .flow-bridge-equation { display: flex; align-items: stretch; gap: 10px; margin-top: 24px; }
 .flow-bridge-amount { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; min-height: 106px; padding: 16px 18px; border: 1px solid #d5e2d8; border-radius: 13px; background: #f8faf6; }
 .flow-bridge-amount span { color: #426451; font-size: .85rem; font-weight: 680; }
