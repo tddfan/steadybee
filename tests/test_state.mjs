@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { exampleInsights } from "../prototype/example-insights.mjs";
+import { exampleInsights } from "../archive/retired-workspace/prototype/example-insights.mjs";
 import {
   SCHEMA_VERSION,
   createDraft,
@@ -13,8 +13,8 @@ import {
   summariseDraft,
   updateBaseline,
   validateDraft,
-} from "../prototype/state.mjs";
-import { evaluateExample, examples } from "../prototype/fixtures.mjs";
+} from "../archive/retired-workspace/prototype/state.mjs";
+import { evaluateExample, examples } from "../archive/retired-workspace/prototype/fixtures.mjs";
 
 function filled(route = "dc", scope = "individual") {
   const draft = createDraft(route, scope);

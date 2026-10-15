@@ -1121,3 +1121,291 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-property-details > summary::-webkit-details-marker { display:none; }
 .flow-property-details > summary small { display:block; margin-top:3px; color:#52675a; font-size:15px; }
 .flow-property-details[open] > summary { border-bottom:1px solid #e1e9e2; }
+
+/* Planning: one chart workspace with compact, persistent scenario controls. */
+.planning-heading { margin:28px 0 18px; }
+.planning-heading h1 { font-size:clamp(32px,4vw,50px); margin:8px 0; }
+.planning-heading > p:last-child { max-width:850px; font-size:18px; color:#52675a; }
+.plan-source { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; font-size:16px; color:#52675a; }
+.plan-text-button { border:0; background:transparent; color:#236b58; text-decoration:underline; text-underline-offset:3px; font:inherit; cursor:pointer; min-height:44px; }
+.plan-workspace { display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:20px; align-items:start; }
+.plan-workspace[hidden] { display:none; }
+.plan-chart-card,.plan-control-card,.plan-root .flow-growth-panel { border:1px solid #cbd9ce; border-radius:16px; background:#fffefa; overflow:hidden; }
+.plan-chart-card { padding:18px 22px; min-width:0; }
+.plan-metrics { display:flex; gap:4px; border-bottom:1px solid #d8e3da; margin:-2px 0 18px; padding-bottom:12px; }
+.plan-metrics button { flex:1; min-height:44px; border:1px solid transparent; border-radius:8px; background:transparent; color:#52675a; font:500 18px "Avenir Next",sans-serif; cursor:pointer; }
+.plan-metrics button[aria-pressed=true] { background:#236b58; border-color:#236b58; color:white; }
+.plan-chart-heading { display:flex; justify-content:space-between; align-items:start; gap:16px; }
+.plan-chart-heading h2 { font:500 25px Georgia,serif; letter-spacing:-.02em; margin:0; }
+.plan-chart-heading p { font-size:16px; color:#52675a; margin:6px 0 14px; line-height:1.5; max-width:630px; }
+.plan-money-view select { border:1px solid #bacdc0; border-radius:7px; background:white; color:#294638; padding:8px; font:400 16px "Avenir Next",sans-serif; min-height:44px; max-width:170px; }
+.plan-chart-controls { display:flex; justify-content:space-between; gap:16px; margin:0 0 16px; }
+.plan-chart-controls > div { display:flex; border:1px solid #cbd9ce; border-radius:8px; padding:3px; gap:3px; background:#f3f6f1; }
+.plan-chart-controls button { padding:7px 13px; min-height:40px; border:1px solid transparent; border-radius:6px; background:transparent; color:#52675a; font:400 16px "Avenir Next",sans-serif; cursor:pointer; }
+.plan-chart-controls button[aria-pressed=true] { background:white; color:#245d48; border-color:#a9c1b0; box-shadow:0 1px 2px #16372910; }
+.plan-legend { display:flex; flex-wrap:wrap; gap:8px 16px; min-height:24px; margin-bottom:8px; font-size:15px; color:#405b49; }
+.plan-legend span { display:inline-flex; align-items:center; gap:6px; }
+.plan-legend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.plan-chart-wrap { min-width:0; }
+#plan-chart { width:100%; height:auto; display:block; overflow:visible; }
+.plan-axis { fill:#52675a; font:400 15px "Avenir Next",sans-serif; }
+#plan-chart [data-year] { cursor:pointer; }
+#plan-chart [data-year]:focus { outline:2px solid #236b58; outline-offset:-2px; }
+.plan-year-control { display:grid; grid-template-columns:150px 1fr; gap:20px; align-items:center; margin-top:10px; }
+.plan-year-control label { display:flex; flex-direction:column; font-size:15px; color:#52675a; }
+.plan-year-control output { font-size:20px; color:#294638; }
+.plan-year-control input,.plan-slider input { width:100%; min-height:30px; accent-color:#277968; cursor:pointer; margin:0; }
+.plan-events { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+.plan-events button { background:#eff4ee; border:1px solid #d1ded3; border-radius:6px; color:#405b49; min-height:36px; padding:5px 10px; font:400 15px "Avenir Next",sans-serif; cursor:pointer; }
+.plan-year-detail { display:grid; grid-template-columns:minmax(155px,.85fr) 1.4fr; gap:24px; padding:18px 0 4px; border-top:1px solid #d8e3da; }
+.plan-year-detail p { margin:0 0 4px; font-size:16px; color:#52675a; }
+.plan-year-detail strong { display:block; font:500 32px "Avenir Next",sans-serif; color:#205e48; font-variant-numeric:tabular-nums; }
+.plan-year-detail span { display:block; font-size:15px; color:#52675a; margin-top:3px; }
+.plan-year-detail dl { display:grid; grid-template-columns:1fr auto; align-content:start; gap:5px 18px; font-size:16px; margin:0; }
+.plan-year-detail dt { color:#52675a; }
+.plan-year-detail dd { text-align:right; margin:0; font-variant-numeric:tabular-nums; }
+.plan-gap { padding:12px 14px; border:1px solid #d9b8a5; border-radius:8px; font-size:16px; color:#87492f; background:#fbf3e9; }
+.plan-controls { display:grid; gap:14px; }
+.plan-control-card { padding:17px 18px; }
+.plan-control-card h2 { font:500 19px "Avenir Next",sans-serif; margin:0; }
+.plan-control-card > p { color:#52675a; font-size:15px; margin:5px 0 12px; }
+.plan-slider { display:flex !important; flex-direction:column; gap:5px !important; margin:13px 0 0; color:#405b49 !important; font-size:16px !important; font-weight:400 !important; }
+.plan-slider-label { display:flex; justify-content:space-between; align-items:start; gap:8px; line-height:1.4; }
+.plan-slider output { color:#205e48; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.plan-root .flow-growth-panel { margin:0; }
+.plan-root .flow-growth-panel > summary { padding:15px 18px 0; font:500 19px "Avenir Next",sans-serif; border:0; min-height:44px; }
+.plan-root .flow-growth-panel[open] > summary { padding-bottom:0; }
+.plan-root .flow-growth-body { padding:0 18px 15px; }
+.plan-root .flow-growth-body > p { font-size:15px; color:#52675a; margin:8px 0 4px; }
+.plan-root .flow-growth-grid { grid-template-columns:1fr; gap:0; }
+.plan-root .flow-growth-grid input { padding:0; border:0; box-shadow:none; background:transparent; min-height:28px; }
+.plan-mortgage > summary { cursor:pointer; font-size:17px; min-height:30px; }
+.plan-control-help { font-size:15px; color:#52675a; line-height:1.5; }
+.plan-one-off { display:grid; gap:6px; font-size:16px; border-top:1px solid #d8e3da; padding-top:12px; margin-top:12px; }
+.plan-one-off input { min-width:0; width:100%; box-sizing:border-box; padding:8px; min-height:44px; font:inherit; border:1px solid #bacdc0; border-radius:6px; color:#294638; background:white; }
+.plan-method { margin-top:18px; padding:14px 18px; border:1px solid #d0ded3; border-radius:10px; background:#f7f9f3; }
+.plan-method > summary { cursor:pointer; min-height:32px; font-size:17px; }
+.plan-method p { font-size:16px; color:#52675a; line-height:1.6; }
+.plan-method a { color:#236b58; text-decoration:underline; }
+.plan-disclaimer { font-size:16px; color:#52675a; }
+.plan-confirm { border:1px solid #b7ccbe; padding:20px; background:#f4f8ef; border-radius:12px; }
+.plan-confirm[hidden] { display:none; }
+@media(min-width:1450px) { .plan-workspace { grid-template-columns:minmax(0,1fr) 330px; } }
+@media(max-width:1000px) { .plan-workspace { grid-template-columns:minmax(0,1fr) 260px; gap:12px; } .plan-chart-card { padding:16px; } .plan-chart-heading { flex-wrap:wrap; } .plan-chart-heading p { margin-bottom:0; } .plan-money-view { margin-bottom:12px; } }
+@media(max-width:780px) { .plan-workspace { grid-template-columns:1fr; } .plan-controls { grid-template-columns:1fr 1fr; } .plan-mortgage { grid-column:1/-1; } .plan-chart-heading { flex-wrap:nowrap; } }
+@media(max-width:520px) { .plan-controls { grid-template-columns:1fr; } .plan-chart-card { padding:14px 10px; } .plan-chart-heading { flex-wrap:wrap; } .plan-metrics button { font-size:16px; } .plan-chart-controls { gap:6px; } .plan-chart-controls button { padding:7px 8px; } .plan-year-detail { grid-template-columns:1fr; gap:14px; } .plan-year-control { grid-template-columns:110px 1fr; gap:10px; } }
+.plan-pension-note { font-size:15px; color:#52675a; background:#f3f6ee; border-radius:7px; padding:8px 10px; margin:0 0 13px; }
+.plan-pension-note .plan-text-button { min-height:24px; font-size:15px; padding:0 2px; }
+.plan-pension-note[hidden] { display:none; }
+.planning-screen .picture-steps { margin-bottom:16px; }
+.planning-heading { margin:18px 0 12px; }
+.planning-heading .eyebrow { font-size:16px; }
+.planning-heading h1 { font-size:clamp(30px,3.2vw,44px); }
+.plan-source { margin-bottom:8px; }
+
+/* Purchasing power and drawdown remain explicit in every planning view. */
+.plan-money-toggle { display:flex; flex:none; gap:3px; padding:3px; border:1px solid #b8cbbd; border-radius:8px; background:#eef3eb; }
+.plan-money-toggle button { min-height:40px; padding:7px 10px; border:1px solid transparent; border-radius:6px; background:transparent; color:#405b49; font:400 16px "Avenir Next",sans-serif; cursor:pointer; white-space:nowrap; }
+.plan-money-toggle button[aria-pressed=true] { color:#fff; background:#236b58; border-color:#236b58; }
+.plan-money-explainer { font-size:15px; color:#52675a; margin:0 0 12px; }
+.plan-chart-heading { flex-wrap:wrap; }
+.plan-chart-heading > div:first-child { flex:1 1 290px; }
+.plan-withdrawal-detail { border-top:1px solid #d8e3da; margin-top:16px; padding-top:14px; overflow-x:auto; }
+.plan-withdrawal-detail[hidden] { display:none; }
+.plan-withdrawal-detail h3 { font:500 17px "Avenir Next",sans-serif; margin:0 0 10px; }
+.plan-withdrawal-detail table,.plan-compare table { width:100%; border-collapse:collapse; font-size:15px; }
+.plan-withdrawal-detail th,.plan-compare th { text-align:right; font-weight:500; color:#52675a; border-bottom:1px solid #d8e3da; padding:6px 8px; }
+.plan-withdrawal-detail td,.plan-compare td { text-align:right; font-variant-numeric:tabular-nums; border-bottom:1px solid #e5eae3; padding:8px; vertical-align:top; }
+.plan-withdrawal-detail th:first-child,.plan-withdrawal-detail td:first-child,.plan-compare th:first-child,.plan-compare td:first-child { text-align:left; padding-left:0; }
+.plan-compare { margin:16px 0 2px; border-top:1px solid #d8e3da; padding-top:12px; }
+.plan-compare summary { min-height:36px; cursor:pointer; font-size:16px; }
+.plan-compare p { font-size:15px; color:#52675a; }
+#plan-compare-results { overflow-x:auto; }
+.plan-ages { display:grid; gap:10px; margin-top:14px; }
+.plan-ages label { display:grid; gap:5px; font-size:16px; color:#405b49; }
+.plan-ages input,.plan-one-off select { width:100%; min-width:0; box-sizing:border-box; border:1px solid #bacdc0; border-radius:6px; min-height:44px; padding:8px; color:#294638; background:white; font:400 16px "Avenir Next",sans-serif; }
+.plan-check { display:flex; gap:8px; align-items:start; font-size:15px; color:#52675a; line-height:1.5; margin-top:14px; }
+.plan-check input { flex:none; width:20px; height:20px; margin:1px 0 0; accent-color:#277968; }
+.plan-control-card > summary { cursor:pointer; min-height:30px; font-size:17px; }
+.plan-one-off details > label { display:block; font-size:15px; margin:9px 0 4px; }
+@media(max-width:520px) { .plan-money-toggle { width:100%; } .plan-money-toggle button { flex:1; } }
+.plan-other-debt { border-top:1px solid #d8e3da; margin-top:12px; padding-top:12px; }
+.plan-other-debt h3 { font-size:17px; font-weight:500; margin:0 0 8px; }
+.plan-other-debt label { display:grid; gap:4px; margin-top:8px; font-size:15px; color:#52675a; }
+.plan-other-debt input { width:100%; min-width:0; box-sizing:border-box; padding:8px; border:1px solid #bacdc0; border-radius:6px; min-height:44px; font:inherit; }
+
+/* Compact spending phases and a larger, inspectable chart. */
+.plan-spending-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.plan-spending-heading button { flex:none; width:40px; min-height:40px; border:1px solid #b9cbbb; border-radius:7px; color:#246b54; background:#f5f8f1; font:400 24px "Avenir Next",sans-serif; cursor:pointer; }
+.plan-spending-change { display:grid; grid-template-columns:minmax(75px,1fr) minmax(65px,.8fr) 34px; gap:5px 8px; align-items:end; padding:10px 0 8px; border-bottom:1px solid #dce5da; }
+.plan-spending-change label { display:grid; gap:4px; min-width:0; font-size:14px; color:#52675a; }
+.plan-spending-change input { width:100%; min-width:0; box-sizing:border-box; padding:7px; min-height:40px; border:1px solid #bdcebf; border-radius:6px; background:#fff; color:#294638; font:400 16px "Avenir Next",sans-serif; }
+.plan-spending-change button { min-height:40px; border:0; background:transparent; color:#795347; font:400 22px "Avenir Next",sans-serif; cursor:pointer; }
+.plan-spending-change output { grid-column:1/3; font-size:14px; color:#52675a; }
+.plan-chart-wrap { position:relative; }
+#plan-chart { min-height:350px; }
+.plan-chart-tooltip { position:fixed; z-index:1000; pointer-events:none; width:285px; max-width:calc(100vw - 30px); box-sizing:border-box; padding:14px; border:1px solid #b0c1b4; border-radius:10px; background:#fffefa; box-shadow:0 8px 24px #18352a25; color:#294638; }
+.plan-chart-tooltip[hidden] { display:none; }
+.plan-chart-tooltip strong { display:block; margin-bottom:9px; font-size:16px; font-weight:600; }
+.plan-chart-tooltip dl { display:grid; grid-template-columns:1fr auto; gap:6px 10px; margin:0; font-size:15px; }
+.plan-chart-tooltip dt { min-width:0; color:#405b49; }
+.plan-chart-tooltip dt i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; }
+.plan-chart-tooltip dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+@media(max-width:600px) { .plan-chart-wrap { overflow-x:auto; } #plan-chart { min-width:680px; } }
+
+/* Scenario timing and budget phases use compact rows with full-size controls. */
+.plan-timing,.plan-spending-card { padding:12px 14px; }
+.plan-timing .plan-slider { display:grid !important; grid-template-columns:minmax(60px,1fr) minmax(65px,1fr) 44px; align-items:center; column-gap:8px !important; margin:3px 0 0; min-height:44px; }
+.plan-timing .plan-slider-label { display:contents; }
+.plan-timing .plan-slider output { grid-column:3; grid-row:1; text-align:right; }
+.plan-timing .plan-slider input { grid-column:2; grid-row:1; min-height:44px; }
+.plan-timing #plan-horizon { border-top:1px solid #dce5da; margin-top:2px; }
+.plan-spending-card .plan-spending-change { padding:6px 0; gap:3px 7px; }
+.plan-spending-card .plan-control-help { margin:6px 0; font-size:15px; }
+.plan-inline-help { color:#52675a; font-size:15px; }
+.plan-inline-help summary { cursor:pointer; min-height:32px; display:flex; align-items:center; gap:6px; }
+.plan-inline-help summary::before { content:'+'; }
+.plan-inline-help[open] summary::before { content:'−'; }
+.plan-inline-help p { line-height:1.5; margin:2px 0 6px; }
+.plan-payoff-source { display:grid; gap:5px; font-size:16px; color:#405b49; margin-top:10px; }
+.plan-payoff-source select { width:100%; min-width:0; min-height:44px; border:1px solid #bacdc0; border-radius:6px; padding:7px; background:#fff; color:#294638; font:inherit; }
+
+/* Main experience: clear comparisons, accessible controls and phone layouts. */
+.draft-storage-note { margin:14px 0; color:#52675a; font-size:16px; }
+.plan-facts-note { margin:4px 0 12px; font-size:16px; color:#52675a; }
+.plan-comparison { border:1px solid #b7cdbf; background:#f8fbf5; border-radius:14px; padding:16px 20px; margin:12px 0; }
+.plan-comparison-caption { margin:0 0 12px; color:#405b49; font-size:17px; }
+.plan-comparison-figures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.plan-comparison-figures span { display:block; font-size:16px; color:#52675a; }
+.plan-comparison-figures strong { display:block; margin-top:3px; font-size:clamp(22px,2.7vw,32px); font-weight:500; color:#205e48; font-variant-numeric:tabular-nums; }
+.plan-adjust-row { display:flex; align-items:start; gap:18px; margin:12px 0; }
+#plan-adjust { display:none; }
+#plan-changes { font-size:16px; color:#405b49; }
+#plan-changes summary { min-height:44px; cursor:pointer; display:list-item; padding:10px 2px; }
+#plan-changes ul { margin:3px 0 12px; padding-left:22px; }
+.plan-controls { min-width:0; }
+.plan-control-card .plan-control-help,.plan-root .flow-growth-body > p,.plan-method p,.plan-ages label,.plan-one-off,.plan-check { font-size:16px; }
+.plan-control-card > summary,.plan-root .flow-growth-panel > summary { min-height:44px; }
+.plan-slider { display:grid !important; grid-template-columns:minmax(0,1fr) 75px; gap:4px 8px !important; }
+.plan-slider-label { grid-column:1/-1; }
+.plan-slider > input[type=range] { grid-column:1; min-height:44px; }
+.plan-slider .plan-exact { grid-column:2; width:75px; min-width:0; min-height:44px; padding:5px; border:1px solid #bacdc0; border-radius:6px; background:#fff; color:#294638; font-size:16px; }
+.plan-timing .plan-slider { grid-template-columns:minmax(0,1fr) 75px; margin-top:10px; }
+.plan-timing .plan-slider-label { display:flex; grid-column:1/-1; }
+.plan-timing .plan-slider output { grid-column:auto; grid-row:auto; }
+.plan-timing .plan-slider input[type=range] { grid-row:auto; grid-column:1; }
+.plan-timing .plan-slider .plan-exact { grid-row:auto; grid-column:2; }
+.plan-spending-change label { font-size:16px; }
+.plan-spending-change .plan-budget-amount { grid-column:1/3; display:grid; grid-template-columns:1fr 105px; align-items:center; }
+.plan-spending-change output { display:none; }
+.plan-payoff-figures { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; font-size:16px; margin:0 0 12px; }
+.plan-payoff-figures dd { margin:0; font-variant-numeric:tabular-nums; }
+.plan-metrics { flex-wrap:wrap; }
+.plan-metrics button { flex:1 1 100px; font-size:16px; }
+.plan-metrics button[data-metric=netWorth] { flex-basis:110px; }
+#plan-chart { min-height:0; min-width:0; overflow:visible; }
+.plan-chart-wrap { overflow:visible; }
+.plan-axis { font-size:16px; }
+.plan-events button,.plan-legend,.plan-year-control label,.plan-year-detail span,.plan-year-detail p,.plan-disclaimer { font-size:16px; }
+.plan-events button { min-height:44px; }
+.flow-view-switch { overflow:visible; max-width:100%; align-items:center; flex-wrap:wrap; }
+.flow-view-switch button { width:auto; display:flex; gap:7px; padding:7px 11px; font-size:16px; font-weight:500; }
+.flow-experimental { position:relative; }
+.flow-experimental summary { list-style:none; min-height:44px; padding:4px 10px; cursor:pointer; font-size:16px; color:#405b49; }
+.flow-experimental summary small { display:block; font-size:16px; color:#52675a; }
+.flow-experimental > div { position:absolute; right:0; top:100%; z-index:15; min-width:220px; padding:8px; border:1px solid #bacdc0; border-radius:9px; background:#fffefa; box-shadow:0 8px 20px #18352a18; }
+.flow-experimental button { width:100%; min-height:44px; }
+.flow-event-picker { grid-column:1/-1; display:flex; align-items:center; gap:12px; color:#405b49; font-size:16px; }
+.flow-event-picker select { flex:1; min-width:0; max-width:500px; min-height:44px; padding:5px 8px; border:1px solid #bacdc0; border-radius:7px; background:#fff; color:#294638; font:inherit; }
+.flow-timeline-events { display:none; }
+.flow-timeline { grid-template-columns:250px minmax(0,1fr); }
+.flow-timeline-heading input { min-width:180px; width:180px; }
+.flow-sankey-mobile { display:none; }
+.flow-phone-label { font:400 16px "Avenir Next",sans-serif; fill:#294638; }
+.flow-phone-value { font:400 16px "Avenir Next",sans-serif; fill:#1e4f3d; font-variant-numeric:tabular-nums; }
+.flow-overview-row,.flow-dated-row { min-width:0; }
+.flow-overview-row > span,.flow-dated-row > span { min-width:0; overflow-wrap:anywhere; }
+.flow-payroll-note,.flow-caveat,.field-help,.optional { font-size:16px; }
+.plan-source { flex-wrap:wrap; gap:8px; }
+.plan-source > div { display:flex; gap:14px; }
+@media(max-width:780px) {
+ .picture-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; overflow:visible; padding:0; margin:16px 0; }
+ .picture-step { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:3px; min-width:0; width:100%; padding:8px 3px; font-size:16px; text-align:center; white-space:normal; line-height:1.3; min-height:72px; }
+ .picture-step > span { flex:none; }
+ .step-connector { display:none; }
+ .plan-workspace { display:flex; flex-direction:column; }
+ .plan-chart-card { width:100%; }
+ .plan-controls { display:none; width:100%; grid-template-columns:1fr; }
+ .plan-controls-open .plan-controls { display:grid; order:-1; }
+ #plan-adjust { display:inline-flex; min-height:44px; padding:9px 12px; font-size:16px; }
+ .plan-adjust-row { position:sticky; top:0; z-index:20; background:var(--paper); padding:7px 0; align-items:center; }
+ .plan-adjust-row > details { flex:1; }
+ .plan-controls-open .plan-chart-card { display:none; }
+ .plan-controls .plan-control-card { scroll-margin-top:80px; }
+ .plan-comparison { padding:13px 14px; }
+ .plan-comparison-figures { grid-template-columns:1fr 1fr; gap:12px; }
+ .plan-comparison-figures > div:last-child { grid-column:1/-1; border-top:1px solid #d8e3da; padding-top:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+ .plan-comparison-figures strong { font-size:24px; }
+ .plan-money-toggle { width:100%; }
+ .plan-chart-controls { flex-wrap:wrap; }
+ .plan-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+ .plan-metrics button { min-width:0; padding:8px 3px; font-size:16px; }
+ .plan-year-detail { grid-template-columns:1fr; gap:12px; }
+ .plan-year-detail dl { grid-template-columns:minmax(0,1fr) auto; }
+ .plan-method { margin-top:12px; }
+}
+@media(max-width:700px) {
+ .site-header,main,.site-footer { width:calc(100% - 28px); }
+ .site-header { min-height:72px; }
+ .header-note { display:none; }
+ .flow-screen,.canvas-screen { padding-top:12px; }
+ .flow-heading,.canvas-heading { gap:12px; }
+ .flow-map-panel,.flow-input-shortcuts,.flow-allocation-panel { padding:16px 12px; min-width:0; }
+ .flow-view-switch { width:100%; justify-content:space-between; gap:2px; padding:3px; }
+ .flow-view-switch button { min-height:44px; padding:6px; }
+ .flow-view-switch svg { width:19px; height:19px; }
+ .flow-experimental summary { padding:4px 6px; }
+ #flow-diagram-view { overflow:visible; }
+ #flow-sankey { display:none; min-width:0; }
+ #flow-sankey-mobile { display:block; width:100%; min-width:0; margin-top:16px; }
+ .flow-timeline { grid-template-columns:1fr; margin-top:16px; gap:5px; }
+ .flow-time-slider { grid-column:1; width:100%; min-width:0; min-height:44px; }
+ .flow-timeline-heading { min-width:0; }
+ .flow-timeline-heading label { width:100%; justify-content:space-between; }
+ .flow-event-picker { display:grid; gap:3px; }
+ .flow-event-picker select { max-width:100%; width:100%; }
+ .flow-money-input { max-width:145px; }
+ .flow-table { min-width:0; width:100%; }
+ .flow-table th,.flow-table td { overflow-wrap:anywhere; font-size:16px; padding:8px 4px; }
+ .flow-table th:first-child { width:45%; }
+ .flow-edit-dialog,dialog { max-width:calc(100vw - 20px); width:calc(100vw - 20px); max-height:calc(100dvh - 24px); padding:18px 14px; }
+ .form-field input,.form-field select { max-width:100%; min-width:0; font-size:18px; }
+ .plan-timing .plan-slider { grid-template-columns:minmax(0,1fr) 90px; }
+ .plan-timing .plan-slider .plan-exact { width:90px; }
+ .flow-input-row { flex-wrap:wrap; }
+}
+.plan-comparison-caption { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.plan-comparison-caption select { margin-left:6px; padding:5px 9px; min-height:44px; font:inherit; color:#294638; border:1px solid #b8cbbb; border-radius:7px; background:#fff; }
+.plan-comparison-caption > span { font-size:16px; color:#52675a; }
+@media(max-width:780px) {
+ .planning-screen { padding-top:8px; }
+ .planning-heading { margin-top:12px; }
+ .plan-timing .plan-slider { grid-template-columns:minmax(70px,1fr) minmax(45px,.8fr) 76px; margin-top:4px; }
+ .plan-timing .plan-slider-label { grid-column:1; grid-row:1; display:flex; flex-direction:column; align-items:start; gap:0; }
+ .plan-timing .plan-slider input[type=range] { grid-column:2; grid-row:1; }
+ .plan-timing .plan-slider .plan-exact { grid-column:3; grid-row:1; width:76px; }
+ .plan-timing #plan-horizon .plan-slider output { display:none; }
+ .plan-timing .plan-slider output { font-size:16px; }
+}
+@media(max-width:400px) { .plan-comparison-figures strong { font-size:21px; } }
+.flow-view-switch { position:relative; }
+.flow-experimental { position:static; }
+.flow-experimental > div { max-width:100%; }
+@media(max-width:380px) {
+ .flow-timeline-heading label { display:grid; grid-template-columns:1fr; gap:4px; }
+ .flow-timeline-heading input { width:100%; min-width:0; max-width:none; }
+ .flow-view-switch { display:grid; grid-template-columns:auto auto 1fr; gap:2px; }
+ .flow-experimental summary { font-size:16px; line-height:1.3; padding:4px; }
+ .flow-experimental summary small { font-size:16px; }
+}
+#plan-controls { scroll-margin-top:80px; }

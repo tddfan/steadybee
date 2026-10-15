@@ -49,16 +49,16 @@ export function createBlankDraft() {
 /** Fictional, editable opening example. Values are pounds at today's prices. */
 export function createAlexExample() {
   return {
-    name: "Alex", age: 43, partnerName: "Gemma",
+    name: "Alex", age: 43, partnerName: "Gemma", partnerAge: 42,
     assets: [
       { id: "alex-home", kind: "home", label: "Main home", value: 780_000, owner: "shared" },
-      { id: "alex-gurgaon", kind: "other-property", label: "Gurgaon", value: 200_000, monthlyRent: 100, owner: "primary" },
+      { id: "alex-gurgaon", kind: "other-property", label: "Gurgaon", value: 200_000, monthlyRent: 100, owner: "shared" },
       { id: "alex-pension", kind: "dc-pension", label: "Pension", value: 490_000, investmentLabel: "S&P", owner: "primary" },
       { id: "alex-isa", kind: "isa", label: "ISA investment", value: 230_000, owner: "primary" },
       { id: "alex-cash", kind: "cash", label: "Cash in account", value: 160_000, interestRate: 4, owner: "primary" },
       { id: "alex-car", kind: "car", label: "Car", value: 15_000, owner: "primary" },
-      { id: "alex-property", kind: "other-property", label: "Other property", value: 30_000, owner: "primary" },
-      { id: "alex-shares", kind: "shares", label: "Employee shares", value: 100_000, owner: "primary" },
+      { id: "alex-property", kind: "other-property", label: "Other property", value: 30_000, owner: "partner" },
+      { id: "alex-shares", kind: "shares", label: "Employee shares · SAYE", value: 100_000, costBasis: 30_000, employeeScheme: "saye", owner: "primary", accessBucket: "illiquid" },
       { id: "gemma-pension", kind: "dc-pension", label: "Pension", value: 220_000, owner: "partner" },
       { id: "gemma-isa", kind: "isa", label: "ISA · S&P", value: 150_000, investmentLabel: "S&P", owner: "partner" },
       { id: "gemma-cash", kind: "cash", label: "Cash", value: 150_000, owner: "partner" },
@@ -136,6 +136,10 @@ export function validateDraft(draft) {
       error(`${path}.kind`, "Choose a listed asset type.");
     if (!isMoney(asset.value))
       error(`${path}.value`, "Enter a finite amount from £0 to £100 billion, to the penny.");
+    if (!isBlank(asset.costBasis) && (asset.kind !== "shares" || !isMoney(asset.costBasis)))
+      error(`${path}.costBasis`, "Enter the total share purchase cost as a non-negative amount.");
+    if (!isBlank(asset.employeeScheme) && (asset.kind !== "shares" || asset.employeeScheme !== "saye"))
+      error(`${path}.employeeScheme`, "Choose a supported employee share scheme.");
     if (!isBlank(asset.confidence) && !CONFIDENCE_LEVELS.includes(asset.confidence))
       error(`${path}.confidence`, "Choose exact, estimate, or needs review.");
     if (!isBlank(asset.accessBucket) &&

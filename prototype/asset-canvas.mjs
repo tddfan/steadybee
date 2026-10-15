@@ -8,8 +8,9 @@ import {
   createId,
   summarizeDraft,
   validateDraft,
-} from "./asset-ledger.mjs";
+} from "./asset-ledger.mjs?v=20261015main12";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
+import { mountPlanning } from "./planning-view.mjs?v=20261015main12";
 import { estimateStatePension } from "./state-pension.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
@@ -27,6 +28,7 @@ const make = (tag, className, content) => {
 
 let draft = createAlexExample();
 let flowDraft = createExampleMonthlyFlow();
+let planningController = null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -359,8 +361,8 @@ function render() {
   renderChart(summary);
   $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
   $("snapshot-description").textContent = !hasItems && mode !== "example"
-    ? `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · Your picture is ready for its first item.`
-    : `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
+    ? `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, age ${draft.partnerAge}` : ""}` : ""} · Your picture is ready for its first item.`
+    : `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, age ${draft.partnerAge}` : ""}` : ""} · ${mode === "example" ? "Editable fictional example" : "Your entries"}. Tap an item to see or change its details.`;
   $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
@@ -436,7 +438,32 @@ function editFlowEntry(item, side) {
     : $(`flow-${side}-${item.key}`);
   target?.focus();
 }
+function renderPhoneSankey(summary) {
+  const svg=$("flow-sankey-mobile");svg.replaceChildren();svg.hidden=!summary.hasEntries;if(!summary.hasEntries)return;
+  const width=Math.max(200,Math.round(svg.parentElement.clientWidth)),outputs=[...summary.deductions,...summary.uses],height=Math.max(640,outputs.length*65+100),top=60,bottom=height-30;
+  const total=Math.max(1,summary.sources.reduce((sum,item)=>sum+item.amount,0),outputs.reduce((sum,item)=>sum+item.amount,0));
+  const scale=(bottom-top-(outputs.length-1)*42)/total;
+  svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
+  const title=svgElement('title');title.textContent='Gross income splits into deductions, spending and saving';svg.append(title);
+  const text=(x,y,value,cls='flow-phone-label')=>{const node=svgElement('text',{x,y,class:cls});node.textContent=value;svg.append(node);};
+  const sourceX=Math.max(95,width*.27),hubX=Math.max(sourceX+24,width*.41),outX=Math.max(hubX+28,width*.59),labelX=outX+16;
+  text(4,23,'Money in');text(labelX,23,'Where it goes');
+  const link=(x1,y1,x2,y2,h,item,side)=>{const path=svgElement('path',{d:flowBand(x1,y1,x2,y2,Math.max(.7,h)),fill:flowColor(item),opacity:'.38',stroke:'#fffefa','stroke-width':1});svg.append(path);};
+  const label=(x,y,item,side)=>{const group=svgElement('g',{role:side ? 'button' : 'img',...(side ? {tabindex:0} : {}),'aria-label':`${side ? 'Edit ' : ''}${item.label}: ${money(item.amount)} monthly`});group.append(svgElement('rect',{x:x-3,y:y-24,width:134,height:49,fill:'transparent'}));const name=svgElement('text',{x,y:y-5,class:'flow-phone-label'});const short=item.key==='everyday' ? 'Living costs' : / savings$/.test(item.label) ? item.label.replace(/ savings$/,' saving') : item.kind==='mortgage' ? 'Mortgage' : item.key==='taxNI' || /Income Tax/.test(item.label) ? 'Tax & NI' : /Employee pensions/.test(item.label) ? 'Work pension' : /^School fees/.test(item.label) ? 'School fees' : item.label;const limit=Math.max(9,Math.floor((width-x-4)/7.1));name.textContent=short.length>limit ? short.slice(0,limit-1)+'…' : short;const amount=svgElement('text',{x,y:y+16,class:'flow-phone-value'});amount.textContent=money(item.amount);group.append(name,amount);if(side){group.addEventListener('click',()=>editFlowEntry(item,side));group.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();editFlowEntry(item,side);}});}svg.append(group);};
+  const hubY=top+(bottom-top-total*scale)/2;
+  let cursor=hubY,y=top;
+  // Ribbons are painted before labels so all amounts remain readable.
+  const sourceRows=summary.sources.map(item=>{const h=item.amount*scale,row={item,y,h};y+=h+58;return row;});
+  const sourceHeight=sourceRows.length ? sourceRows.at(-1).y+sourceRows.at(-1).h-top : 0,offset=Math.max(0,(bottom-top-sourceHeight)/2);
+  for(const row of sourceRows){row.y+=offset;link(sourceX+10,row.y,hubX,cursor,row.h,row.item,'income');cursor+=row.h;}
+  cursor=hubY;y=top;const outputRows=[];
+  for(const item of outputs){const h=item.amount*scale;link(hubX+12,cursor,outX,y,h,item);outputRows.push({item,y,h});cursor+=h;y+=h+42;}
+  svg.append(svgElement('rect',{x:hubX,y:hubY,width:12,height:Math.max(1,total*scale),rx:3,fill:'#526f63'}));
+  for(const row of sourceRows){svg.append(svgElement('rect',{x:sourceX,y:row.y,width:10,height:Math.max(2,row.h),fill:flowColor(row.item),rx:2}));const pay=summary.payDetails.find(detail=>`${detail.owner}Pay`===row.item.key);label(3,row.y+row.h/2,pay ? {...row.item,label:`${pay.person} pay`} : row.item,row.item.kind==='gap' ? null : 'income');}
+  for(const row of outputRows){svg.append(svgElement('rect',{x:outX,y:row.y,width:10,height:Math.max(2,row.h),fill:flowColor(row.item),rx:2}));label(labelX,row.y+row.h/2,row.item,summary.deductions.includes(row.item) ? null : 'spending');}
+}
 function renderSankey(summary) {
+  renderPhoneSankey(summary);
   const svg = $("flow-sankey");
   [...svg.children].filter((child) => !["title", "desc"].includes(child.tagName.toLowerCase())).forEach((child) => child.remove());
   svg.setAttribute("role","group");
@@ -874,6 +901,9 @@ function renderFlowTimeline() {
     button.append(make("span", "flow-timeline-dot"), make("strong", "", flowMonthLabel(month)), make("small", "", labels.join(" · ")));
     rail.append(button);
   }
+  const picker=$("flow-event-select");picker.replaceChildren(new Option('Choose an event',''));
+  for(const [month,labels] of grouped)picker.add(new Option(`${flowMonthLabel(month)} · ${labels.join(' / ')}`,month));
+  picker.value=grouped.has(flowDraft.asOfMonth) ? flowDraft.asOfMonth : '';
   const selectedEvents = grouped.get(flowDraft.asOfMonth);
   $("flow-timeline-context").textContent = `${selectedEvents ? selectedEvents.join(" · ") + ". " : "Drag the bar or select a change. "}Today’s pounds; no inflation or future tax changes.`;
 }
@@ -941,6 +971,7 @@ function renderFlow() {
 
   renderDatedEntries(summary);
   renderStatePensionRecords(summary);
+  if (!$("planning-screen").hidden) planningController?.refresh();
 }
 function setupFlowInputs() {
   for (const owner of ["primary", "partner"]) {
@@ -1055,7 +1086,8 @@ function syncFlowInputs() {
   $("flow-trading-label").value = flowDraft.assumptions.tradingLabel ?? "";
   $("flow-primary-share").value = flowDraft.savings?.primaryShare ?? "";
 }
-function showScreen(screen) {
+function showScreen(screen, {updateHistory=true} = {}) {
+  if(updateHistory && location.hash!==`#${screen}`)history.pushState(null,"",`#${screen}`);
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
   $("planning-screen").hidden = screen !== "planning";
@@ -1107,6 +1139,7 @@ function updateDialogFields(selectedLink = "") {
   $("cash-rate-field").hidden = dialogType !== "asset" || $("item-kind").value !== "cash";
   $("investment-field").hidden = dialogType !== "asset" || !["isa", "dc-pension"].includes($("item-kind").value);
   $("access-bucket-field").hidden = dialogType !== "asset" || !["shares", "other"].includes($("item-kind").value);
+  $("share-tax-fields").hidden = dialogType !== "asset" || $("item-kind").value !== "shares";
   $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
   $("item-amount-label").textContent = dialogType === "asset" ? "What is it worth today?" : "How much is still owed?";
   $("item-amount-help").textContent = dialogType === "asset" ? "Use the current value, not what you originally paid." : "Enter the outstanding balance, not the original loan or monthly payment.";
@@ -1138,6 +1171,8 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-remaining-years").value = item?.remainingYears ?? "";
   $("item-confidence").value = item?.confidence || "estimate";
   $("item-access-bucket").value = item?.accessBucket || "review";
+  $("item-share-cost").value = item?.costBasis ?? "";
+  $("item-share-scheme").value = item?.employeeScheme || "";
   $("item-pension-access-age").value = item?.pensionAccessAge ?? "";
   $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined || item?.monthlyPayment !== undefined);
   updateDialogFields(item?.linkedAssetId);
@@ -1154,6 +1189,10 @@ function itemFromForm() {
   const amount = Number(rawAmount);
   if (dialogType === "asset") {
     const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
+    if (!$("share-tax-fields").hidden) {
+      if ($("item-share-cost").value.trim()) asset.costBasis = Number($("item-share-cost").value);
+      if ($("item-share-scheme").value) asset.employeeScheme = $("item-share-scheme").value;
+    }
     if (!$("access-bucket-field").hidden) asset.accessBucket = $("item-access-bucket").value;
     if (!$("pension-access-field").hidden && $("item-pension-access-age").value.trim()) asset.pensionAccessAge = Number($("item-pension-access-age").value);
     if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
@@ -1196,8 +1235,9 @@ $("first-piece").addEventListener("click", (event) => {
   if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
 });
 for (const id of ["step-to-flow", "continue-flow", "planning-to-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
-for (const id of ["step-to-assets", "back-to-assets", "planning-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
+for (const id of ["step-to-assets", "planning-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
 for (const id of ["assets-to-planning", "flow-to-planning", "continue-planning"]) $(id).addEventListener("click", () => showScreen("planning"));
+$("flow-event-select").addEventListener("change",event=>{if(event.target.value){flowDraft.asOfMonth=event.target.value;renderFlow();}});
 $("flow-month").addEventListener("change", (event) => {
   const month = event.currentTarget.value;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month < (flowDraft.timelineStartMonth || flowDraft.asOfMonth)) return;
@@ -1217,6 +1257,7 @@ $("flow-primary-share").addEventListener("input", (event) => {
   renderFlow();
 });
 function setFlowView(view) {
+  document.querySelector(".flow-experimental").open=false;
   const table = view === "table";
   const bridge = view === "bridge";
   const sunburst = view === "sunburst";
@@ -1233,6 +1274,7 @@ function setFlowView(view) {
   $("flow-treemap-view").hidden = !treemap;
   $("flow-donut-view").hidden = !donut;
   $("flow-table-view").hidden = !table;
+  if(view==="diagram")renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));
   $("flow-view-diagram").setAttribute("aria-pressed", String(view === "diagram"));
   $("flow-view-bridge").setAttribute("aria-pressed", String(bridge));
   $("flow-view-sunburst").setAttribute("aria-pressed", String(sunburst));
@@ -1820,6 +1862,7 @@ function organizeFlowInputs() {
   allocationPanel.append(settings); inputPanel.after(allocationPanel);
   $("flow-split").classList.add("flow-routing-split");
   $("planning-content").append($("flow-growth-panel"));
+  planningController = mountPlanning($("planning-content"), () => ({flow: flowDraft, holdings: draft, mode, editPension: (owner) => { showScreen("flow"); openStatePension(owner); }}));
 }
 
 function statePensionInput() {
@@ -1906,3 +1949,9 @@ setupFlowInputs();
 syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
+
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning'].includes(section))showScreen(section,{updateHistory:false});});
+document.querySelector('.wordmark').addEventListener('click',event=>{event.preventDefault();showScreen('assets');});
+if(['flow','planning'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+
+let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});

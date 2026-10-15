@@ -59,17 +59,17 @@ test("Alex and Gemma's fictional household reconciles shared items once", () => 
   assert.equal(result.assetTotal, 2_525_000);
   assert.equal(result.debtTotal, 380_000);
   assert.equal(result.netWorth, 2_145_000);
-  assert.deepEqual(result.accessTotals, { accessible: 690_000, pension: 710_000, illiquid: 1_025_000, review: 100_000 });
+  assert.deepEqual(result.accessTotals, { accessible: 690_000, pension: 710_000, illiquid: 1_125_000, review: 0 });
   assert.equal(example.assets.length, 11);
   assert.equal(example.assets.find((asset) => asset.id === "alex-home").owner, "shared");
   assert.equal(example.debts[0].owner, "shared");
   assert.equal(example.assets.find((asset) => asset.id === "alex-shares").value, 100_000);
-  assert.deepEqual(example.assets.filter((asset) => asset.owner === "partner").map((asset) => asset.value), [220_000, 150_000, 150_000]);
+  assert.deepEqual(example.assets.filter((asset) => asset.owner === "partner").map((asset) => asset.value), [30_000, 220_000, 150_000, 150_000]);
   assert.equal(result.linkedEquity.find((entry) => entry.assetId === "alex-home").equity, 400_000);
   assert.deepEqual(result.ownership, {
-    primary: { assetTotal: 1_225_000, debtTotal: 0, netWorth: 1_225_000, assetCount: 7, debtCount: 0 },
-    partner: { assetTotal: 520_000, debtTotal: 0, netWorth: 520_000, assetCount: 3, debtCount: 0 },
-    shared: { assetTotal: 780_000, debtTotal: 380_000, netWorth: 400_000, assetCount: 1, debtCount: 1 },
+    primary: { assetTotal: 995_000, debtTotal: 0, netWorth: 995_000, assetCount: 5, debtCount: 0 },
+    partner: { assetTotal: 550_000, debtTotal: 0, netWorth: 550_000, assetCount: 4, debtCount: 0 },
+    shared: { assetTotal: 980_000, debtTotal: 380_000, netWorth: 600_000, assetCount: 2, debtCount: 1 },
   });
   assert.equal(example.assets.find((asset) => asset.id === "alex-gurgaon").monthlyRent, 100);
   assert.equal(example.assets.find((asset) => asset.id === "alex-cash").interestRate, 4);
@@ -95,6 +95,8 @@ test("ownership labels do not change value and partner items require a partner",
 test("shares require access review until explicitly classified, and confidence is validated", () => {
   const draft = createAlexExample();
   const shares = draft.assets.find((asset) => asset.kind === "shares");
+  assert.equal(accessBucket(shares), "illiquid");
+  delete shares.accessBucket;
   assert.equal(accessBucket(shares), "review");
   shares.accessBucket = "accessible";
   shares.confidence = "exact";
@@ -218,4 +220,9 @@ test("item IDs are usable and unique for newly added cards", () => {
   const b = createId("asset");
   assert.match(a, /^asset-/);
   assert.notEqual(a, b);
+});
+test('SAYE purchase cost is recorded separately from current market value and validated',()=>{
+  const draft=createAlexExample(),shares=draft.assets.find(item=>item.id==='alex-shares');
+  assert.equal(shares.value,100000);assert.equal(shares.costBasis,30000);assert.equal(shares.employeeScheme,'saye');
+  shares.costBasis=-1;assert.ok(validateDraft(draft).errors.some(error=>error.path.endsWith('.costBasis')));
 });

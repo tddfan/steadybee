@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="application-name" content="Steadybee" />
+    <meta name="steadybee-version" content="development" />
+    <meta name="theme-color" content="#14665f" />
+    <meta
+      name="description"
+      content="Explore spending, income and remaining money across retirement and later life. Compare fictional plans through age 90, 95 or 100, or start your own information draft."
+    />
+    <meta name="apple-mobile-web-app-title" content="Steadybee" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="manifest.webmanifest?v=2" />
+    <link rel="stylesheet" href="workspace.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <title>Steadybee — your whole retirement picture</title>
+    <script type="module" src="landing.mjs"></script>
+    <script defer src="app-updates.js"></script>
+  </head>
+  <body class="landing-page">
+    <a class="skip" href="#main">Skip to main content</a>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="index.html"
+          ><img src="favicon.svg" alt="" />steadybee<span
+            class="brand-dot"
+            aria-hidden="true"
+            >.</span
+          ></a
+        >
+        <nav class="landing-nav" aria-label="Main navigation">
+          <a href="#insights">What you can explore</a>
+          <a class="btn secondary" href="app.html#start"
+            >Open workspace <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </header>
+      <main id="main" tabindex="-1">
+        <section class="landing-hero" aria-labelledby="landing-title">
+          <div class="landing-copy">
+            <div class="landing-eyebrow">
+              <span class="eyebrow-line" aria-hidden="true"></span>Retirement,
+              at your pace
+            </div>
+            <h1 id="landing-title">
+              Your whole<br /><span>retirement picture.</span>
+            </h1>
+            <p class="hero-lede">
+              See what funds each stage: stepping back from work, drawing your
+              pensions and paying for later life. Explore it for you or together.
+            </p>
+          </div>
+          <section
+            class="landing-dashboard"
+            id="preview"
+            aria-labelledby="preview-title"
+          >
+            <div class="dashboard-topline">
+              <span class="preview-badge"
+                ><span aria-hidden="true"></span>Interactive fictional
+                example</span
+              ><span class="dashboard-avatar" aria-hidden="true">A</span>
+            </div>
+            <div class="dashboard-heading">
+              <div>
+                <p>Alex, 52 · a fictional retirement picture</p>
+                <h2 id="preview-title">From today to later life.</h2>
+              </div>
+            </div>
+            <div
+              class="preview-choices"
+              role="group"
+              aria-label="Choose Alex’s fictional retirement scenario"
+            >
+              <button type="button" data-preview="baseline" aria-pressed="true">
+                Retire at 55
+              </button>
+              <button type="button" data-preview="later" aria-pressed="false">
+                Retire at 58
+              </button>
+              <button
+                type="button"
+                data-preview="part-time"
+                aria-pressed="false"
+              >
+                Work part-time
+              </button>
+            </div>
+            <p class="preview-choice-context" id="preview-choice-context" role="status" aria-live="polite"></p>
+            <div class="preview-facts">
+              <div>
+                <span>Step back at</span><strong id="preview-age">55</strong>
+              </div>
+              <div>
+                <span>Spend / month</span
+                ><strong id="preview-spend">£3,000</strong>
+              </div>
+              <div>
+                <label for="preview-horizon">Plan through age</label>
+                <select id="preview-horizon" aria-describedby="planning-note">
+                  <option value="90">90</option>
+                  <option value="95" selected>95</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+            </div>
+            <p class="planning-note" id="planning-note">The planning age is an assumption, not a lifespan prediction.</p>
+            <div class="preview-chart-controls">
+              <div class="preview-view" role="group" aria-label="Choose the retirement chart">
+                <button type="button" data-view="funding" aria-pressed="true">Spending</button>
+                <button type="button" data-view="balances" aria-pressed="false">Money left</button>
+              </div>
+            </div>
+            <figure class="preview-figure" aria-describedby="chart-caption chart-reading planning-note">
+              <div class="chart-heading">
+                <strong id="chart-heading">Yearly spending and gaps</strong
+                ><span id="chart-unit">£ / year · today’s money</span>
+              </div>
+              <div id="bridge-chart" class="bridge-chart">
+                <p class="preview-loading">Loading the worked example…</p>
+              </div>
+              <figcaption id="chart-caption">
+                <span id="preview-legend" class="chart-legend"></span>
+                <span id="chart-range">Alex’s age 52–95 →</span>
+              </figcaption>
+              <p id="chart-reading" class="chart-reading"></p>
+            </figure>
+            <div class="coverage-answer"><span>Needs more money</span><strong id="preview-early-range"></strong></div>
+            <div id="preview-milestones" class="preview-milestones" aria-label="Alex’s retirement milestones"></div>
+            <p class="preview-milestone-note">Dates are Alex’s example assumptions. A pension pot is retirement savings to draw from; pension income means regular payments.</p>
+            <details class="gap-workings"><summary>See shortfall amounts and workings</summary>            <p
+              class="preview-outcome"
+              id="preview-outcome"
+              role="status"
+              aria-live="polite"
+            >
+              Choose a scenario to explore the full retirement timeline.
+            </p>
+<div class="preview-shortfalls"><div class="shortfall-card"><span id="preview-gap-label"></span><strong id="preview-gap"></strong><p id="preview-gap-years"></p></div><div class="shortfall-card"><span>Later shortfall</span><strong id="preview-later-age"></strong><p id="preview-later-gap"></p></div></div></details>
+            <details class="life-decisions-panel"><summary>What if the mortgage, home or pension changes?</summary>
+              <div class="life-presets" role="group" aria-label="Try fictional life decisions"><button type="button" data-life="mortgage">Mortgage ends at 65</button><button type="button" data-life="downsize">Downsize at 60</button><button type="button" data-life="expense">£20k expense at 70</button><button type="button" data-life="state">Without State Pension</button><button type="button" data-life="reset">Reset life decisions</button></div>
+              <form id="life-decisions">
+                <p>Change Alex’s fictional inputs. Blank fields keep the original plan. Amounts are today’s pounds.</p>
+                <fieldset><legend>Mortgage</legend><label>Payment within the £3,000 monthly budget<input name="mortgageMonthly" type="number" min="0" placeholder="0"></label><label>Payments end at age<input name="mortgageEndAge" type="number" placeholder="90"></label><label>Optional cash payoff quote<input name="mortgagePayoffAmount" type="number" min="0" placeholder="0"></label><label>Payoff at age<input name="mortgagePayoffAge" type="number" placeholder="90"></label><p>Payments stop once. A payoff uses savings in that year; loan interest is not calculated.</p></fieldset>
+                <fieldset><legend>Downsize or move home</legend><label>Sale proceeds<input name="homeSaleAmount" type="number" min="0" placeholder="0"></label><label>Replacement home<input name="replacementHomeCost" type="number" min="0" placeholder="0"></label><label>Mortgage settled from sale<input name="mortgageSettlement" type="number" min="0" placeholder="0"></label><label>All moving costs and taxes<input name="movingCosts" type="number" min="0" placeholder="0"></label><label>Move at age<input name="downsizeAge" type="number" placeholder="90"></label><p>Only sale minus new home, mortgage and costs becomes savings. Enter supplied costs; taxes are not calculated.</p></fieldset>
+                <fieldset><legend>Big expense</legend><label>One-off amount<input name="majorCost" type="number" min="0" placeholder="0"></label><label>At age<input name="majorCostAge" type="number" placeholder="70"></label></fieldset>
+                <fieldset><legend>State Pension — already included</legend><label>Alex’s fictional income per year<input name="statePensionAnnual" type="number" min="0" placeholder="12000"></label><label>Starts at age<input name="statePensionAge" type="number" placeholder="67"></label><p>£12,000/year from 67 is already in this example. Changing it replaces that income. Use 0 to test without it. This is not a checked entitlement or rate.</p><a href="https://www.gov.uk/check-state-pension" target="_blank" rel="noopener">Check your own State Pension forecast ↗</a></fieldset>
+                <button type="submit" class="btn">Update the example</button><p id="decision-error" role="status" aria-live="polite"></p>
+              </form>
+            </details>
+            <a
+              class="preview-open"
+              id="preview-open"
+              href="app.html?example=early-dc#overview"
+              >Explore this full plan
+              <span aria-hidden="true">↗</span></a
+            >
+            <p class="preview-limit">
+              Fictional illustration, not advice. No personal forecast, UK tax,
+              changing market returns or survivor changes are modelled.
+            </p>
+            <details class="preview-year-detail">
+              <summary>Inspect a year: income, withdrawals and money left</summary>
+              <label for="preview-year">Alex’s age</label>
+              <select id="preview-year"></select>
+              <div id="preview-year-facts" aria-live="polite"></div>
+            </details>
+            <noscript
+              ><p>
+                Open the worked example to see the tables. JavaScript is needed
+                for this interactive preview.
+              </p></noscript
+            >
+          </section>
+          <div class="landing-next-step">
+            <div class="hero-actions">
+              <a class="btn" href="#preview"
+                >Try the live example <span aria-hidden="true">→</span></a
+              >
+              <a class="btn secondary" href="app.html#setup">Start my draft</a>
+              <a class="btn secondary" href="asset-canvas.html">Explore Alex &amp; Gemma’s asset picture</a>
+            </div>
+            <div class="hero-reassurance">
+              <span><b aria-hidden="true">✓</b> No signup</span
+              ><span><b aria-hidden="true">✓</b> No bank connection</span
+              ><span><b aria-hidden="true">✓</b> 5 starting fields</span>
+            </div>
+            <p class="hero-scope">
+              The preview is fictional. Your own draft collects information;
+              personal forecasts are not connected yet.
+            </p>
+            <div class="hero-nudge">
+              <span class="nudge-icon" aria-hidden="true">↗</span>
+              <div>
+                <strong>Early retirement is one chapter.</strong
+                ><span>See the years before pensions start and the decades after.</span>
+              </div>
+            </div>
+            <div class="hero-example-routes">
+              <a href="app.html?example=mixed-household#overview">Planning together? Try Morgan &amp; Sam →</a>
+              <a href="app.html?example=already-retired#overview">Already retired? Try Priya →</a>
+            </div>
+          </div>
+        </section>
+        <section
+          class="landing-insights"
+          id="insights"
+          aria-labelledby="insights-title"
+        >
+          <div class="section-intro">
+            <div>
+              <div class="landing-eyebrow">A sneak peek inside</div>
+              <h2 id="insights-title">
+                Small changes.<br />Different retirement pictures.
+              </h2>
+            </div>
+            <p>
+              Go beyond one big pension number. Explore the timing, spending and
+              household questions in these fictional plans.
+            </p>
+          </div>
+          <div class="insight-grid">
+            <article class="insight-card">
+              <div class="insight-kicker">
+                <span>01 / Money you can use</span
+                ><span class="mini-example">Alex · example</span>
+              </div>
+              <h3>How much is available<br />before pensions start?</h3>
+              <div class="access-visual">
+                <div
+                  id="access-donut"
+                  class="access-donut"
+                  role="img"
+                  aria-label="Alex’s fictional accessible savings and invested pension"
+                >
+                  <div>
+                    <strong id="accessible-percent">—</strong
+                    ><span>accessible now</span>
+                  </div>
+                </div>
+                <div class="access-key">
+                  <div>
+                    <i class="key-teal" aria-hidden="true"></i
+                    ><span
+                      >Accessible savings<strong id="accessible-value"
+                        >£70,000</strong
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <i class="key-gold" aria-hidden="true"></i
+                    ><span
+                      >Invested pension<strong id="pension-value"
+                        >£400,000</strong
+                      ></span
+                    >
+                  </div>
+                </div>
+              </div>
+              <p>
+                <span id="total-assets">£470,000</span> saved at the start. Two
+                different access timelines.
+              </p>
+              <a href="app.html?example=early-dc#overview"
+                >Explore the bridge <span aria-hidden="true">→</span></a
+              >
+            </article>
+            <article class="insight-card">
+              <div class="insight-kicker">
+                <span>02 / Spending choices</span
+                ><span class="mini-example">Alex · example</span>
+              </div>
+              <h3>What does £300 less<br />a month change?</h3>
+              <div
+                class="spending-bars"
+                aria-label="Alex’s unfunded bridge at two spending levels"
+              >
+                <div>
+                  <div class="bar-label">
+                    <span>£3,000 / month</span
+                    ><strong id="spend-base-gap">—</strong>
+                  </div>
+                  <div class="spend-track">
+                    <span
+                      id="spend-base-bar"
+                      class="spend-fill spending-base"
+                    ></span>
+                  </div>
+                </div>
+                <div>
+                  <div class="bar-label">
+                    <span>£2,700 / month</span
+                    ><strong id="spend-lower-gap">—</strong>
+                  </div>
+                  <div class="spend-track">
+                    <span
+                      id="spend-lower-bar"
+                      class="spend-fill spending-lower"
+                    ></span>
+                  </div>
+                </div>
+              </div>
+              <p>
+                Unfunded spending before pension access. Same fictional
+                retirement date; a different spending choice.
+              </p>
+              <a href="app.html?example=early-dc#scenarios"
+                >Compare spending <span aria-hidden="true">→</span></a
+              >
+            </article>
+            <article class="insight-card">
+              <div class="insight-kicker">
+                <span>03 / Planning together</span
+                ><span class="mini-example">Household example</span>
+              </div>
+              <h3>What if we stop work<br />in different years?</h3>
+              <div class="couple-visual">
+                <div class="couple-row">
+                  <span class="person-dot person-morgan" aria-hidden="true"
+                    >M</span
+                  >
+                  <div>
+                    <div>
+                      <strong>Morgan</strong
+                      ><span id="morgan-date">2029 · age 60</span>
+                    </div>
+                    <div class="person-track">
+                      <i class="morgan-marker" id="morgan-marker"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="couple-row">
+                  <span class="person-dot person-sam" aria-hidden="true"
+                    >S</span
+                  >
+                  <div>
+                    <div>
+                      <strong>Sam</strong
+                      ><span id="sam-date">2033 · age 62</span>
+                    </div>
+                    <div class="person-track">
+                      <i class="sam-marker" id="sam-marker"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="couple-axis">
+                  <span id="couple-start">2026</span
+                  ><span id="couple-end">2036</span>
+                </div>
+              </div>
+              <p>
+                <strong id="couple-gap">4 years</strong> between their
+                retirements. One shared spending plan.
+              </p>
+              <a href="app.html?example=mixed-household#scenarios"
+                >Explore a household choice <span aria-hidden="true">→</span></a
+              >
+            </article>
+          </div>
+        </section>
+        <section class="landing-brief" aria-labelledby="brief-title">
+          <div>
+            <div class="landing-eyebrow">A picture you can talk about</div>
+            <h2 id="brief-title">
+              Take the comparison<br />into the conversation.
+            </h2>
+            <p>
+              Keep the dates, changed choices and open questions together in a
+              readable decision brief. Print it, share it with your partner, and
+              revisit what matters.
+            </p>
+            <a
+              class="btn secondary"
+              href="app.html?example=mixed-household#report"
+              >Preview the household brief <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div
+            class="brief-peek"
+            aria-label="Fictional household decision brief preview"
+          >
+            <div class="brief-peek-top">
+              <span class="brief-peek-brand">steadybee.</span
+              ><span>Fictional household brief</span>
+            </div>
+            <h3>
+              Morgan & Sam<br /><span>Two people. One shared picture.</span>
+            </h3>
+            <div class="brief-peek-table">
+              <div>
+                <span>Retirement dates</span><strong>2029 / 2033</strong>
+              </div>
+              <div><span>Monthly spending</span><strong>£3,800</strong></div>
+              <div>
+                <span>Compare together</span
+                ><strong>Timing · work · spending</strong>
+              </div>
+            </div>
+            <div class="brief-peek-question">
+              <span aria-hidden="true">↳</span> What changes if we step back
+              together?
+            </div>
+            <p>Inputs, assumptions and unresolved questions stay visible.</p>
+          </div>
+        </section>
+        <section class="landing-start" aria-labelledby="start-title">
+          <div class="landing-eyebrow">
+            Your next chapter starts with a question
+          </div>
+          <h2 id="start-title">
+            Start with what you know.<br />Explore what could change.
+          </h2>
+          <p>
+            No stack of statements needed to begin. Use estimates, mark
+            unknowns, and add the details at your pace.
+          </p>
+          <div class="hero-actions">
+            <a class="btn" href="asset-canvas.html"
+              >Explore Alex &amp; Gemma’s asset picture <span aria-hidden="true">→</span></a
+            ><a class="btn secondary" href="app.html#setup"
+              >Start an information draft</a
+            >
+          </div>
+          <span class="start-note"
+            >Alex and Gemma’s fictional asset picture can be edited or replaced with your own. It shows the net worth of items entered today.
+            The existing workspace draft organises entered facts; personal
+            retirement forecasts and payments are not available.</span
+          >
+        </section>
+        <details class="landing-assumptions">
+          <summary>How the preview figures are calculated</summary>
+          <div id="preview-assumptions">
+            <p>
+              Fictional worked examples use authored inputs and simplified
+              deterministic calculations. Open a full example for its
+              assumptions and annual workings.
+            </p>
+          </div>
+          <p>
+            Illustration, not advice. Figures do not apply current UK tax or
+            pension eligibility rules.
+          </p>
+        </details>
+      </main>
+      <footer class="footer landing-footer">
+        <a class="brand" href="index.html"
+          ><img src="favicon.svg" alt="" />steadybee<span
+            class="brand-dot"
+            aria-hidden="true"
+            >.</span
+          ></a
+        >
+        <p>
+          A clearer conversation about your next chapter.<br /><span
+            >Fictional previews · No personal forecast · No account
+            required</span
+          >
+        </p>
+        <a href="app.html#feedback">Help shape Steadybee →</a>
+      </footer>
+    </div>
+  </body>
+</html>
