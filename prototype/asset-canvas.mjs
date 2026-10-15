@@ -384,8 +384,17 @@ function svgElement(tag, attributes = {}) {
   return node;
 }
 function flowColor(item) {
-  if (item.kind === "spending" || item.kind === "datedSpending" || item.kind === "mortgage") return "#bd8555";
-  if (item.kind === "saving") return "#398568";
+  if (item.kind === "mortgage") return "#b77b4c";
+  if (item.kind === "datedSpending") return "#a57863";
+  if (item.kind === "spending") {
+    if (item.key?.startsWith("custom:")) {
+      const palette = ["#5e8799", "#9273a3", "#ba6d5c", "#b77b4c", "#668a62", "#788ba8"];
+      const hash = [...item.key].reduce((value, character) => value + character.charCodeAt(0), 0);
+      return palette[hash % palette.length];
+    }
+    return ({ homeBills: "#b77b4c", everyday: "#5e8799", transport: "#8295a5", lifestyle: "#9273a3", other: "#ba6d5c" })[item.key] || "#b77b4c";
+  }
+  if (item.kind === "saving") return item.key === "partnerSaving" ? "#6ba989" : "#398568";
   return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#78916d";
 }
 function flowIconPath(item) {
@@ -425,66 +434,109 @@ function renderSankey(summary) {
   svg.hidden = !summary.hasEntries;
   $("flow-empty").hidden = summary.hasEntries;
   if (!summary.hasEntries) return;
-  const chartHeight = Math.max(620, 150 + Math.max(summary.sources.length, summary.uses.length) * 56);
-  const streamHeight = chartHeight - 160;
-  svg.setAttribute("viewBox", `0 0 1150 ${chartHeight}`);
+  const chartWidth = 1520, startY = 112;
+  const chartHeight = Math.max(630, 185 + Math.max(summary.sources.length, summary.uses.length) * 58);
+  const streamHeight = chartHeight - 190;
+  svg.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
   const scale = streamHeight / Math.max(summary.chartTotal, 1);
-  const position = (items, start) => { let y = start; return items.map((item) => { const placed = { ...item, y, height: item.amount * scale }; y += placed.height; return placed; }); };
-  const left = position(summary.sources, 80);
-  const cuts = position(summary.deductions, 80);
-  const netStart = 80 + cuts.reduce((total, item) => total + item.height, 0);
-  const right = position(summary.uses, netStart);
+  const payKeys = new Set(["primaryPay", "partnerPay"]);
+  const enteredPay = new Set(summary.payDetails.filter((detail) => detail.enteredTakeHome).map((detail) => `${detail.owner}Pay`));
+  const payrollIncome = summary.sources.filter((item) => payKeys.has(item.key) && !enteredPay.has(item.key));
+  const directIncome = summary.sources.filter((item) => !payrollIncome.includes(item));
+  const orderedSources = [...payrollIncome, ...directIncome];
+  const place = (items, y) => {
+    let cursor = y;
+    return items.map((item) => { const placed = { ...item, y: cursor, height: item.amount * scale }; cursor += placed.height; return placed; });
+  };
+  const left = place(orderedSources, startY);
+  const payroll = place(payrollIncome, startY);
+  const direct = place(directIncome, startY + payrollIncome.reduce((total, item) => total + item.amount * scale, 0));
+  const cuts = place(summary.deductions, startY);
+  const payrollGross = payrollIncome.reduce((total, item) => total + item.amount, 0);
+  const deductionTotal = summary.deductions.reduce((total, item) => total + item.amount, 0);
+  const payrollNet = Math.max(0, payrollGross - deductionTotal);
+  const payrollNetHeight = payrollNet * scale;
   const netTotal = summary.uses.reduce((total, item) => total + item.amount, 0);
-  const netHeight = netTotal * scale;
+  const available = { y: startY + deductionTotal * scale, height: netTotal * scale };
+  const right = place(summary.uses, available.y);
+  const nodeWidth = 16;
+  const x = { source: 252, gross: 430, deduction: 620, available: 890, use: 1155 };
+  const zones = [
+    { left: 0, width: 292, title: summary.remainder < 0 ? "INCOME + SHORTFALL" : "INCOME ENTERS", fill: "#f3f7f2" },
+    { left: 304, width: 220, title: "GROSS PAY", fill: "#eef5f1" },
+    { left: 536, width: 318, title: "PAYROLL DEDUCTIONS", fill: "#faf2ee" },
+    { left: 866, width: 246, title: summary.remainder < 0 ? "MONEY TO ACCOUNT FOR" : "MONEY FOR THE MONTH", fill: "#eff7f1" },
+    { left: 1124, width: 396, title: summary.remainder < 0 ? "SPENDING TO COVER" : "SPENDING & SAVING", fill: "#f7f4ed" },
+  ];
+  for (const zone of zones) {
+    svg.append(svgElement("rect", { x: zone.left, y: 75, width: zone.width, height: chartHeight - 108, rx: 13, fill: zone.fill, class: "flow-svg-stage" }));
+  }
+  if ($("flow-view-diagram").getAttribute("aria-pressed") === "true") {
+    $("flow-view-help").textContent = summary.remainder < 0
+      ? "Read left to right. The dashed red entry marks the amount not covered by recorded income; no source is assumed."
+      : "Read left to right: gross pay splits into deductions and take-home; other income joins it before spending and saving. Wider flows mean larger monthly amounts.";
+  }
   const addText = (x, y, label, anchor = "start", className = "flow-svg-label") => {
     const node = svgElement("text", { x, y, "text-anchor": anchor, class: className });
     node.textContent = label;
     svg.append(node);
   };
-  addText(212, 30, "GROSS PAY & INCOME", "end", "flow-svg-heading");
-  addText(550, 30, "DEDUCTIONS → TAKE-HOME", "middle", "flow-svg-heading");
-  addText(917, 30, "SPENDING → SAVING", "start", "flow-svg-heading");
-  let centreY = 80;
-  for (const item of left) {
-    const path = svgElement("path", { d: flowBand(226, item.y, 450, centreY, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
+  for (const zone of zones) addText(zone.left + zone.width / 2, 34, zone.title, "middle", "flow-svg-heading");
+  if (payrollGross > 0) addText(x.gross + nodeWidth / 2, 59, money(payrollGross), "middle", "flow-svg-stage-total");
+  addText(x.available + nodeWidth / 2, 59, money(netTotal), "middle", "flow-svg-stage-total");
+
+  for (const item of payroll) {
+    const path = svgElement("path", { d: flowBand(x.source + nodeWidth, item.y, x.gross, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
     path.append(title); svg.append(path);
-    centreY += item.height;
   }
-  svg.append(svgElement("rect", { x: 450, y: 80, width: 14, height: streamHeight, rx: 5, fill: "#385f50" }));
+  for (const item of direct) {
+    const payOffset = direct.indexOf(item);
+    const directTarget = available.y + payrollNetHeight + direct.slice(0, payOffset).reduce((total, row) => total + row.amount * scale, 0);
+    const klass = item.key === "gap" ? "flow-ribbon flow-ribbon-gap" : "flow-ribbon flow-ribbon-in";
+    const path = svgElement("path", { d: flowBand(x.source + nodeWidth, item.y, x.available, directTarget, item.height), fill: flowColor(item), class: klass });
+    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
+    path.append(title); svg.append(path);
+  }
+  if (payrollGross > 0) svg.append(svgElement("rect", { x: x.gross, y: startY, width: nodeWidth, height: payrollGross * scale, rx: 5, fill: "#3e6957", class: "flow-svg-node" }));
   for (const item of cuts) {
-    const path = svgElement("path", { d: flowBand(464, item.y, 575, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-cut" });
+    const grossOffset = cuts.slice(0, cuts.indexOf(item)).reduce((total, row) => total + row.amount * scale, 0);
+    const path = svgElement("path", { d: flowBand(x.gross + nodeWidth, startY + grossOffset, x.deduction, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-cut" });
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`; path.append(title); svg.append(path);
-    svg.append(svgElement("rect", { x: 575, y: item.y, width: 13, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
-    addText(606, item.y + Math.max(15, item.height / 2), `${item.label} · ${money(item.amount)}`);
+    svg.append(svgElement("rect", { x: x.deduction, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
+    addText(x.deduction + 29, item.y + item.height / 2 + 5, `${item.label} · ${money(item.amount)}`, "start", "flow-svg-deduction-label");
   }
-  if (netHeight > 0) {
-    svg.append(svgElement("path", { d: flowBand(464, netStart, 650, netStart, netHeight), fill: "#5a9b7c", class: "flow-ribbon flow-ribbon-net" }));
-    svg.append(svgElement("rect", { x: 650, y: netStart, width: 15, height: netHeight, rx: 5, fill: "#28745f" }));
+  if (payrollNet > 0) {
+    const path = svgElement("path", { d: flowBand(x.gross + nodeWidth, startY + deductionTotal * scale, x.available, available.y, payrollNetHeight), fill: "#438b70", class: "flow-ribbon flow-ribbon-net" });
+    const title = svgElement("title"); title.textContent = `Estimated pay after deductions: ${money(payrollNet)} per month`;
+    path.append(title); svg.append(path);
   }
-  centreY = netStart;
   for (const item of right) {
-    const path = svgElement("path", { d: flowBand(665, centreY, 887, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
+    const path = svgElement("path", { d: flowBand(x.available + nodeWidth, item.y, x.use, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
     path.append(title); svg.append(path);
-    centreY += item.height;
   }
-  if (netHeight > 0) {
-    const pillCentre = netStart + netHeight / 2;
-    const label = `${summary.remainder < 0 ? "Income + gap" : "Net money in"} · ${money(netTotal)}`;
-    svg.append(svgElement("rect", { x: 681, y: pillCentre - 18, width: 197, height: 34, rx: 17, fill: "#fffefa", stroke: "#b6d1bf", class: "flow-net-label-bg" }));
-    addText(691, pillCentre + 5, label, "start", "flow-svg-net-label");
+  if (netTotal > 0) {
+    svg.append(svgElement("rect", { x: x.available, y: available.y, width: nodeWidth, height: available.height, rx: 5, fill: "#28745f", class: "flow-svg-node" }));
   }
-  for (const [items, x, labelX, anchor] of [[left, 212, 194, "end"], [right, 887, 917, "start"]]) {
-    const labelY = labelPositions(items, chartHeight);
-    items.forEach((item, index) => {
-      svg.append(svgElement("rect", { x, y: item.y, width: 14, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
-      const glyph = svgElement("g", { transform: `translate(${anchor === "end" ? 200 : 897} ${labelY[index] - 10}) scale(.66)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
+  for (const item of left) svg.append(svgElement("rect", { x: x.source, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
+  for (const item of right) svg.append(svgElement("rect", { x: x.use, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
+
+  const leftLabelY = labelPositions(left, chartHeight);
+  left.forEach((item, index) => {
+    const glyph = svgElement("g", { transform: `translate(226 ${leftLabelY[index] - 9}) scale(.62)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
+    glyph.append(svgElement("path", { d: flowIconPath(item) })); svg.append(glyph);
+    const payDetail = summary.payDetails.find((detail) => `${detail.owner}Pay` === item.key);
+    let label = item.key === "gap" ? "Not covered" : payDetail ? `${payDetail.person} ${enteredPay.has(item.key) ? "take-home" : "gross"}` : item.kind === "rent" ? "Rent" : item.kind === "pensionIncome" ? "Pension income" : item.kind === "otherIncome" ? "Other income" : item.label.length > 22 ? `${item.label.slice(0, 20)}…` : item.label;
+    addText(215, leftLabelY[index] + 5, `${label} · ${money(item.amount)}`, "end", "flow-svg-label");
+  });
+  const rightLabelY = labelPositions(right, chartHeight);
+  right.forEach((item, index) => {
+    const glyph = svgElement("g", { transform: `translate(1127 ${rightLabelY[index] - 9}) scale(.62)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
       glyph.append(svgElement("path", { d: flowIconPath(item) })); svg.append(glyph);
-      const chartName = item.key === "gap" ? "Gap" : item.kind === "saving" ? `${item.label.split(" ")[0]} saving` : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "other" ? "Other" : item.key === "pensionIncome" ? "Pension" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} gross` : item.label.length > 10 ? `${item.label.slice(0, 9)}…` : item.label;
-      addText(labelX, labelY[index] + 5, `${chartName} · ${money(item.amount)}`, anchor);
-    });
-  }
+    const chartName = item.kind === "saving" ? `${item.label.split(" ")[0]} saving` : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "transport" ? "Transport" : item.key === "lifestyle" ? "Lifestyle" : item.key === "other" ? "Other" : item.kind === "datedSpending" && /school/i.test(item.label) ? "School fees" : item.label.length > 22 ? `${item.label.slice(0, 20)}…` : item.label;
+    addText(1166, rightLabelY[index] + 5, `${chartName} · ${money(item.amount)}`, "start", "flow-svg-label");
+  });
 }
 function renderFlowBridge(diagram) {
   const root = $("flow-bridge-view"); root.replaceChildren();
@@ -564,7 +616,7 @@ function flowChartHierarchy(diagram) {
     ["Home", (item) => item.key === "homeBills" || item.kind === "mortgage"],
     ["Everyday", (item) => ["everyday", "transport"].includes(item.key)],
     ["Lifestyle", (item) => item.key === "lifestyle"],
-    ["Other and dated", (item) => item.key === "other" || item.kind === "datedSpending"],
+    ["Other and dated", (item) => item.key === "other" || item.key?.startsWith("custom:") || item.kind === "datedSpending"],
   ].map(([label, matches], index) => {
     const children = uses.filter(matches).map((item) => ({ id: `item:${item.key}`, label: item.label, amount: item.amount, color: flowChartPalette[(index + 1) % flowChartPalette.length], children: [] }));
     return { id: `group:${index}`, label, amount: children.reduce((sum, item) => sum + item.amount, 0), color: flowChartPalette[(index + 1) % flowChartPalette.length], children };
@@ -721,7 +773,8 @@ function renderDrillDonut(diagram) {
 }
 function flowListItem(item, side) {
   const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
-  const editable = payOwner || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
+  const customSpendingId = item.key?.startsWith("custom:") ? item.key.slice(7) : "";
+  const editable = payOwner || customSpendingId || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
   const row = make("tr", "flow-table-row");
   const label = make("th"); label.scope = "row";
   const labelText = make("span", "flow-table-label", item.label);
@@ -734,6 +787,7 @@ function flowListItem(item, side) {
     button.type = "button";
     button.setAttribute("aria-label", `Edit ${item.label}`);
     if (payOwner) button.dataset.flowPay = payOwner;
+    else if (customSpendingId) button.dataset.flowCustomSpending = customSpendingId;
     else if (editable) button.dataset.flowFocus = `${side}:${item.key}`;
     else if (item.kind === "saving") button.dataset.flowSaving = item.key === "primarySaving" ? "primary" : "partner";
     else if (item.kind === "datedIncome" || item.kind === "datedSpending") button.dataset.flowEntry = item.key.slice(6);
@@ -751,12 +805,31 @@ function renderDatedEntries(summary) {
   const overview = $("flow-entry-overview"); overview.replaceChildren();
   for (const detail of summary.payDetails) {
     const button = make("button", "flow-overview-card"); button.type = "button"; button.dataset.flowPay = detail.owner;
-    button.append(make("span", "flow-overview-kicker", detail.enteredTakeHome ? "Yearly pay · entered monthly take-home" : "Yearly pay · estimated monthly take-home"), make("strong", "", detail.person), make("span", "flow-overview-amount", `${money(detail.monthlyTakeHome)}/month`), make("span", "flow-overview-edit", "Edit pay →"));
+    button.append(make("span", "flow-overview-kicker", detail.enteredTakeHome ? "Pay · take-home entered" : "Pay · take-home estimated"), make("strong", "", detail.person), make("span", "flow-overview-amount", `${money(detail.monthlyTakeHome)}/month`), make("span", "flow-overview-edit", "Edit pay and pensions →"));
     overview.append(button);
   }
-  const regular = summary.uses.filter((item) => item.kind === "spending").reduce((sum, item) => sum + item.amount, 0);
+  const enteredIncome = INCOME_FIELDS.reduce((sum, field) => sum + (Number(flowDraft.income[field.key]) || 0), 0);
+  const includedRent = flowDraft.includeLinkedRent ? summary.linkedRents.reduce((sum, rent) => sum + rent.amount, 0) : 0;
+  const otherIncome = enteredIncome + includedRent;
+  const income = make("button", "flow-overview-card flow-overview-income"); income.type = "button"; income.dataset.flowRegular = "income";
+  income.append(make("span", "flow-overview-kicker", "Other regular income"), make("strong", "", "Other money in"), make("span", "flow-overview-amount", `${money(otherIncome)}/month`));
+  const incomeLines = make("span", "flow-overview-lines");
+  for (const field of INCOME_FIELDS) incomeLines.append(make("span", "", `${field.label} · ${money(Number(flowDraft.income[field.key]) || 0)}`));
+  for (const rent of summary.linkedRents) incomeLines.append(make("span", "", `${rent.label} rent · ${money(rent.amount)}${flowDraft.includeLinkedRent ? " · included" : " · not included"}`));
+  income.append(incomeLines, make("span", "flow-overview-edit", "Edit regular income →"));
+  overview.append(income);
+
+  const regular = SPENDING_FIELDS.reduce((sum, field) => sum + (Number(flowDraft.spending[field.key]) || 0), 0)
+    + (flowDraft.customSpending || []).reduce((sum, category) => sum + (Number(category.amount) || 0), 0);
+  const categoryCount = SPENDING_FIELDS.length + (flowDraft.customSpending || []).length;
   const spending = make("button", "flow-overview-card"); spending.type = "button"; spending.dataset.flowRegular = "spending";
-  spending.append(make("span", "flow-overview-kicker", "Regular categories"), make("strong", "", "Everyday spending"), make("span", "flow-overview-amount", `${money(regular)}/month`), make("span", "flow-overview-edit", "Edit amounts →"));
+  const spendingLines = [
+    ...SPENDING_FIELDS.map((field) => ({ label: flowDraft.spendingLabels?.[field.key]?.trim() || field.label, amount: Number(flowDraft.spending[field.key]) || 0 })),
+    ...(flowDraft.customSpending || []).map((category) => ({ label: category.label, amount: Number(category.amount) || 0 })),
+  ].filter((item) => item.amount > 0);
+  const spendingPreview = spendingLines.slice(0, 2).map((item) => `${item.label} · ${money(item.amount)}`).join("  ·  ");
+  const remainingCategories = Math.max(0, spendingLines.length - 2);
+  spending.append(make("span", "flow-overview-kicker", "Regular spending"), make("strong", "", `${categoryCount} categories`), make("span", "flow-overview-amount", `${money(regular)}/month`), make("span", "flow-overview-lines", spendingPreview ? `${spendingPreview}${remainingCategories ? ` · +${remainingCategories} more` : ""}` : "Add amounts to your categories"), make("span", "flow-overview-edit", "Edit names and amounts →"));
   overview.append(spending);
   $("flow-dated-asof").textContent = flowMonthLabel(summary.asOfMonth);
   $("flow-dated-empty").hidden = summary.entryDetails.length > 0;
@@ -820,6 +893,7 @@ function renderFlowTimeline() {
 }
 function renderFlow() {
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
+  renderCustomSpendingInputs();
   const plan = computeAllocationWaterfall(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
   const diagram = buildMonthlyFlowDiagram(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
   renderFlowTimeline();
@@ -899,14 +973,64 @@ function setupFlowInputs() {
   for (const [side, fields] of [["income", INCOME_FIELDS], ["spending", SPENDING_FIELDS]]) {
     const container = $(`flow-${side}-inputs`);
     for (const { key, label } of fields) {
-      const row = make("label", "flow-input-row");
-      const name = make("span", "", label); name.id = `flow-${side}-${key}-label`;
+      const row = make(side === "spending" ? "div" : "label", "flow-input-row");
+      const name = side === "spending" ? make("input", "flow-category-name") : make("span", "", label);
+      name.id = `flow-${side}-${key}-label`;
+      if (side === "spending") {
+        name.type = "text"; name.maxLength = 48; name.value = flowDraft.spendingLabels?.[key] || label;
+        name.dataset.flowSpendingLabel = key;
+        name.setAttribute("aria-label", `Category name for ${label}`);
+      }
       const moneyField = make("span", "flow-money-input");
       const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0";
+      input.setAttribute("aria-label", `Monthly amount for ${label}`);
       input.dataset.flowSide = side; input.dataset.flowKey = key;
       moneyField.append(make("span", "", "£"), input);
       row.append(name, moneyField); container.append(row);
     }
+  }
+  const spendingFieldset = $("flow-spending-inputs").closest("fieldset");
+  spendingFieldset.querySelector("legend").textContent = "Regular spending categories";
+  spendingFieldset.insertBefore(make("p", "flow-category-help", "Rename a category, change its amount, or add your own. The monthly flow updates as you edit."), $("flow-spending-inputs"));
+  const customList = make("div", "flow-custom-spending-list"); customList.id = "flow-custom-spending-list";
+  spendingFieldset.append(customList);
+  const customForm = make("form", "flow-custom-spending-form"); customForm.id = "flow-custom-spending-form";
+  const customNameLabel = make("label", "", "Add a category");
+  const customName = make("input"); customName.id = "flow-custom-spending-new-label"; customName.type = "text"; customName.maxLength = 48; customName.placeholder = "e.g. Holidays"; customName.required = true;
+  customNameLabel.append(customName);
+  const customAmountLabel = make("label", "", "Monthly amount");
+  const customAmount = make("input"); customAmount.id = "flow-custom-spending-new-amount"; customAmount.type = "number"; customAmount.min = "0"; customAmount.max = "100000000"; customAmount.step = "0.01"; customAmount.inputMode = "decimal"; customAmount.value = "0";
+  customAmountLabel.append(customAmount);
+  const addCategory = make("button", "heading-action heading-action-secondary", "+ Add category"); addCategory.type = "submit";
+  customForm.append(customNameLabel, customAmountLabel, addCategory);
+  spendingFieldset.append(customForm);
+}
+function renderCustomSpendingInputs() {
+  const container = $("flow-custom-spending-list");
+  if (!container) return;
+  const active = document.activeElement;
+  const focusKind = active?.dataset.flowCustomSpendingLabel !== undefined ? "label" : active?.dataset.flowCustomSpendingAmount !== undefined ? "amount" : "";
+  const focusId = active?.dataset.flowCustomSpendingLabel ?? active?.dataset.flowCustomSpendingAmount ?? "";
+  const selectionStart = active?.selectionStart;
+  const selectionEnd = active?.selectionEnd;
+  container.replaceChildren();
+  for (const category of flowDraft.customSpending || []) {
+    const row = make("div", "flow-custom-spending-row");
+    const name = make("input", "flow-category-name"); name.type = "text"; name.maxLength = 48; name.value = category.label;
+    name.dataset.flowCustomSpendingLabel = category.id; name.setAttribute("aria-label", `Category name for ${category.label}`);
+    const moneyField = make("span", "flow-money-input");
+    const amount = make("input"); amount.type = "number"; amount.min = "0"; amount.max = "100000000"; amount.step = "0.01"; amount.inputMode = "decimal"; amount.value = category.amount ? String(category.amount) : "";
+    amount.dataset.flowCustomSpendingAmount = category.id; amount.setAttribute("aria-label", `Monthly amount for ${category.label}`);
+    moneyField.append(make("span", "", "£"), amount);
+    const remove = make("button", "flow-custom-spending-remove", "Remove"); remove.type = "button"; remove.dataset.removeCustomSpending = category.id; remove.setAttribute("aria-label", `Remove ${category.label} category`);
+    row.append(name, moneyField, remove); container.append(row);
+  }
+  if (!container.childElementCount) container.append(make("p", "flow-custom-spending-empty", "Add your own monthly category if the list above does not fit."));
+  if (focusKind) {
+    const selector = focusKind === "label" ? "[data-flow-custom-spending-label]" : "[data-flow-custom-spending-amount]";
+    const target = [...container.querySelectorAll(selector)].find((input) => input.dataset[focusKind === "label" ? "flowCustomSpendingLabel" : "flowCustomSpendingAmount"] === focusId);
+    target?.focus();
+    if (target && selectionStart !== null && selectionStart !== undefined && target.setSelectionRange) target.setSelectionRange(selectionStart, selectionEnd);
   }
 }
 function syncFlowInputs() {
@@ -916,6 +1040,10 @@ function syncFlowInputs() {
     const value = flowDraft[input.dataset.flowSide][input.dataset.flowKey];
     input.value = value ? String(value) : "";
   }
+  for (const input of document.querySelectorAll("[data-flow-spending-label]")) input.value = flowDraft.spendingLabels?.[input.dataset.flowSpendingLabel] || SPENDING_FIELDS.find((field) => field.key === input.dataset.flowSpendingLabel)?.label || "Other spending";
+  $("flow-custom-spending-new-label").value = "";
+  $("flow-custom-spending-new-amount").value = "0";
+  renderCustomSpendingInputs();
   for (const input of document.querySelectorAll("[data-flow-pay-owner]")) {
     const value = flowDraft.pay[input.dataset.flowPayOwner][input.dataset.flowPayKey];
     input.value = value || "";
@@ -942,7 +1070,7 @@ function showScreen(screen) {
   $("planning-screen").hidden = screen !== "planning";
   if (screen === "flow" || screen === "planning") {
     renderFlow();
-    if (screen === "flow" && mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) { $("flow-editor").open = true; $("flow-pay-detail").open = true; }
+    if (screen === "flow" && mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) { $("flow-pay-detail").open = true; }
   }
   (screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -1127,7 +1255,7 @@ function setFlowView(view) {
     : sunburst ? "Each ring shows a deeper level. Select a ring to focus on its children."
       : treemap ? "Rectangle size shows each amount's share. Select a section to open its detail."
         : donut ? "Select a slice to open its next level. Use the breadcrumb or Back to return."
-          : "Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose another view for detail.";
+          : "Read left to right: gross pay splits into deductions and take-home; other income joins it before spending and saving. Wider flows mean larger monthly amounts.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
@@ -1135,9 +1263,27 @@ $("flow-view-sunburst").addEventListener("click", () => setFlowView("sunburst"))
 $("flow-view-treemap").addEventListener("click", () => setFlowView("treemap"));
 $("flow-view-donut").addEventListener("click", () => setFlowView("donut"));
 $("flow-view-table").addEventListener("click", () => setFlowView("table"));
+organizeFlowInputs();
 $("flow-editor").addEventListener("input", (event) => {
-  const input = event.target.closest("[data-flow-side], [data-flow-pay-owner]");
+  const input = event.target.closest("[data-flow-side], [data-flow-pay-owner], [data-flow-spending-label], [data-flow-custom-spending-label], [data-flow-custom-spending-amount]");
   if (!input) return;
+  if (input.dataset.flowSpendingLabel !== undefined) {
+    flowDraft.spendingLabels ||= {};
+    if (input.value.trim()) flowDraft.spendingLabels[input.dataset.flowSpendingLabel] = input.value.trim();
+    renderFlow(); return;
+  }
+  if (input.dataset.flowCustomSpendingLabel !== undefined) {
+    const category = flowDraft.customSpending.find((row) => row.id === input.dataset.flowCustomSpendingLabel);
+    if (category && input.value.trim()) category.label = input.value.trim();
+    renderFlow(); return;
+  }
+  if (input.dataset.flowCustomSpendingAmount !== undefined) {
+    const category = flowDraft.customSpending.find((row) => row.id === input.dataset.flowCustomSpendingAmount);
+    const value = input.value.trim() ? Number(input.value) : 0;
+    if (!category || !Number.isFinite(value) || value < 0 || value > 100_000_000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.001) return;
+    category.amount = value;
+    renderFlow(); return;
+  }
   if (input.dataset.flowPayKey === "endDate") { flowDraft.pay[input.dataset.flowPayOwner].endDate = input.value; renderFlow(); return; }
   const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : Number(input.value);
   const maximum = input.dataset.flowPayKey?.endsWith("Rate") ? 100 : 100_000_000;
@@ -1157,6 +1303,45 @@ $("flow-editor").addEventListener("input", (event) => {
   }
   else flowDraft[input.dataset.flowSide][input.dataset.flowKey] = value;
   renderFlow();
+});
+$("flow-editor").addEventListener("change", (event) => {
+  const input = event.target.closest("[data-flow-spending-label], [data-flow-custom-spending-label]");
+  if (!input || input.value.trim()) return;
+  if (input.dataset.flowSpendingLabel !== undefined) {
+    const original = SPENDING_FIELDS.find((field) => field.key === input.dataset.flowSpendingLabel)?.label || "Other spending";
+    input.value = flowDraft.spendingLabels?.[input.dataset.flowSpendingLabel] || original;
+  } else {
+    input.value = flowDraft.customSpending.find((row) => row.id === input.dataset.flowCustomSpendingLabel)?.label || "";
+  }
+});
+$("flow-editor").addEventListener("submit", (event) => {
+  if (event.target.id !== "flow-custom-spending-form") return;
+  event.preventDefault();
+  const label = $("flow-custom-spending-new-label").value.trim();
+  const rawAmount = $("flow-custom-spending-new-amount").value.trim();
+  const amount = Number(rawAmount);
+  try {
+    if (!label || !rawAmount || !Number.isFinite(amount) || amount < 0 || amount > 100_000_000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.001) throw new RangeError("Enter a category name and a monthly amount up to £100,000,000.");
+    const category = { id: createId("spend"), label, amount };
+    summarizeMonthlyFlow({ ...flowDraft, customSpending: [...(flowDraft.customSpending || []), category] }, draft);
+    flowDraft.customSpending ||= [];
+    flowDraft.customSpending.push(category);
+    $("flow-custom-spending-new-label").value = "";
+    $("flow-custom-spending-new-amount").value = "0";
+    renderFlow();
+    $(`[data-flow-custom-spending-label="${category.id}"]`)?.focus();
+    announce(`${category.label} added to regular spending.`);
+  } catch (error) {
+    $("flow-input-error").textContent = error.message;
+    $("flow-input-error").hidden = false;
+  }
+});
+$("flow-editor").addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-remove-custom-spending]");
+  if (!remove) return;
+  flowDraft.customSpending = flowDraft.customSpending.filter((row) => row.id !== remove.dataset.removeCustomSpending);
+  renderFlow();
+  announce("Spending category removed.");
 });
 $("flow-include-rent").addEventListener("change", (event) => {
   flowDraft.includeLinkedRent = event.currentTarget.checked;
@@ -1271,9 +1456,9 @@ $("flow-entry-overview").addEventListener("click", (event) => {
   const pay = event.target.closest("[data-flow-pay]");
   const regular = event.target.closest("[data-flow-regular]");
   if (!pay && !regular) return;
-  $("flow-editor").open = true;
-  $(pay ? "flow-pay-detail" : "flow-spending-detail").open = true;
-  const target = pay ? $(`flow-pay-${pay.dataset.flowPay}-annualGross`) : $("flow-spending-homeBills");
+  const otherIncome = regular?.dataset.flowRegular === "income";
+  $(pay || otherIncome ? "flow-pay-detail" : "flow-spending-detail").open = true;
+  const target = pay ? $(`flow-pay-${pay.dataset.flowPay}-annualGross`) : otherIncome ? $("flow-income-pensionIncome") : $("flow-spending-homeBills");
   target.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   target.focus();
 });
@@ -1327,7 +1512,15 @@ for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-m
   const entry = event.target.closest("[data-flow-entry]");
   if (entry) { showDatedForm("income", entry.dataset.flowEntry, entry); return; }
   const pay = event.target.closest("[data-flow-pay]");
-  if (pay) { $("flow-editor").open = true; $("flow-pay-detail").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
+  if (pay) { $("flow-pay-detail").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
+  const custom = event.target.closest("[data-flow-custom-spending]");
+  if (custom) {
+    $("flow-spending-detail").open = true;
+    const target = [...document.querySelectorAll("[data-flow-custom-spending-amount]")].find((input) => input.dataset.flowCustomSpendingAmount === custom.dataset.flowCustomSpending);
+    target?.focus();
+    target?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    return;
+  }
   const debt = event.target.closest("[data-flow-debt]");
   if (debt) { showScreen("assets"); returnToFlowAssetId = debt.dataset.flowDebt; showItemDialog("debt", debt.dataset.flowDebt, debt); return; }
   const asset = event.target.closest("[data-flow-asset]");
@@ -1335,7 +1528,6 @@ for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-m
   const item = event.target.closest("[data-flow-focus]");
   if (!item) return;
   const [side, key] = item.dataset.flowFocus.split(":");
-  $("flow-editor").open = true;
   $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
   $(`flow-${side}-${key}`).focus();
   $("flow-editor").scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -1553,35 +1745,47 @@ $("confirm-clear-button").addEventListener("click", () => {
 
 function organizeFlowInputs() {
   const panel = $("flow-dated-panel");
-  panel.querySelector(".section-kicker").textContent = "Your regular amounts";
-  $("flow-dated-title").textContent = "Build your monthly picture";
-  panel.querySelector(".flow-dated-heading p:last-child").textContent = "Start with pay and regular spending. Edit a card to change its figures; the monthly flow above updates immediately.";
-  const editor = $("flow-editor");
-  editor.querySelector("summary").firstChild.textContent = "Edit pay and regular amounts ";
+  panel.querySelector(".section-kicker").textContent = "Future and linked entries";
+  $("flow-dated-title").textContent = "Add a change over time";
+  panel.querySelector(".flow-dated-heading p:last-child").textContent = "Add an income or cost with its own start and end month, or include rent and mortgage details from assets.";
+  const oldEditor = $("flow-editor");
+  const editor = document.createElement("section");
+  editor.id = "flow-editor";
+  editor.className = "flow-editor";
+  editor.setAttribute("aria-labelledby", "flow-editor-title");
+  const oldSummary = oldEditor.querySelector(":scope > summary");
+  oldSummary?.remove();
+  while (oldEditor.firstChild) editor.append(oldEditor.firstChild);
+  oldEditor.replaceWith(editor);
+  const editorHeading = make("div", "flow-editor-heading");
+  editorHeading.append(make("h3", "", "Edit the amounts in this picture"), make("p", "", "The figures here feed the monthly flow. Changes update it immediately."));
+  editorHeading.querySelector("h3").id = "flow-editor-title";
   const payDetail = document.createElement("details");
   payDetail.id = "flow-pay-detail";
   payDetail.className = "flow-editor-part";
-  payDetail.innerHTML = "<summary>Pay and other money in <span>Yearly salary, pension contributions and regular income</span></summary>";
+  payDetail.innerHTML = "<summary>Pay and other income <span>Yearly pay, pensions and monthly income</span></summary>";
   const spendingDetail = document.createElement("details");
   spendingDetail.id = "flow-spending-detail";
   spendingDetail.className = "flow-editor-part";
-  spendingDetail.innerHTML = "<summary>Regular spending <span>Monthly amounts by category</span></summary>";
+  spendingDetail.innerHTML = "<summary>Spending categories <span>Rename, add or remove categories and edit monthly amounts</span></summary>";
   payDetail.addEventListener("toggle", () => { if (payDetail.open) spendingDetail.open = false; });
   spendingDetail.addEventListener("toggle", () => { if (spendingDetail.open) payDetail.open = false; });
   const grid = editor.querySelector(".flow-edit-grid");
-  payDetail.append(editor.querySelector(".flow-pay-section"), grid.firstElementChild);
+  const incomeGuidance = editor.querySelector(":scope > p:last-child");
+  incomeGuidance.className = "flow-input-guidance";
+  payDetail.append(editor.querySelector(".flow-pay-section"), grid.firstElementChild, incomeGuidance);
   spendingDetail.append(grid.firstElementChild);
   grid.replaceWith(payDetail, spendingDetail);
+  editor.prepend(editorHeading);
   $("flow-entry-overview").after(editor);
 
   const extras = document.createElement("details");
   extras.id = "flow-more-entries";
   extras.className = "flow-progressive";
-  extras.innerHTML = '<summary><span><strong>Other income, expenses and property</strong><small>Add dated items or include recorded rent and mortgage payments</small></span><span class="flow-progressive-chevron" aria-hidden="true">⌄</span></summary><div class="flow-progressive-body"></div>';
+  extras.innerHTML = '<summary><span><strong>Future entries and property cash flows</strong><small>Add income or expenses with dates, or include rent and mortgage payments</small></span><span class="flow-progressive-chevron" aria-hidden="true">⌄</span></summary><div class="flow-progressive-body"></div>';
   panel.after(extras);
   const extrasBody = extras.querySelector(".flow-progressive-body");
-  extrasBody.append($("flow-dated-list"), $("flow-dated-empty"), $("flow-dated-form"), $("flow-link-panel"));
-  $("flow-entry-overview").after(panel.querySelector(".flow-dated-actions"));
+  extrasBody.append(panel.querySelector(".flow-dated-actions"), $("flow-dated-list"), $("flow-dated-empty"), $("flow-dated-form"), $("flow-link-panel"));
   const extrasIntro = document.createElement("p");
   extrasIntro.className = "flow-progressive-intro";
   extrasIntro.innerHTML = 'Entries active in <span id="flow-dated-asof">this month</span> affect the picture. Add a future start or end month, then visit it on the timeline above.';
@@ -1591,7 +1795,6 @@ function organizeFlowInputs() {
   $("planning-content").append($("flow-allocation-panel"), $("flow-growth-panel"));
 }
 
-organizeFlowInputs();
 setupFlowInputs();
 syncFlowInputs();
 render();

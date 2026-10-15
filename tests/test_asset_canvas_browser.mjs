@@ -164,7 +164,6 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   await p.locator("#flow-screen").waitFor({ state: "visible" });
   await p.locator("#flow-include-rent").check();
   assert.equal(await displayedAmount(p, "#flow-income-total"), 15012.38);
-  await p.locator("#flow-editor > summary").click();
   await p.locator("#flow-spending-detail > summary").click();
   assert.equal(await p.locator("#flow-pay-detail").evaluate((element) => element.open), false);
   await p.locator("#flow-spending-homeBills").fill("1200");
@@ -172,6 +171,36 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await displayedAmount(p, "#flow-result-value"), 3020.41);
   await p.locator("#step-to-assets").click();
   assert.equal(await displayedAmount(p, "#net-worth"), 2145000);
+  await p.close();
+});
+
+test("regular spending categories can be renamed, added, edited, and removed", async () => {
+  const p = await page();
+  await p.locator("#step-to-flow").click();
+  assert.equal(await p.locator("#flow-input-shortcuts").isVisible(), true);
+  assert.match(await p.locator("#flow-input-shortcuts").innerText(), /Other money in[\s\S]*Regular spending/);
+  assert.equal(await p.locator("#flow-input-shortcuts").evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector(".flow-map-panel")) & Node.DOCUMENT_POSITION_FOLLOWING)), true);
+  assert.equal(await p.locator("#flow-editor").isVisible(), true);
+  await p.locator('[data-flow-regular="income"]').click();
+  assert.equal(await p.locator("#flow-pay-detail").evaluate((element) => element.open), true);
+  assert.equal(await p.locator("#flow-income-pensionIncome").evaluate((element) => document.activeElement === element), true);
+  await p.locator('[data-flow-regular="spending"]').click();
+  assert.equal(await p.locator("#flow-spending-detail").evaluate((element) => element.open), true);
+  assert.equal(await p.locator("#flow-spending-homeBills").evaluate((element) => document.activeElement === element), true);
+  await p.locator("#flow-spending-homeBills-label").fill("Home and utilities");
+  await p.locator("#flow-custom-spending-new-label").fill("Holidays");
+  await p.locator("#flow-custom-spending-new-amount").fill("350");
+  await p.locator("#flow-custom-spending-form button[type=submit]").click();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 11541.97);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Home and utilities[\s\S]*Holidays/);
+  await p.locator("#flow-view-table").click();
+  assert.match(await p.locator("#flow-use-list").innerText(), /Holidays[\s\S]*£350/);
+  await p.locator("#flow-use-list [data-flow-custom-spending]").click();
+  const amount = p.locator('[data-flow-custom-spending-amount]');
+  await amount.fill("450");
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 11641.97);
+  await p.locator('[data-remove-custom-spending]').click();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 11191.97);
   await p.close();
 });
 
@@ -245,7 +274,7 @@ test("personal monthly flow starts empty and shows an unfunded gap honestly", as
   await start(p, "Jordan", 55);
   await p.locator("#step-to-flow").click();
   assert.equal(await p.locator("#flow-empty").isVisible(), true);
-  assert.equal(await p.locator("#flow-editor").evaluate((element) => element.open), true);
+  assert.equal(await p.locator("#flow-editor").isVisible(), true);
   assert.equal(await p.locator("#flow-pay-detail").evaluate((element) => element.open), true);
   assert.equal(await p.locator("#flow-rent-toggle-row").isVisible(), false);
   await p.locator("#flow-pay-primary-annualTakeHome").fill("36000");

@@ -31,6 +31,8 @@ export function createBlankMonthlyFlow() {
     pay: { primary: { annualTakeHome: null, annualGross: 0, annualBonus: 0, employeePension: 0, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "" }, partner: { annualTakeHome: null, annualGross: 0, annualBonus: 0, employeePension: 0, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "" } },
     income: Object.fromEntries(INCOME_FIELDS.map(({ key }) => [key, 0])),
     spending: Object.fromEntries(SPENDING_FIELDS.map(({ key }) => [key, 0])),
+    spendingLabels: {},
+    customSpending: [],
     asOfMonth: new Date().toISOString().slice(0, 7),
     timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [],
@@ -56,6 +58,8 @@ export function createExampleMonthlyFlow() {
     pay: { primary: { annualTakeHome: null, annualGross: 146500, annualBonus: 50000, employeePension: 0, employeePensionRate: 7, employerPension: 0, employerPensionRate: 16, endDate: "2045-12" }, partner: { annualTakeHome: null, annualGross: 125000, annualBonus: 0, employeePension: 25000, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "2043-12" } },
     income: { pensionIncome: 0, otherIncome: 0 },
     spending: { homeBills: 400, everyday: 1500, transport: 350, lifestyle: 900, other: 4000 },
+    spendingLabels: {},
+    customSpending: [],
     asOfMonth: new Date().toISOString().slice(0, 7),
     timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [
@@ -149,7 +153,19 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   }
   for (const { key, label } of SPENDING_FIELDS) {
     const amount = pennies(flow.spending[key], label);
-    if (amount) uses.push({ key, label, amount: amount / 100, kind: "spending" });
+    const displayLabel = flow.spendingLabels?.[key]?.trim() || label;
+    if (displayLabel.length > 48) throw new RangeError("Spending category names must be 48 characters or fewer.");
+    if (amount) uses.push({ key, label: displayLabel, amount: amount / 100, kind: "spending" });
+  }
+  const customSpending = flow.customSpending || [];
+  if (!Array.isArray(customSpending)) throw new RangeError("Custom spending categories must be a list.");
+  const spendingIds = new Set();
+  for (const category of customSpending) {
+    if (!category || typeof category.id !== "string" || !category.id || spendingIds.has(category.id)) throw new RangeError("Each custom spending category needs a unique ID.");
+    spendingIds.add(category.id);
+    if (typeof category.label !== "string" || !category.label.trim() || category.label.trim().length > 48) throw new RangeError("Give each spending category a name of up to 48 characters.");
+    const amount = pennies(category.amount, `Monthly ${category.label.trim()}`);
+    if (amount) uses.push({ key: `custom:${category.id}`, label: category.label.trim(), amount: amount / 100, kind: "spending" });
   }
   const linkedMortgages = debts.filter((debt) => debt.kind === "mortgage")
     .map((debt) => {
