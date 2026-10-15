@@ -9,7 +9,8 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
+import { estimateStatePension } from "./state-pension.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -384,17 +385,8 @@ function svgElement(tag, attributes = {}) {
   return node;
 }
 function flowColor(item) {
-  if (item.kind === "mortgage") return "#b77b4c";
-  if (item.kind === "datedSpending") return "#a57863";
-  if (item.kind === "spending") {
-    if (item.key?.startsWith("custom:")) {
-      const palette = ["#5e8799", "#9273a3", "#ba6d5c", "#b77b4c", "#668a62", "#788ba8"];
-      const hash = [...item.key].reduce((value, character) => value + character.charCodeAt(0), 0);
-      return palette[hash % palette.length];
-    }
-    return ({ homeBills: "#b77b4c", everyday: "#5e8799", transport: "#8295a5", lifestyle: "#9273a3", other: "#ba6d5c" })[item.key] || "#b77b4c";
-  }
-  if (item.kind === "saving") return item.key === "partnerSaving" ? "#6ba989" : "#398568";
+  if (["mortgage", "datedSpending", "spending"].includes(item.kind)) return "#bd8247";
+  if (item.kind === "saving") return "#277a80";
   return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#78916d";
 }
 function flowIconPath(item) {
@@ -403,7 +395,7 @@ function flowIconPath(item) {
   if (item.kind === "saving" || item.kind === "unallocated") return iconPaths.cash;
   if (item.kind === "mortgage" || item.key === "homeBills") return iconPaths.home;
   if (item.kind === "rent") return iconPaths["other-property"];
-  if (item.key === "transport") return iconPaths.car;
+  if (["transport", "carPayment"].includes(item.key)) return iconPaths.car;
   if (item.key === "primaryPay" || item.key === "partnerPay") return "M4 7h16v13H4zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16";
   return iconPaths.other;
 }
@@ -421,122 +413,106 @@ function flowPositions(items, scale, chartHeight) {
     return position;
   });
 }
-function labelPositions(items, chartHeight) {
+function labelPositions(items, chartHeight, minGap = 38) {
   const labels = items.map((item) => item.y + item.height / 2);
-  for (let index = 1; index < labels.length; index++) labels[index] = Math.max(labels[index], labels[index - 1] + 32);
-  const excess = labels.at(-1) - (chartHeight - 42);
+  for (let index = 1; index < labels.length; index++) labels[index] = Math.max(labels[index], labels[index - 1] + minGap);
+  const excess = labels.at(-1) - (chartHeight - 48);
   if (excess > 0) for (let index = 0; index < labels.length; index++) labels[index] -= excess;
   return labels;
+}
+function editFlowEntry(item, side) {
+  if (item.kind === "gap") return;
+  if (item.kind === "statePension") { openStatePension(item.owner || item.key.split(":")[1]); return; }
+  if (item.kind === "saving") { $("flow-allocation-panel").scrollIntoView({block:"start",behavior:"smooth"}); return; }
+  if (["datedIncome", "datedSpending"].includes(item.kind)) { showDatedForm(side, item.key.slice(6)); return; }
+  if (item.kind === "rent") { editLinkedAsset(item.key.slice(5), $("flow-sankey")); return; }
+  if (item.kind === "mortgage") { showScreen("assets"); returnToFlowAssetId = item.key.slice(9); showItemDialog("debt", item.key.slice(9), $("flow-sankey")); return; }
+  const owner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : null;
+  const detail = $(side === "income" ? "flow-pay-detail" : "flow-spending-detail");
+  detail.open = true;
+  openFlowEditor(side, owner);
+  const target = owner ? $(`flow-pay-${owner}-annualGross`) : item.key?.startsWith("custom:")
+    ? [...document.querySelectorAll("[data-flow-custom-spending-amount]")].find((input) => input.dataset.flowCustomSpendingAmount === item.key.slice(7))
+    : $(`flow-${side}-${item.key}`);
+  target?.focus();
 }
 function renderSankey(summary) {
   const svg = $("flow-sankey");
   [...svg.children].filter((child) => !["title", "desc"].includes(child.tagName.toLowerCase())).forEach((child) => child.remove());
-  svg.hidden = !summary.hasEntries;
-  $("flow-empty").hidden = summary.hasEntries;
+  svg.setAttribute("role","group");
+  svg.hidden = !summary.hasEntries; $("flow-empty").hidden = summary.hasEntries;
   if (!summary.hasEntries) return;
-  const chartWidth = 1520, startY = 112;
-  const chartHeight = Math.max(630, 185 + Math.max(summary.sources.length, summary.uses.length) * 58);
-  const streamHeight = chartHeight - 190;
-  svg.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
-  const scale = streamHeight / Math.max(summary.chartTotal, 1);
-  const payKeys = new Set(["primaryPay", "partnerPay"]);
-  const enteredPay = new Set(summary.payDetails.filter((detail) => detail.enteredTakeHome).map((detail) => `${detail.owner}Pay`));
-  const payrollIncome = summary.sources.filter((item) => payKeys.has(item.key) && !enteredPay.has(item.key));
-  const directIncome = summary.sources.filter((item) => !payrollIncome.includes(item));
-  const orderedSources = [...payrollIncome, ...directIncome];
-  const place = (items, y) => {
-    let cursor = y;
-    return items.map((item) => { const placed = { ...item, y: cursor, height: item.amount * scale }; cursor += placed.height; return placed; });
+  const width = 1400, height = Math.max(800, summary.uses.length * 65 + 160), top = 100, bottom = height - 45;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const gap = 42, nodeWidth = 16;
+  const scale = (bottom - top - Math.max(summary.sources.length, summary.uses.length) * gap) / Math.max(1, summary.chartTotal);
+  const x = { source: 260, gross: 490, cut: 735, net: 880, out: 1100 };
+  const entered = new Set(summary.payDetails.filter((detail) => detail.enteredTakeHome).map((detail) => `${detail.owner}Pay`));
+  const isPayroll = (item) => ["primaryPay", "partnerPay"].includes(item.key) && !entered.has(item.key);
+  const payroll = summary.sources.filter(isPayroll), direct = summary.sources.filter((item) => !isPayroll(item));
+  const gross = payroll.reduce((sum, item) => sum + item.amount, 0);
+  const deductions = summary.deductions.reduce((sum, item) => sum + item.amount, 0);
+  const payrollNet = Math.max(0, gross - deductions), net = summary.uses.reduce((sum, item) => sum + item.amount, 0);
+  const grossH = gross * scale, netH = net * scale;
+  const grossY = top + (bottom - top - grossH) * .45;
+  const netY = bottom - netH - 25;
+  const stack = (items, start, spacing) => { let y = start; return items.map((item) => { const row = { ...item, y, height: item.amount * scale }; y += row.height + spacing; return row; }); };
+  const sourcesH = summary.sources.reduce((sum,item) => sum + item.amount * scale,0) + (summary.sources.length - 1) * gap;
+  const sources = stack([...payroll, ...direct], top + (bottom - top - sourcesH) / 2, gap);
+  let directY = bottom;
+  for (const row of sources.filter((item)=>!isPayroll(item)).reverse()) { row.y=directY-row.height; directY=row.y-gap; }
+  const usesH = netH + (summary.uses.length - 1) * gap;
+  const uses = stack(summary.uses, top + (bottom - top - usesH) / 2, gap);
+  const cuts = stack(summary.deductions, top, 32);
+  const paths = svgElement("g", { class: "flow-paths" }); svg.append(paths);
+  const text = (px, py, value, anchor = "start", cls = "flow-svg-label") => { const node = svgElement("text", { x: px, y: py, "text-anchor": anchor, class: cls }); node.textContent = value; svg.append(node); return node; };
+  text(140, 32, "Income", "middle", "flow-svg-heading");
+  text(700, 32, "Pay deductions → take-home", "middle", "flow-svg-heading");
+  text(1210, 32, "Spending & saving", "middle", "flow-svg-heading");
+  text(140, 58, "Monthly amounts", "middle", "flow-svg-caption");
+  text(1210, 58, "Select an item to edit", "middle", "flow-svg-caption");
+  const ribbon = (x1, y1, x2, y2, h, color, item, side) => {
+    const path = svgElement("path", { d: flowBand(x1,y1,x2,y2,h), fill: color, class: `flow-ribbon flow-curved-ribbon${item.kind === "gap" ? " flow-ribbon-gap" : ""}` });
+    if (h < 3) { path.style.strokeWidth = "0"; path.style.opacity = ".9"; }
+    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`; path.append(title);
+    if (side) { path.dataset.flowKey = item.key; path.addEventListener("click", () => editFlowEntry(item, side)); }
+    paths.append(path);
   };
-  const left = place(orderedSources, startY);
-  const payroll = place(payrollIncome, startY);
-  const direct = place(directIncome, startY + payrollIncome.reduce((total, item) => total + item.amount * scale, 0));
-  const cuts = place(summary.deductions, startY);
-  const payrollGross = payrollIncome.reduce((total, item) => total + item.amount, 0);
-  const deductionTotal = summary.deductions.reduce((total, item) => total + item.amount, 0);
-  const payrollNet = Math.max(0, payrollGross - deductionTotal);
-  const payrollNetHeight = payrollNet * scale;
-  const netTotal = summary.uses.reduce((total, item) => total + item.amount, 0);
-  const available = { y: startY + deductionTotal * scale, height: netTotal * scale };
-  const right = place(summary.uses, available.y);
-  const nodeWidth = 16;
-  const x = { source: 252, gross: 430, deduction: 620, available: 890, use: 1155 };
-  const zones = [
-    { left: 0, width: 292, title: summary.remainder < 0 ? "INCOME + SHORTFALL" : "INCOME ENTERS", fill: "#f3f7f2" },
-    { left: 304, width: 220, title: "GROSS PAY", fill: "#eef5f1" },
-    { left: 536, width: 318, title: "PAYROLL DEDUCTIONS", fill: "#faf2ee" },
-    { left: 866, width: 246, title: summary.remainder < 0 ? "MONEY TO ACCOUNT FOR" : "MONEY FOR THE MONTH", fill: "#eff7f1" },
-    { left: 1124, width: 396, title: summary.remainder < 0 ? "SPENDING TO COVER" : "SPENDING & SAVING", fill: "#f7f4ed" },
-  ];
-  for (const zone of zones) {
-    svg.append(svgElement("rect", { x: zone.left, y: 75, width: zone.width, height: chartHeight - 108, rx: 13, fill: zone.fill, class: "flow-svg-stage" }));
-  }
-  if ($("flow-view-diagram").getAttribute("aria-pressed") === "true") {
-    $("flow-view-help").textContent = summary.remainder < 0
-      ? "Read left to right. The dashed red entry marks the amount not covered by recorded income; no source is assumed."
-      : "Read left to right: gross pay splits into deductions and take-home; other income joins it before spending and saving. Wider flows mean larger monthly amounts.";
-  }
-  const addText = (x, y, label, anchor = "start", className = "flow-svg-label") => {
-    const node = svgElement("text", { x, y, "text-anchor": anchor, class: className });
-    node.textContent = label;
-    svg.append(node);
+  const node = (px, row, color, side) => {
+    const group = svgElement("g", { class: side ? "flow-chart-target" : "" });
+    group.append(svgElement("rect", { x:px, y:row.y, width:nodeWidth, height:Math.max(3,row.height), rx:3, fill:color }));
+    if (side) { group.setAttribute("role","presentation"); group.setAttribute("aria-label",`Edit ${row.label}, ${money(row.amount)} per month`); group.addEventListener("click",()=>editFlowEntry(row,side)); group.addEventListener("keydown",(event)=>{ if (["Enter"," "].includes(event.key)) { event.preventDefault(); editFlowEntry(row,side); } }); }
+    svg.append(group); return group;
   };
-  for (const zone of zones) addText(zone.left + zone.width / 2, 34, zone.title, "middle", "flow-svg-heading");
-  if (payrollGross > 0) addText(x.gross + nodeWidth / 2, 59, money(payrollGross), "middle", "flow-svg-stage-total");
-  addText(x.available + nodeWidth / 2, 59, money(netTotal), "middle", "flow-svg-stage-total");
-
-  for (const item of payroll) {
-    const path = svgElement("path", { d: flowBand(x.source + nodeWidth, item.y, x.gross, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
-    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
-    path.append(title); svg.append(path);
+  const label = (px, cy, name, amount, anchor, row, side) => {
+    const group = svgElement("g", { class: "flow-chart-target", role:"button", tabindex:0, "aria-label":`Edit ${name}, ${money(amount)} per month` });
+    if (row.kind === "gap") { group.setAttribute("role","img"); group.removeAttribute("tabindex"); group.setAttribute("aria-label",`${name}: ${money(amount)} not covered by recorded income`); }
+    const title = svgElement("text",{x:px,y:cy-4,"text-anchor":anchor,class:"flow-svg-label"}); title.textContent=name.length > 29 ? `${name.slice(0,27)}…` : name;
+    const value = svgElement("text",{x:px,y:cy+19,"text-anchor":anchor,class:"flow-svg-value"}); value.textContent=money(amount);
+    group.append(title,value); group.addEventListener("click",()=>editFlowEntry(row,side)); group.addEventListener("keydown",(event)=>{if (["Enter"," "].includes(event.key)){event.preventDefault();editFlowEntry(row,side);}}); svg.append(group);
+  };
+  let grossCursor = grossY, directCursor = netY + payrollNet * scale;
+  for (const row of sources) {
+    const color = flowColor(row);
+    if (isPayroll(row)) { ribbon(x.source+nodeWidth,row.y,x.gross,grossCursor,row.height,color,row,"income"); grossCursor+=row.height; }
+    else { ribbon(x.source+nodeWidth,row.y,x.net,directCursor,row.height,color,row,"income"); directCursor+=row.height; }
+    node(x.source,row,color,"income");
+    const person = summary.payDetails.find((detail)=>`${detail.owner}Pay`===row.key);
+    label(x.source-18,row.y+row.height/2,person ? `${person.person} · ${entered.has(row.key)?"take-home":"gross pay"}` : row.label,row.amount,"end",row,"income");
   }
-  for (const item of direct) {
-    const payOffset = direct.indexOf(item);
-    const directTarget = available.y + payrollNetHeight + direct.slice(0, payOffset).reduce((total, row) => total + row.amount * scale, 0);
-    const klass = item.key === "gap" ? "flow-ribbon flow-ribbon-gap" : "flow-ribbon flow-ribbon-in";
-    const path = svgElement("path", { d: flowBand(x.source + nodeWidth, item.y, x.available, directTarget, item.height), fill: flowColor(item), class: klass });
-    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
-    path.append(title); svg.append(path);
+  if (gross > 0) {
+    node(x.gross,{y:grossY,height:grossH},"#647a70");
+    text(x.gross-5,grossY-35,"Combined pay","middle","flow-svg-caption");
+    text(x.gross-5,grossY-12,money(gross),"middle","flow-svg-value");
+    let cutCursor = grossY;
+    for (const row of cuts) { ribbon(x.gross+nodeWidth,cutCursor,x.cut,row.y,row.height,flowColor(row),row); node(x.cut,row,flowColor(row)); text(x.cut+27,row.y+row.height/2-4,row.label,"start","flow-svg-label"); text(x.cut+27,row.y+row.height/2+19,money(row.amount),"start","flow-svg-value"); cutCursor+=row.height; }
+    if (payrollNet>0) ribbon(x.gross+nodeWidth,cutCursor,x.net,netY,payrollNet*scale,"#4f9a80",{label:"Take-home pay",amount:payrollNet});
   }
-  if (payrollGross > 0) svg.append(svgElement("rect", { x: x.gross, y: startY, width: nodeWidth, height: payrollGross * scale, rx: 5, fill: "#3e6957", class: "flow-svg-node" }));
-  for (const item of cuts) {
-    const grossOffset = cuts.slice(0, cuts.indexOf(item)).reduce((total, row) => total + row.amount * scale, 0);
-    const path = svgElement("path", { d: flowBand(x.gross + nodeWidth, startY + grossOffset, x.deduction, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-cut" });
-    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`; path.append(title); svg.append(path);
-    svg.append(svgElement("rect", { x: x.deduction, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
-    addText(x.deduction + 29, item.y + item.height / 2 + 5, `${item.label} · ${money(item.amount)}`, "start", "flow-svg-deduction-label");
-  }
-  if (payrollNet > 0) {
-    const path = svgElement("path", { d: flowBand(x.gross + nodeWidth, startY + deductionTotal * scale, x.available, available.y, payrollNetHeight), fill: "#438b70", class: "flow-ribbon flow-ribbon-net" });
-    const title = svgElement("title"); title.textContent = `Estimated pay after deductions: ${money(payrollNet)} per month`;
-    path.append(title); svg.append(path);
-  }
-  for (const item of right) {
-    const path = svgElement("path", { d: flowBand(x.available + nodeWidth, item.y, x.use, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
-    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
-    path.append(title); svg.append(path);
-  }
-  if (netTotal > 0) {
-    svg.append(svgElement("rect", { x: x.available, y: available.y, width: nodeWidth, height: available.height, rx: 5, fill: "#28745f", class: "flow-svg-node" }));
-  }
-  for (const item of left) svg.append(svgElement("rect", { x: x.source, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
-  for (const item of right) svg.append(svgElement("rect", { x: x.use, y: item.y, width: nodeWidth, height: Math.max(3, item.height), rx: 4, fill: flowColor(item), class: "flow-svg-node" }));
-
-  const leftLabelY = labelPositions(left, chartHeight);
-  left.forEach((item, index) => {
-    const glyph = svgElement("g", { transform: `translate(226 ${leftLabelY[index] - 9}) scale(.62)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
-    glyph.append(svgElement("path", { d: flowIconPath(item) })); svg.append(glyph);
-    const payDetail = summary.payDetails.find((detail) => `${detail.owner}Pay` === item.key);
-    let label = item.key === "gap" ? "Not covered" : payDetail ? `${payDetail.person} ${enteredPay.has(item.key) ? "take-home" : "gross"}` : item.kind === "rent" ? "Rent" : item.kind === "pensionIncome" ? "Pension income" : item.kind === "otherIncome" ? "Other income" : item.label.length > 22 ? `${item.label.slice(0, 20)}…` : item.label;
-    addText(215, leftLabelY[index] + 5, `${label} · ${money(item.amount)}`, "end", "flow-svg-label");
-  });
-  const rightLabelY = labelPositions(right, chartHeight);
-  right.forEach((item, index) => {
-    const glyph = svgElement("g", { transform: `translate(1127 ${rightLabelY[index] - 9}) scale(.62)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
-      glyph.append(svgElement("path", { d: flowIconPath(item) })); svg.append(glyph);
-    const chartName = item.kind === "saving" ? `${item.label.split(" ")[0]} saving` : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "transport" ? "Transport" : item.key === "lifestyle" ? "Lifestyle" : item.key === "other" ? "Other" : item.kind === "datedSpending" && /school/i.test(item.label) ? "School fees" : item.label.length > 22 ? `${item.label.slice(0, 20)}…` : item.label;
-    addText(1166, rightLabelY[index] + 5, `${chartName} · ${money(item.amount)}`, "start", "flow-svg-label");
-  });
+  node(x.net,{y:netY,height:netH},"#28745f");
+  text(x.net+8,netY-37,"Available this month","middle","flow-svg-caption");
+  text(x.net+8,netY-14,money(net),"middle","flow-svg-value");
+  let outCursor=netY;
+  for (const row of uses) { ribbon(x.net+nodeWidth,outCursor,x.out,row.y,row.height,flowColor(row),row,"spending"); node(x.out,row,flowColor(row),"spending"); label(x.out+27,row.y+row.height/2,row.label.replace(/ estimated payment$/, ""),row.amount,"start",row,"spending"); outCursor+=row.height; }
 }
 function renderFlowBridge(diagram) {
   const root = $("flow-bridge-view"); root.replaceChildren();
@@ -557,8 +533,8 @@ function renderFlowBridge(diagram) {
   root.append(equation);
   const groups = [
     { label: "Home", color: "#ae744b", test: (item) => item.key === "homeBills" || item.kind === "mortgage" },
-    { label: "Everyday", color: "#c2935d", test: (item) => ["everyday", "transport"].includes(item.key) },
-    { label: "Lifestyle and other", color: "#967c64", test: (item) => ["lifestyle", "other"].includes(item.key) },
+    { label: "Everyday", color: "#c2935d", test: (item) => item.key === "everyday" },
+    { label: "Car payments", color: "#967c64", test: (item) => item.key === "carPayment" },
     { label: "Dated costs", color: "#b56d5d", test: (item) => item.kind === "datedSpending" },
   ];
   const spending = diagram.uses.filter((item) => item.kind === "spending" || item.kind === "mortgage" || item.kind === "datedSpending");
@@ -614,8 +590,8 @@ function flowChartHierarchy(diagram) {
   const uses = diagram.uses.filter((item) => ["spending", "mortgage", "datedSpending"].includes(item.kind));
   const spendingGroups = [
     ["Home", (item) => item.key === "homeBills" || item.kind === "mortgage"],
-    ["Everyday", (item) => ["everyday", "transport"].includes(item.key)],
-    ["Lifestyle", (item) => item.key === "lifestyle"],
+    ["Everyday", (item) => item.key === "everyday"],
+    ["Car payments", (item) => item.key === "carPayment"],
     ["Other and dated", (item) => item.key === "other" || item.key?.startsWith("custom:") || item.kind === "datedSpending"],
   ].map(([label, matches], index) => {
     const children = uses.filter(matches).map((item) => ({ id: `item:${item.key}`, label: item.label, amount: item.amount, color: flowChartPalette[(index + 1) % flowChartPalette.length], children: [] }));
@@ -782,11 +758,12 @@ function flowListItem(item, side) {
   label.append(swatch, labelText);
   const amount = make("td", "flow-table-amount", money(item.amount));
   const action = make("td", "flow-table-action");
-  if (editable || item.kind === "saving" || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending") {
+  if (editable || item.kind === "saving" || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending" || item.kind === "statePension") {
     const button = make("button", "flow-table-edit", "Edit");
     button.type = "button";
     button.setAttribute("aria-label", `Edit ${item.label}`);
-    if (payOwner) button.dataset.flowPay = payOwner;
+    if (item.kind === "statePension") button.dataset.flowStatePension = item.owner;
+    else if (payOwner) button.dataset.flowPay = payOwner;
     else if (customSpendingId) button.dataset.flowCustomSpending = customSpendingId;
     else if (editable) button.dataset.flowFocus = `${side}:${item.key}`;
     else if (item.kind === "saving") button.dataset.flowSaving = item.key === "primarySaving" ? "primary" : "partner";
@@ -803,47 +780,43 @@ function flowMonthLabel(month) {
 }
 function renderDatedEntries(summary) {
   const overview = $("flow-entry-overview"); overview.replaceChildren();
-  for (const detail of summary.payDetails) {
-    const button = make("button", "flow-overview-card"); button.type = "button"; button.dataset.flowPay = detail.owner;
-    button.append(make("span", "flow-overview-kicker", detail.enteredTakeHome ? "Pay · take-home entered" : "Pay · take-home estimated"), make("strong", "", detail.person), make("span", "flow-overview-amount", `${money(detail.monthlyTakeHome)}/month`), make("span", "flow-overview-edit", "Edit pay and pensions →"));
-    overview.append(button);
+  const groups = [["Income", summary.sources.filter((item)=>item.kind!=="gap"), "income"], ["Spending", summary.uses.filter((item)=>item.kind!=="unallocated"), "spending"]];
+  for (const [title, items, side] of groups) {
+    const column = make("section","flow-entry-column"); column.append(make("h3","",title));
+    for (const item of items) {
+      const row = make("button","flow-entry-row"); row.type="button";
+      if(item.key.startsWith("entry:"))row.dataset.flowScheduleEntry=item.key.slice(6);
+      const name=make("span","flow-entry-name",item.label);
+      if (["rent","mortgage"].includes(item.kind)) name.append(make("small","flow-linked-badge","Linked from assets & debt"));
+      const dated=summary.entryDetails.find((entry)=>`entry:${entry.id}`===item.key);
+      if(dated) name.append(make("small","",`${dated.startMonth ? `From ${flowMonthLabel(dated.startMonth)}` : "Already started"}${dated.endMonth ? ` · until ${flowMonthLabel(dated.endMonth)}` : " · ongoing"}`));
+      row.append(name,make("span","flow-entry-money",money(item.amount)),make("span","flow-entry-arrow","↗"));
+      row.addEventListener("click",()=>editFlowEntry(item,side)); column.append(row);
+    }
+    if (!items.length) column.append(make("p","flow-entry-empty",`No ${title.toLowerCase()} yet.`));
+    const add = make("button","flow-entry-add",`+ Add ${side === "income" ? "income" : "expense"}`); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
+    if(side === "income") { const pay = make("button","flow-entry-add","Pay & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
+    if(side === "spending") { const categories = make("button","flow-entry-add","Manage categories"); categories.type="button"; categories.addEventListener("click",()=>openFlowEditor("spending")); column.append(categories); }
+    overview.append(column);
   }
-  const enteredIncome = INCOME_FIELDS.reduce((sum, field) => sum + (Number(flowDraft.income[field.key]) || 0), 0);
-  const includedRent = flowDraft.includeLinkedRent ? summary.linkedRents.reduce((sum, rent) => sum + rent.amount, 0) : 0;
-  const otherIncome = enteredIncome + includedRent;
-  const income = make("button", "flow-overview-card flow-overview-income"); income.type = "button"; income.dataset.flowRegular = "income";
-  income.append(make("span", "flow-overview-kicker", "Other regular income"), make("strong", "", "Other money in"), make("span", "flow-overview-amount", `${money(otherIncome)}/month`));
-  const incomeLines = make("span", "flow-overview-lines");
-  for (const field of INCOME_FIELDS) incomeLines.append(make("span", "", `${field.label} · ${money(Number(flowDraft.income[field.key]) || 0)}`));
-  for (const rent of summary.linkedRents) incomeLines.append(make("span", "", `${rent.label} rent · ${money(rent.amount)}${flowDraft.includeLinkedRent ? " · included" : " · not included"}`));
-  income.append(incomeLines, make("span", "flow-overview-edit", "Edit regular income →"));
-  overview.append(income);
-
-  const regular = SPENDING_FIELDS.reduce((sum, field) => sum + (Number(flowDraft.spending[field.key]) || 0), 0)
-    + (flowDraft.customSpending || []).reduce((sum, category) => sum + (Number(category.amount) || 0), 0);
-  const categoryCount = SPENDING_FIELDS.length + (flowDraft.customSpending || []).length;
-  const spending = make("button", "flow-overview-card"); spending.type = "button"; spending.dataset.flowRegular = "spending";
-  const spendingLines = [
-    ...SPENDING_FIELDS.map((field) => ({ label: flowDraft.spendingLabels?.[field.key]?.trim() || field.label, amount: Number(flowDraft.spending[field.key]) || 0 })),
-    ...(flowDraft.customSpending || []).map((category) => ({ label: category.label, amount: Number(category.amount) || 0 })),
-  ].filter((item) => item.amount > 0);
-  const spendingPreview = spendingLines.slice(0, 2).map((item) => `${item.label} · ${money(item.amount)}`).join("  ·  ");
-  const remainingCategories = Math.max(0, spendingLines.length - 2);
-  spending.append(make("span", "flow-overview-kicker", "Regular spending"), make("strong", "", `${categoryCount} categories`), make("span", "flow-overview-amount", `${money(regular)}/month`), make("span", "flow-overview-lines", spendingPreview ? `${spendingPreview}${remainingCategories ? ` · +${remainingCategories} more` : ""}` : "Add amounts to your categories"), make("span", "flow-overview-edit", "Edit names and amounts →"));
-  overview.append(spending);
   $("flow-dated-asof").textContent = flowMonthLabel(summary.asOfMonth);
-  $("flow-dated-empty").hidden = summary.entryDetails.length > 0;
+  $("flow-dated-empty").hidden = true;
+  $("flow-input-shortcuts").querySelector(".flow-input-heading p").textContent=`Monthly amounts for ${flowMonthLabel(summary.asOfMonth)} · select an entry to edit`;
   const list = $("flow-dated-list"); list.replaceChildren();
-  for (const entry of summary.entryDetails) {
+  const upcoming=summary.entryDetails.filter((entry)=>entry.status === "future");
+  if(!upcoming.length) list.append(make("p","flow-future-empty","No upcoming entries. Set a future start month when adding income or an expense."));
+  const past = document.createElement("details"); past.className="flow-past-entries"; const pastSummary=make("summary","",`Other scheduled periods · viewing ${flowMonthLabel(summary.asOfMonth)}`); past.append(pastSummary);
+  for (const entry of summary.entryDetails.filter((entry)=>entry.status !== "active")) {
     const row = make("button", "flow-dated-row"); row.type = "button"; row.dataset.flowEntry = entry.id;
     const main = make("span", "flow-dated-row-main");
     const dates = entry.frequency === "once" ? `In ${flowMonthLabel(entry.startMonth)}` : `${entry.startMonth ? `From ${flowMonthLabel(entry.startMonth)}` : "Already started"} · ${entry.endMonth ? `Until ${flowMonthLabel(entry.endMonth)}` : "Ongoing"}`;
     const amountLabel = entry.frequency === "yearly" ? `${money(entry.amount)}/year` : entry.frequency === "once" ? `${money(entry.amount)} once` : `${money(entry.amount)}/month`;
     main.append(make("strong", "", entry.label), make("small", "", `${entry.side === "income" ? "Income" : "Expense"} · ${dates} · ${amountLabel}`));
-    const status = make("span", `flow-dated-status is-${entry.status}`, entry.status === "active" ? "In diagram" : entry.status === "future" ? "Starts later" : "Ended");
+    const status = make("span", `flow-dated-status is-${entry.status}`, entry.status === "active" ? "In diagram" : entry.status === "future" ? `Starts ${flowMonthLabel(entry.startMonth)}` : `Not in ${flowMonthLabel(summary.asOfMonth)}`);
     row.append(main, make("span", "flow-dated-row-amount", entry.frequency === "yearly" ? `${money(entry.monthlyAmount)}/month here` : "Edit →"), status);
-    list.append(row);
+    (entry.status === "ended" ? past : list).append(row);
   }
+  if(past.children.length > 1) list.append(past);
 }
 function renderAllocationOverview(plan) {
   $("flow-allocation-enabled").checked = plan.enabled;
@@ -855,41 +828,54 @@ function renderAllocationOverview(plan) {
   $("flow-isa-primary-label").textContent = `${plan.summary.payDetails[0].person}'s ISA subscriptions this tax year`;
   $("flow-isa-partner-label").textContent = `${plan.summary.payDetails[1].person}'s ISA subscriptions this tax year`;
   $("flow-isa-used-partner-row").hidden = !plan.hasPartner;
+  $("flow-allocation-context").textContent=`Cash reserve → own ISA → general investment account · ${plan.reserveMonths}-month reserve ${money(plan.cashTarget)}.`;
   const steps = $("flow-allocation-steps"); steps.replaceChildren();
-  if (!plan.enabled || plan.surplus === 0) return;
-  for (const allocation of plan.allocations) {
-    const card = make("div", "flow-allocation-step");
-    const marker = make("span", "flow-allocation-marker"); marker.style.background = flowColor(allocation);
-    const amount = make("strong", "", `${money(allocation.monthlyAmount)}/month`);
-    const detail = allocation.bucket === "cash-reserve"
-      ? `${money(plan.currentCash)} cash counted · ${money(plan.cashTarget)} target (${plan.reserveMonths} × recorded outgoings)`
-      : allocation.bucket === "isa-primary" ? `${money(plan.allowance - plan.usedPrimary)} allowance left this tax year`
-      : allocation.bucket === "isa-partner" ? `${money(plan.allowance - plan.usedPartner)} allowance left this tax year`
-      : allocation.bucket === "unallocated" ? "Name an account above to describe this balance" : "Your named destination";
-    card.append(marker, make("span", "flow-allocation-step-name", allocation.label), amount, make("small", "", detail));
-    steps.append(card);
+  if(!plan.enabled) { steps.append(make("p","","Enable your chosen order below to illustrate saving destinations.")); return; }
+  const projection=projectTaxYearSaving(flowDraft,draft,{primary:draft.name,partner:draft.partnerName});
+  const toolbar=make("div","flow-saving-period");
+  toolbar.append(make("strong","",`Tax year ${projection.taxYear}`),make("span","",`${flowMonthLabel(projection.startMonth)} – ${flowMonthLabel(projection.endMonth)} · new deposits`));
+  steps.append(toolbar);
+  for(const person of plan.people) {
+    const total=projection.people.find(item=>item.owner===person.owner);
+    const card=make("section","flow-person-route");
+    const heading=make("div","flow-person-route-heading"); heading.append(make("h3","",person.person),make("span","",`${person.share.toFixed(1)}% of saving`)); card.append(heading);
+    const table=make("table","flow-saving-table");
+    const header=make("tr"); for(const text of ["Destination","This month","To March"]) header.append(make("th","",text)); table.append(header);
+    for(const [title,key,note] of [["Cash reserve","cash",`${money(person.currentCash)} held · ${money(person.reserveTarget)} target`],["ISA","isa",`${money(total.isaTotal)} subscriptions including ${money(total.isaUsed)} already entered${total.isaFilledMonth ? ` · fills ${flowMonthLabel(total.isaFilledMonth)}` : ""}`],["General account","general","After reserve and own ISA"]]) {
+      const row=make("tr"); const label=make("td","",title);label.append(make("small","",note));row.append(label,make("td","",money(person[key])),make("td","",money(total[key])));table.append(row);
+    }
+    card.append(table);steps.append(card);
   }
+  const gaps=projection.months.filter(item=>item.shortfall>0).length;
+  const explanation=make("details","flow-route-note"); explanation.append(make("summary","","How this is calculated")); explanation.append(make("p","",`Monthly approximation from the selected month through March, using scheduled entries and entered assets. New deposits accumulate; existing investments are not reinvested. April’s tax-year boundary is not split within the month. No growth or inflation.${gaps ? ` ${gaps} month(s) have a shortfall; withdrawals are not modelled.` : ""} Illustration, not advice. Current rules, subject to change.`)); steps.append(explanation);
 }
 function renderFlowTimeline() {
   const start = flowDraft.timelineStartMonth || flowDraft.asOfMonth;
   $("flow-month").min = start;
   $("flow-month").value = flowDraft.asOfMonth;
+  if ($("flow-time-slider")) { const [sy,sm]=start.split("-").map(Number); const [y,m]=flowDraft.asOfMonth.split("-").map(Number); $("flow-time-slider").value=(y-sy)*12+m-sm; $("flow-time-slider").setAttribute("aria-valuetext",flowMonthLabel(flowDraft.asOfMonth)); }
   const grouped = new Map();
   for (const event of monthlyFlowEvents(flowDraft, draft, { primary: draft.name, partner: draft.partnerName })) {
     if (!grouped.has(event.month)) grouped.set(event.month, []);
     grouped.get(event.month).push(event.label);
   }
+  const startIndex=Number(start.slice(0,4))*12+Number(start.slice(5));
+  const lastIndex=Math.max(startIndex+360,...[...grouped.keys()].map(month=>Number(month.slice(0,4))*12+Number(month.slice(5))));
+  const horizon=lastIndex-startIndex;
+  $("flow-time-slider").max=horizon;
   const rail = $("flow-timeline-events"); rail.replaceChildren();
   for (const [month, labels] of grouped) {
     const button = make("button", "flow-timeline-event"); button.type = "button"; button.dataset.flowMonth = month;
     button.setAttribute("aria-pressed", String(month === flowDraft.asOfMonth));
     button.setAttribute("aria-label", `${flowMonthLabel(month)}: ${labels.join("; ")}`);
+    button.title = `${flowMonthLabel(month)}: ${labels.join("; ")}`;
+    const [sy,sm]=start.split("-").map(Number), [y,m]=month.split("-").map(Number);
+    button.style.left = `${Math.max(0,Math.min(100,((y-sy)*12+m-sm)/horizon*100))}%`;
     button.append(make("span", "flow-timeline-dot"), make("strong", "", flowMonthLabel(month)), make("small", "", labels.join(" · ")));
     rail.append(button);
   }
-  $("flow-timeline-context").textContent = flowDraft.asOfMonth === start
-    ? "Current month. Select a change or choose any later month. Future figures use today’s pounds."
-    : `Viewing ${flowMonthLabel(flowDraft.asOfMonth)}. Entered amounts are held in today’s pounds; no inflation or future tax changes are applied.`;
+  const selectedEvents = grouped.get(flowDraft.asOfMonth);
+  $("flow-timeline-context").textContent = `${selectedEvents ? selectedEvents.join(" · ") + ". " : "Drag the bar or select a change. "}Today’s pounds; no inflation or future tax changes.`;
 }
 function renderFlow() {
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
@@ -900,7 +886,7 @@ function renderFlow() {
   $("flow-income-total").textContent = money(summary.incomeTotal);
   $("flow-spending-total").textContent = money(summary.spendingTotal);
   $("flow-result-value").textContent = summary.hasEntries ? money(Math.abs(summary.remainder)) : "—";
-  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Saving after spending";
+  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Monthly saving";
   const payEstimated = summary.payDetails.some((detail) => !detail.enteredTakeHome && detail.annualGross > 0);
   $("flow-result-context").textContent = !summary.hasEntries ? "Enter income or spending below." : summary.remainder < 0 ? "This gap is not assumed to be funded from assets." : `Shown as saving, split ${diagram.primaryShare.toFixed(1)}% / ${(100 - diagram.primaryShare).toFixed(1)}%; no money moves.${payEstimated ? " Pay is estimated." : ""}`;
   $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
@@ -950,6 +936,7 @@ function renderFlow() {
   renderAllocationOverview(plan);
 
   renderDatedEntries(summary);
+  renderStatePensionRecords(summary);
 }
 function setupFlowInputs() {
   for (const owner of ["primary", "partner"]) {
@@ -1035,7 +1022,7 @@ function renderCustomSpendingInputs() {
 }
 function syncFlowInputs() {
   editingFlowEntryId = null;
-  $("flow-dated-form").hidden = true;
+  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
   for (const input of document.querySelectorAll("[data-flow-side]")) {
     const value = flowDraft[input.dataset.flowSide][input.dataset.flowKey];
     input.value = value ? String(value) : "";
@@ -1070,7 +1057,6 @@ function showScreen(screen) {
   $("planning-screen").hidden = screen !== "planning";
   if (screen === "flow" || screen === "planning") {
     renderFlow();
-    if (screen === "flow" && mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) { $("flow-pay-detail").open = true; }
   }
   (screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -1255,7 +1241,7 @@ function setFlowView(view) {
     : sunburst ? "Each ring shows a deeper level. Select a ring to focus on its children."
       : treemap ? "Rectangle size shows each amount's share. Select a section to open its detail."
         : donut ? "Select a slice to open its next level. Use the breadcrumb or Back to return."
-          : "Read left to right: gross pay splits into deductions and take-home; other income joins it before spending and saving. Wider flows mean larger monthly amounts.";
+          : "Estimated gross pay separates into tax, National Insurance, pension and take-home. Other income joins before spending and saving.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
@@ -1407,16 +1393,18 @@ $("flow-include-mortgage").addEventListener("change", (event) => {
   renderFlow();
 });
 function showDatedForm(side, id = null, trigger = null) {
-  $("flow-more-entries").open = true;
   const entry = flowDraft.datedEntries.find((item) => item.id === id);
   flowDatedRequireStart = entry?.label === "State Pension";
   editingFlowEntryId = entry?.id || null;
   flowEntryTrigger = trigger;
+  $("flow-dated-replaces").replaceChildren(new Option("Choose an expense", ""), ...[...SPENDING_FIELDS.map(field=>({key:field.key,label:flowDraft.spendingLabels?.[field.key] || field.label})),...(flowDraft.customSpending || []).map(item=>({key:`custom:${item.id}`,label:item.label}))].map(item=>new Option(item.label,item.key)));
+  $("flow-dated-replaces").value=entry?.replacesKey || "";
+  $("flow-dated-replaces-row").hidden=!entry?.replacesKey;
   $("flow-dated-side").value = entry?.side || side;
   $("flow-dated-label").value = entry?.label || "";
   $("flow-dated-amount").value = entry?.amount ?? "";
   $("flow-dated-frequency").value = entry?.frequency || "monthly";
-  $("flow-dated-start").value = entry?.startMonth || "";
+  $("flow-dated-start").value = entry ? entry.startMonth || "" : flowDraft.asOfMonth;
   $("flow-dated-end").value = entry?.endMonth || "";
   syncDatedFrequency();
   $("flow-dated-start").required = flowDatedRequireStart;
@@ -1425,19 +1413,13 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-delete").hidden = !entry;
   $("flow-dated-error").hidden = true;
   $("flow-dated-form").hidden = false;
+  if(!$("flow-dated-dialog").open)$("flow-dated-dialog").showModal();
   $("flow-dated-label").focus();
   $("flow-dated-form").scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 $("flow-add-income").addEventListener("click", (event) => showDatedForm("income", null, event.currentTarget));
 $("flow-add-expense").addEventListener("click", (event) => showDatedForm("spending", null, event.currentTarget));
-$("flow-add-state-pension").addEventListener("click", (event) => {
-  showDatedForm("income", null, event.currentTarget);
-  flowDatedRequireStart = true;
-  $("flow-dated-label").value = "State Pension";
-  $("flow-dated-start").required = true;
-  $("flow-dated-start-hint").textContent = "Required";
-  $("flow-dated-form-title").textContent = "Add State Pension";
-});
+$("flow-add-state-pension").addEventListener("click",()=>openStatePension("primary"));
 $("flow-dated-side").addEventListener("change", () => {
   $("flow-dated-form-title").textContent = `${editingFlowEntryId ? "Edit" : "Add"} ${$("flow-dated-side").value === "income" ? "income" : "expense"}`;
 });
@@ -1452,16 +1434,6 @@ $("flow-dated-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-flow-entry]");
   if (row) showDatedForm("income", row.dataset.flowEntry, row);
 });
-$("flow-entry-overview").addEventListener("click", (event) => {
-  const pay = event.target.closest("[data-flow-pay]");
-  const regular = event.target.closest("[data-flow-regular]");
-  if (!pay && !regular) return;
-  const otherIncome = regular?.dataset.flowRegular === "income";
-  $(pay || otherIncome ? "flow-pay-detail" : "flow-spending-detail").open = true;
-  const target = pay ? $(`flow-pay-${pay.dataset.flowPay}-annualGross`) : otherIncome ? $("flow-income-pensionIncome") : $("flow-spending-homeBills");
-  target.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  target.focus();
-});
 $("flow-dated-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
@@ -1470,13 +1442,17 @@ $("flow-dated-form").addEventListener("submit", (event) => {
       throw new RangeError("Give this entry a name and an amount greater than £0.");
     if (flowDatedRequireStart && !$("flow-dated-start").value) throw new RangeError("Choose the month when State Pension begins.");
     const entry = { id: editingFlowEntryId || createId("entry"), side: $("flow-dated-side").value, label: $("flow-dated-label").value.trim(), amount, frequency: $("flow-dated-frequency").value, startMonth: $("flow-dated-start").value, endMonth: $("flow-dated-end").value };
+    if(!$("flow-dated-replaces-row").hidden) {
+      if(!$("flow-dated-replaces").value || entry.side !== "spending" || entry.frequency !== "monthly") throw new RangeError("Choose an expense and a monthly amount for a spending change.");
+      entry.replacesKey=$("flow-dated-replaces").value;
+    }
     const entries = flowDraft.datedEntries.filter((item) => item.id !== editingFlowEntryId).concat(entry);
     summarizeMonthlyFlow({ ...flowDraft, datedEntries: entries }, draft);
     flowDraft.datedEntries = entries;
     editingFlowEntryId = null;
-    $("flow-dated-form").hidden = true;
+    $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
     renderFlow();
-    document.querySelector(`#flow-dated-list [data-flow-entry="${entry.id}"]`)?.focus();
+    document.querySelector(`#flow-dated-list [data-flow-entry="${entry.id}"], [data-flow-schedule-entry="${entry.id}"]`)?.focus();
     announce(`${entry.label} saved to income and spending.`);
   } catch (error) {
     $("flow-dated-error").textContent = error.message;
@@ -1484,14 +1460,14 @@ $("flow-dated-form").addEventListener("submit", (event) => {
   }
 });
 $("flow-dated-cancel").addEventListener("click", () => {
-  $("flow-dated-form").hidden = true;
+  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
   if (flowEntryTrigger?.isConnected) flowEntryTrigger.focus();
 });
 $("flow-dated-delete").addEventListener("click", () => {
   if (!editingFlowEntryId) return;
   flowDraft.datedEntries = flowDraft.datedEntries.filter((entry) => entry.id !== editingFlowEntryId);
   editingFlowEntryId = null;
-  $("flow-dated-form").hidden = true;
+  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
   renderFlow();
   $("flow-add-expense").focus();
   announce("Dated entry removed from the picture.");
@@ -1507,6 +1483,7 @@ function editLinkedAsset(id, trigger) {
   showItemDialog("asset", id, trigger);
 }
 for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-mortgage-list"]) $(id).addEventListener("click", (event) => {
+  const state = event.target.closest("[data-flow-state-pension]"); if(state) { openStatePension(state.dataset.flowStatePension); return; }
   const saving = event.target.closest("[data-flow-saving]");
   if (saving) { $("flow-split").open = true; $("flow-primary-share").focus(); return; }
   const entry = event.target.closest("[data-flow-entry]");
@@ -1743,6 +1720,17 @@ $("confirm-clear-button").addEventListener("click", () => {
   announce("Your name, age, assets and debts have been cleared from this tab.");
 });
 
+function openFlowEditor(side, owner = null) {
+  const dialog = $("flow-edit-dialog");
+  $("flow-pay-detail").hidden = side !== "income";
+  $("flow-spending-detail").hidden = side !== "spending";
+  $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
+  document.querySelectorAll(".flow-pay-card").forEach((card,index)=>{ card.hidden=Boolean(owner) && index !== (owner === "primary" ? 0 : 1); });
+  $("flow-income-inputs").closest("fieldset").hidden = Boolean(owner);
+  $("flow-pay-detail").querySelector(".flow-input-guidance").hidden = Boolean(owner);
+  $("flow-edit-title").textContent = side === "spending" ? "Spending categories" : owner ? `${owner === "primary" ? draft.name : draft.partnerName} · pay and pension` : "Pay and other income";
+  if (!dialog.open) dialog.showModal();
+}
 function organizeFlowInputs() {
   const panel = $("flow-dated-panel");
   panel.querySelector(".section-kicker").textContent = "Future and linked entries";
@@ -1792,8 +1780,123 @@ function organizeFlowInputs() {
   extrasBody.prepend(extrasIntro);
   panel.querySelector("#flow-dated-asof")?.remove();
 
-  $("planning-content").append($("flow-allocation-panel"), $("flow-growth-panel"));
+  const inputPanel = $("flow-input-shortcuts");
+  inputPanel.before(document.querySelector(".flow-map-panel"));
+  $("flow-diagram-view").after($("flow-split"));
+  inputPanel.querySelector(".flow-input-heading").innerHTML = '<div><h2 id="flow-input-title">Your income & spending</h2><p>Monthly amounts · select an entry to edit</p></div>';
+  const dialog = document.createElement("dialog"); dialog.id="flow-edit-dialog"; dialog.className="flow-edit-dialog"; dialog.setAttribute("aria-labelledby","flow-edit-title");
+  const dialogHeading = make("div","flow-dialog-heading"); const dialogTitle = make("h2","","Edit entry"); dialogTitle.id="flow-edit-title";
+  const done = make("button","heading-action heading-action-secondary","Done"); done.type="button"; done.addEventListener("click",()=>dialog.close()); dialogHeading.append(dialogTitle,done);
+  dialog.append(dialogHeading,editor); document.body.append(dialog); editorHeading.remove();
+  dialog.addEventListener("close",()=>{payDetail.open=false;spendingDetail.open=false;});
+  for (const [detail,side] of [[payDetail,"income"],[spendingDetail,"spending"]]) detail.addEventListener("toggle",()=>{if(detail.open && !dialog.open)openFlowEditor(side);});
+  const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Upcoming income & expenses"));
+  const planFuture=make("button","flow-entry-add","+ Plan a future entry"); planFuture.type="button";
+  planFuture.addEventListener("click",()=>$("flow-event-dialog").showModal());
+  futureHeading.append(planFuture);
+  const pensionRecords=make("section","flow-state-records"); pensionRecords.id="flow-state-records";
+  inputPanel.append(pensionRecords,$("flow-dated-form"),futureHeading,$("flow-dated-list"),$("flow-dated-empty"));
+  const datedDialog=document.createElement("dialog"); datedDialog.id="flow-dated-dialog"; datedDialog.className="flow-edit-dialog"; datedDialog.setAttribute("aria-labelledby","flow-dated-form-title"); datedDialog.append($("flow-dated-form"));document.body.append(datedDialog);
+  datedDialog.addEventListener("close",()=>{$("flow-dated-form").hidden=true;});
+  const property = document.createElement("details"); property.id="flow-more-entries"; property.className="flow-property-details"; property.innerHTML='<summary>Property cash-flow settings <small>Manage which linked rent and mortgage payments appear here</small></summary>';
+  extras.removeAttribute("id"); property.append($("flow-link-panel")); inputPanel.append(property);
+  const actions=panel.querySelector(".flow-dated-actions") || extras.querySelector(".flow-dated-actions");
+  actions.hidden=true; inputPanel.append(actions); panel.hidden=true; extras.hidden=true;
+  inputPanel.append(extrasIntro); extrasIntro.hidden=true;
+  $("flow-heading-copy")?.remove();
+  const timeline = $("flow-month").closest(".flow-timeline");
+  const slider=make("input","flow-time-slider"); slider.id="flow-time-slider"; slider.type="range"; slider.min="0"; slider.max="360"; slider.step="1"; slider.setAttribute("aria-label","Month on timeline");
+  slider.addEventListener("input",()=>{const start=flowDraft.timelineStartMonth || flowDraft.asOfMonth; const [year,month]=start.split("-").map(Number);const date=new Date(Date.UTC(year,month-1+Number(slider.value),1));flowDraft.asOfMonth=date.toISOString().slice(0,7);renderFlow();});
+  timeline.querySelector(".flow-timeline-heading").after(slider);
+  const allocationPanel=$("flow-allocation-panel");
+  $("flow-allocation-title").textContent="Where your saving goes";
+  allocationPanel.querySelector(".section-kicker").textContent="Your chosen order";
+  const settings=document.createElement("details"); settings.className="flow-routing-settings"; settings.innerHTML="<summary>Saving split, cash target & ISA details</summary>";
+  settings.append($("flow-split"),allocationPanel.querySelector(".flow-allocation-toggle"),$("flow-allocation-settings"));
+  allocationPanel.append(settings); inputPanel.after(allocationPanel);
+  $("flow-split").classList.add("flow-routing-split");
+  $("planning-content").append($("flow-growth-panel"));
 }
+
+function statePensionInput() {
+  return {qualifyingYears:Number($("flow-state-years").value),assessmentMonth:$("flow-state-assessment").value,startMonth:$("flow-state-start").value,qualifyingUntil:$("flow-state-continue").checked ? $("flow-state-until").value : "",mode:$("flow-state-mode").value,weeklyForecast:$("flow-state-weekly").value === "" ? null : Number($("flow-state-weekly").value),otherTaxableIncome:Number($("flow-state-other").value || 0)};
+}
+function previewStatePension() {
+  const input=statePensionInput();
+  $("flow-state-until-row").hidden=!$("flow-state-continue").checked;
+  $("flow-state-weekly-row").hidden=input.mode !== "official";
+  $("flow-state-other-row").hidden=input.mode === "record";
+  if(!$("flow-state-years").value) { $("flow-state-preview").textContent="Add qualifying years from your NI record to start."; return; }
+  try {
+    const owner=$("flow-state-owner").value;
+    const summary=summarizeMonthlyFlow({...flowDraft,asOfMonth:input.startMonth || flowDraft.asOfMonth},draft,{primary:draft.name,partner:draft.partnerName});
+    const pay=summary.payDetails.find(item=>item.owner === owner);
+    const result=estimateStatePension(input,input.assessmentMonth,pay.active ? Math.max(0,pay.annualGross-pay.employeePension) : 0);
+    $("flow-state-preview").textContent=`${result.qualifyingYears} recorded + ${result.futureYears} assumed future years = ${result.totalYears} projected qualifying years.${result.annualGross === null ? " Add an official forecast or choose a simplified illustration to include an amount in the timeline." : ` ${money(result.annualGross)}/year before tax; ${money(result.annualTax)} illustrative Income Tax; ${money(result.monthlyNet)}/month after estimated tax from ${flowMonthLabel(result.startMonth)}.`}`;
+  } catch(error) { $("flow-state-preview").textContent=error.message; }
+}
+function openStatePension(owner="primary") {
+  const input=flowDraft.statePensions?.[owner];
+  $("flow-state-owner").replaceChildren(new Option(draft.name || "You","primary"),...(draft.partnerName ? [new Option(draft.partnerName,"partner")] : []));
+  $("flow-state-owner").value=owner;
+  $("flow-state-title").textContent=`${owner === "primary" ? draft.name || "Your" : draft.partnerName || "Partner"} · State Pension`;
+  $("flow-state-years").value=input?.qualifyingYears ?? "";
+  $("flow-state-assessment").value=input?.assessmentMonth || flowDraft.timelineStartMonth;
+  $("flow-state-start").value=input?.startMonth || "";
+  $("flow-state-continue").checked=Boolean(input?.qualifyingUntil);
+  $("flow-state-until").value=input?.qualifyingUntil || flowDraft.pay[owner].endDate || "";
+  $("flow-state-mode").value=input?.mode || "record";
+  $("flow-state-weekly").value=input?.weeklyForecast ?? "";
+  $("flow-state-other").value=input?.otherTaxableIncome ?? 0;
+  $("flow-state-remove").hidden=!input; $("flow-state-error").hidden=true;
+  previewStatePension();
+  if(!$("flow-state-dialog").open) $("flow-state-dialog").showModal();
+  $("flow-state-years").focus();
+}
+function renderStatePensionRecords(summary) {
+  const root=$("flow-state-records"); root.replaceChildren(make("h3","","State Pension"));
+  root.append(make("p","flow-state-record-hint","NI years saved for later. Add a forecast and start month to include income."));
+  for(const owner of draft.partnerName ? ["primary","partner"] : ["primary"]) {
+    const detail=summary.statePensionDetails.find(item=>item.owner === owner);
+    const row=make("button","flow-state-record");row.type="button";row.dataset.flowStateOwner=owner;
+    const title=make("span","",owner === "primary" ? draft.name || "You" : draft.partnerName);
+    title.append(make("small","",detail ? `${detail.qualifyingYears} NI years${flowDraft.statePensions?.[owner]?.qualifyingYearsEstimated ? ` estimated since ${flowDraft.statePensions[owner].contributionStartYear}` : " recorded"}` : "NI record not added"));
+    row.append(title,make("span","",detail?.annualGross !== null && detail?.annualGross !== undefined ? `${money(detail.monthlyNet)}/month estimated net · ${detail.startMonth ? `from ${flowMonthLabel(detail.startMonth)}` : "start month needed"}` : detail ? "Edit forecast →" : "Add details →"));
+    row.addEventListener("click",()=>openStatePension(owner)); root.append(row);
+  }
+}
+$("flow-state-close").addEventListener("click",()=>$("flow-state-dialog").close());
+$("flow-state-owner").addEventListener("change",()=>openStatePension($("flow-state-owner").value));
+$("flow-state-form").addEventListener("input",previewStatePension);
+$("flow-state-form").addEventListener("change",previewStatePension);
+$("flow-state-form").addEventListener("submit",event=>{
+  event.preventDefault();
+  try {
+    if(!$("flow-state-years").value) throw new RangeError("Enter qualifying NI years, including zero if none are recorded.");
+    if($("flow-state-continue").checked && !$("flow-state-until").value) throw new RangeError("Choose the last month of assumed qualifying years.");
+    const owner=$("flow-state-owner").value, input=statePensionInput();
+    estimateStatePension(input,input.assessmentMonth);
+    const proposed={...(flowDraft.statePensions || {}),[owner]:input};
+    summarizeMonthlyFlow({...flowDraft,statePensions:proposed},draft,{primary:draft.name,partner:draft.partnerName});
+    flowDraft.statePensions=proposed;$("flow-state-dialog").close();renderFlow();document.querySelector(`[data-flow-state-owner="${owner}"]`)?.focus();announce("State Pension details saved. Future qualifying years remain an assumption.");
+  } catch(error) { $("flow-state-error").textContent=error.message;$("flow-state-error").hidden=false; }
+});
+$("flow-state-remove").addEventListener("click",()=>{flowDraft.statePensions[$("flow-state-owner").value]=null;$("flow-state-dialog").close();renderFlow();});
+$("flow-event-close").addEventListener("click",()=>$("flow-event-dialog").close());
+$("flow-event-dialog").addEventListener("click",event=>{
+  const choice=event.target.closest("[data-flow-event]");if(!choice)return;
+  $("flow-event-dialog").close();
+  const kind=choice.dataset.flowEvent;
+  if(kind === "pension") {openStatePension("primary");return;}
+  showDatedForm(["income","windfall"].includes(kind) ? "income" : "spending",null,document.querySelector(".flow-scheduled-heading button"));
+  const [year,month]=flowDraft.asOfMonth.split("-").map(Number);
+  $("flow-dated-start").value=new Date(Date.UTC(year,month,1)).toISOString().slice(0,7);
+  if(["cost","windfall"].includes(kind)) {$("flow-dated-frequency").value="once";syncDatedFrequency();}
+  if(kind === "change") {$("flow-dated-replaces-row").hidden=false;$("flow-dated-form-title").textContent="Change future spending";$("flow-dated-replaces").focus();}
+});
+$("flow-dated-replaces").addEventListener("change",()=>{
+  const option=$("flow-dated-replaces").selectedOptions[0]; if(option?.value)$("flow-dated-label").value=`${option.textContent} (new amount)`;
+});
 
 setupFlowInputs();
 syncFlowInputs();

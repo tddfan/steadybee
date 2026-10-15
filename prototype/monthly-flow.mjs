@@ -1,4 +1,5 @@
 /** Present-day monthly cash flow. Optional user-directed routing is a single-month illustration, not a forecast. */
+import { estimateStatePension } from "./state-pension.mjs";
 import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
@@ -8,11 +9,8 @@ export const INCOME_FIELDS = Object.freeze([
 ]);
 
 export const SPENDING_FIELDS = Object.freeze([
-  { key: "homeBills", label: "Home running costs & bills" },
   { key: "everyday", label: "Everyday living" },
-  { key: "transport", label: "Transport" },
-  { key: "lifestyle", label: "Lifestyle" },
-  { key: "other", label: "Other spending" },
+  { key: "carPayment", label: "Car payment" },
 ]);
 
 // 2026–27 overall ISA subscription limit. Recheck when the tax year changes.
@@ -36,6 +34,7 @@ export function createBlankMonthlyFlow() {
     asOfMonth: new Date().toISOString().slice(0, 7),
     timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [],
+    statePensions: { primary: null, partner: null },
     savings: { primaryShare: null },
     includeLinkedRent: false,
     includeLinkedMortgage: false,
@@ -57,7 +56,7 @@ export function createExampleMonthlyFlow() {
   return {
     pay: { primary: { annualTakeHome: null, annualGross: 146500, annualBonus: 50000, employeePension: 0, employeePensionRate: 7, employerPension: 0, employerPensionRate: 16, endDate: "2045-12" }, partner: { annualTakeHome: null, annualGross: 125000, annualBonus: 0, employeePension: 25000, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "2043-12" } },
     income: { pensionIncome: 0, otherIncome: 0 },
-    spending: { homeBills: 400, everyday: 1500, transport: 350, lifestyle: 900, other: 4000 },
+    spending: { everyday: 4000, carPayment: 400 },
     spendingLabels: {},
     customSpending: [],
     asOfMonth: new Date().toISOString().slice(0, 7),
@@ -66,6 +65,7 @@ export function createExampleMonthlyFlow() {
       { id: "school-fees-1", side: "spending", label: "School fees (current)", amount: 20000, frequency: "yearly", startMonth: new Date().toISOString().slice(0, 7), endMonth: addMonths(new Date().toISOString().slice(0, 7), 24) },
       { id: "school-fees-2", side: "spending", label: "School fees (senior)", amount: 30000, frequency: "yearly", startMonth: addMonths(new Date().toISOString().slice(0, 7), 25), endMonth: addMonths(new Date().toISOString().slice(0, 7), 84) },
     ],
+    statePensions: Object.fromEntries([["primary",2010],["partner",2009]].map(([owner,start]) => { const now=new Date(); const completed=now.getFullYear()-(now.getMonth()<3 ? 1 : 0); return [owner,{qualifyingYears:completed-start,contributionStartYear:start,qualifyingYearsEstimated:true,assessmentMonth:now.toISOString().slice(0,7),startMonth:"",qualifyingUntil:"",mode:"record",weeklyForecast:null,otherTaxableIncome:0}]; })),
     savings: { primaryShare: null },
     includeLinkedRent: true,
     includeLinkedMortgage: true,
@@ -77,8 +77,8 @@ export function createExampleMonthlyFlow() {
       isaAllowance: null,
       isaUsedPrimary: null,
       isaUsedPartner: null,
-      allocationEnabled: false,
-      tradingLabel: "",
+      allocationEnabled: true,
+      tradingLabel: "General investment account",
     },
   };
 }
@@ -95,6 +95,13 @@ function summarizeDatedEntries(flow, sources, uses) {
   if (!validMonth(asOfMonth)) throw new RangeError("The snapshot month must be a valid month and year.");
   if (!Array.isArray(flow.datedEntries)) throw new RangeError("Dated entries must be a list.");
   const seen = new Set();
+  const replaced = new Set();
+  const replaceable = new Set([...SPENDING_FIELDS.map(item=>item.key), ...(flow.customSpending || []).map(item=>`custom:${item.id}`)]);
+  const phases=flow.datedEntries.filter(entry=>entry?.replacesKey);
+  for(let i=0;i<phases.length;i++) for(let j=i+1;j<phases.length;j++) {
+    const left=phases[i],right=phases[j];
+    if(left.replacesKey === right.replacesKey && (left.startMonth || "0000-01") <= (right.endMonth || "9999-12") && (right.startMonth || "0000-01") <= (left.endMonth || "9999-12")) throw new RangeError("Two spending changes overlap for the same category.");
+  }
   return flow.datedEntries.map((entry) => {
     if (!entry || typeof entry.id !== "string" || !entry.id || seen.has(entry.id)) throw new RangeError("Each dated entry needs a unique ID.");
     seen.add(entry.id);
@@ -105,12 +112,18 @@ function summarizeDatedEntries(flow, sources, uses) {
         (entry.startMonth && entry.endMonth && entry.startMonth > entry.endMonth))
       throw new RangeError("Enter valid start and end months, with the end no earlier than the start.");
     if (entry.frequency === "once" && (!entry.startMonth || entry.endMonth)) throw new RangeError("A one-off entry needs an occurrence month and no end month.");
+    if(entry.replacesKey && (entry.side !== "spending" || entry.frequency !== "monthly" || !replaceable.has(entry.replacesKey))) throw new RangeError("A spending change must replace a recorded monthly category.");
     const amountPence = pennies(entry.amount, "Dated amount");
     const monthlyAmount = (entry.frequency === "yearly" ? Math.round(amountPence / 12) : amountPence) / 100;
     const status = entry.startMonth && entry.startMonth > asOfMonth ? "future"
       : ((entry.frequency === "once" && entry.startMonth < asOfMonth) || (entry.endMonth && entry.endMonth < asOfMonth)) ? "ended"
       : "active";
     const detail = { ...entry, monthlyAmount, status };
+    if(status === "active" && entry.replacesKey) {
+      if(replaced.has(entry.replacesKey)) throw new RangeError("Two spending changes overlap for the same category in this month.");
+      replaced.add(entry.replacesKey);
+      const index = uses.findIndex(item=>item.key === entry.replacesKey); if(index >= 0) uses.splice(index,1);
+    }
     if (status === "active" && monthlyAmount > 0) {
       (entry.side === "income" ? sources : uses).push({ key: `entry:${entry.id}`, label: entry.label.trim(), amount: monthlyAmount, kind: entry.side === "income" ? "datedIncome" : "datedSpending" });
     }
@@ -178,6 +191,18 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     for (const mortgage of linkedMortgages) if (mortgage.amount > 0 && mortgage.active)
       uses.push({ key: `mortgage:${mortgage.id}`, label: `${mortgage.label} ${mortgage.estimated ? "estimated " : ""}payment`, amount: mortgage.amount, kind: "mortgage" });
   }
+  const statePensionDetails = [];
+  for(const owner of ["primary","partner"]) {
+    const input=flow.statePensions?.[owner]; if(!input) continue;
+    const pay=payDetails.find(item=>item.owner === owner);
+    const basisMonth=input.startMonth && flow.asOfMonth < input.startMonth ? input.startMonth : flow.asOfMonth;
+    const taxablePay=pay && (!pay.endDate || basisMonth <= pay.endDate) ? Math.max(0,pay.annualGross-pay.employeePension) : 0;
+    const detail=estimateStatePension(input,input.assessmentMonth || timelineStartMonth,taxablePay);
+    detail.owner=owner;detail.person=names[owner] || (owner === "primary" ? "Your" : "Partner");
+    detail.active=Boolean(detail.startMonth && flow.asOfMonth >= detail.startMonth && detail.monthlyNet !== null);
+    statePensionDetails.push(detail);
+    if(detail.active && detail.monthlyNet>0) sources.push({key:`state-pension:${owner}`,label:`${detail.person} State Pension · estimated net`,amount:detail.monthlyNet,kind:"statePension",owner});
+  }
   const entryDetails = summarizeDatedEntries(flow, sources, uses);
   const incomePence = sources.reduce((sum, source) => sum + Math.round(source.amount * 100), 0);
   const spendingPence = uses.reduce((sum, use) => sum + Math.round(use.amount * 100), 0);
@@ -185,7 +210,7 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   if (remainderPence > 0) uses.push({ key: "unallocated", label: "Not assigned to spending", amount: remainderPence / 100, kind: "unallocated" });
   if (remainderPence < 0) sources.push({ key: "gap", label: "Amount not covered", amount: -remainderPence / 100, kind: "gap" });
   return {
-    sources, uses, linkedRents, linkedMortgages, payDetails, entryDetails, asOfMonth: flow.asOfMonth,
+    sources, uses, linkedRents, linkedMortgages, payDetails, entryDetails, statePensionDetails, asOfMonth: flow.asOfMonth,
     incomeTotal: incomePence / 100,
     spendingTotal: spendingPence / 100,
     remainder: remainderPence / 100,
@@ -208,6 +233,7 @@ export function monthlyFlowEvents(flow, holdings = {}, names = {}) {
   }
   for (const owner of ["primary", "partner"]) {
     const pay = flow.pay[owner];
+    if(flow.statePensions?.[owner]?.startMonth) add(flow.statePensions[owner].startMonth,`${names[owner] || owner} State Pension begins`);
     if (pay.endDate && (pay.annualGross || pay.annualTakeHome)) add(addMonths(pay.endDate, 1), `${names[owner] || (owner === "primary" ? "Your" : "Partner")} pay ends`);
   }
   for (const debt of holdings.debts || []) {
@@ -247,9 +273,10 @@ export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
   ].filter((item) => item.amount > 0);
   const availablePence = Math.max(0, Math.round(summary.remainder * 100));
   const hasPartner = Boolean(names.partner?.trim() || holdings.partnerName?.trim());
-  const sharedIncome = summary.sources.filter((item) => !["primaryPay", "partnerPay", "gap"].includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
-  const primaryIncome = summary.payDetails[0].monthlyTakeHome + sharedIncome / 2;
-  const partnerIncome = summary.payDetails[1].monthlyTakeHome + sharedIncome / 2;
+  const oneOffIncome = new Set(summary.entryDetails.filter(item=>item.side === "income" && item.frequency === "once").map(item=>`entry:${item.id}`));
+  const sharedIncome = summary.sources.filter((item) => !["primaryPay", "partnerPay", "gap"].includes(item.key) && !item.owner && !oneOffIncome.has(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  const primaryIncome = summary.payDetails[0].monthlyTakeHome + summary.sources.filter(item=>item.owner === "primary").reduce((sum,item)=>sum+item.amount,0) + sharedIncome / 2;
+  const partnerIncome = summary.payDetails[1].monthlyTakeHome + summary.sources.filter(item=>item.owner === "partner").reduce((sum,item)=>sum+item.amount,0) + sharedIncome / 2;
   const enteredShare = flow.savings?.primaryShare;
   if (enteredShare !== null && enteredShare !== undefined && (!Number.isFinite(Number(enteredShare)) || Number(enteredShare) < 0 || Number(enteredShare) > 100)) throw new RangeError("Saving split must be between 0% and 100%.");
   const primaryShare = !hasPartner ? 100 : enteredShare !== null && enteredShare !== undefined ? Number(enteredShare) : primaryIncome + partnerIncome > 0 ? primaryIncome / (primaryIncome + partnerIncome) * 100 : 50;
@@ -272,52 +299,73 @@ export function computeAllocationWaterfall(flow, holdings = {}, names = {}) {
   const summary = summarizeMonthlyFlow(flow, holdings, names);
   const assumptions = flow.assumptions || {};
   const reserveMonths = assumptions.cashReserveMonths ?? DEFAULT_RESERVE_MONTHS;
-  if (!Number.isInteger(reserveMonths) || reserveMonths < 1 || reserveMonths > 24)
-    throw new RangeError("Cash reserve target must be from 1 to 24 months.");
+  if (!Number.isInteger(reserveMonths) || reserveMonths < 1 || reserveMonths > 24) throw new RangeError("Cash reserve target must be from 1 to 24 months.");
   const allowance = assumptions.isaAllowance ?? ISA_ALLOWANCE_2026_27;
-  const usedPrimary = assumptions.isaUsedPrimary ?? 0;
-  const usedPartner = assumptions.isaUsedPartner ?? 0;
-  for (const [label, value] of [["ISA allowance", allowance], ["ISA used by primary person", usedPrimary], ["ISA used by partner", usedPartner]]) {
-    const amount = pennies(value, label);
-    if (amount > 100_000 * 100) throw new RangeError(`${label} cannot exceed £100,000.`);
+  const usedPrimary = assumptions.isaUsedPrimary ?? 0, usedPartner = assumptions.isaUsedPartner ?? 0;
+  for (const [label, value] of [["ISA allowance",allowance],["ISA used by primary person",usedPrimary],["ISA used by partner",usedPartner]]) if(pennies(value,label)>10000000) throw new RangeError(`${label} cannot exceed £100,000.`);
+  if(usedPrimary>allowance || usedPartner>allowance) throw new RangeError("ISA subscriptions already used cannot exceed the entered annual allowance.");
+  const hasPartner=Boolean(names.partner?.trim() || holdings.partnerName?.trim());
+  const netByOwner={primary:0,partner:0};
+  const oneOffIncome=new Set(summary.entryDetails.filter(item=>item.side === "income" && item.frequency === "once").map(item=>`entry:${item.id}`));
+  for(const item of summary.sources.filter(item=>item.kind!=="gap" && !oneOffIncome.has(item.key))) {
+    if(item.key === "primaryPay" || item.owner === "primary") netByOwner.primary+=item.amount;
+    else if(item.key === "partnerPay" || item.owner === "partner") netByOwner.partner+=item.amount;
+    else { netByOwner.primary+=hasPartner ? item.amount/2 : item.amount; if(hasPartner)netByOwner.partner+=item.amount/2; }
   }
-  if (usedPrimary > allowance || usedPartner > allowance)
-    throw new RangeError("ISA subscriptions already used cannot exceed the entered annual allowance.");
-  const surplusPence = Math.max(0, Math.round(summary.remainder * 100));
-  const cashTargetPence = Math.round(summary.spendingTotal * 100) * reserveMonths;
-  const currentCashPence = (holdings.assets || []).filter((asset) => asset.kind === "cash")
-    .reduce((sum, asset) => sum + pennies(asset.value, "Cash asset value"), 0);
-  const cashGapPence = Math.max(0, cashTargetPence - currentCashPence);
-  const enabled = assumptions.allocationEnabled === true;
-  const hasPartner = Boolean(names.partner?.trim() || holdings.partnerName?.trim());
-  const label = typeof assumptions.tradingLabel === "string" ? assumptions.tradingLabel.trim() : "";
-  if (label.length > 60) throw new RangeError("Account label must be no longer than 60 characters.");
-  const allocations = [];
-  if (enabled && surplusPence) {
-    let remaining = surplusPence;
-    for (const [bucket, title, capacity] of [
-      ["cash-reserve", "Cash reserve", cashGapPence],
-      ["isa-primary", `${names.primary || "Your"}'s ISA`, Math.round((allowance - usedPrimary) * 100)],
-      ...(hasPartner ? [["isa-partner", `${names.partner || "Partner"}'s ISA`, Math.round((allowance - usedPartner) * 100)]] : []),
-    ]) {
-      const amount = Math.min(remaining, capacity);
-      allocations.push({ bucket, label: title, monthlyAmount: amount / 100, capacity: capacity / 100 });
-      remaining -= amount;
+  const enteredShare=flow.savings?.primaryShare;
+  if(enteredShare !== null && enteredShare !== undefined && (!Number.isFinite(enteredShare) || enteredShare<0 || enteredShare>100)) throw new RangeError("Saving split must be between 0% and 100%.");
+  const incomeSum=netByOwner.primary+netByOwner.partner;
+  const primaryShare=!hasPartner ? 1 : enteredShare !== null && enteredShare !== undefined ? enteredShare/100 : incomeSum>0 ? netByOwner.primary/incomeSum : .5;
+  const oneOffCosts=summary.entryDetails.filter(item=>item.status === "active" && item.side === "spending" && item.frequency === "once").reduce((sum,item)=>sum+Math.round(item.monthlyAmount*100),0);
+  const recurringPence=Math.max(0,Math.round(summary.spendingTotal*100)-oneOffCosts);
+  const target=recurringPence*reserveMonths, surplus=Math.max(0,Math.round(summary.remainder*100));
+  const primaryTarget=Math.round(target*primaryShare), primarySurplus=Math.round(surplus*primaryShare);
+  const cash={primary:0,partner:0};
+  for(const asset of (holdings.assets || []).filter(asset=>asset.kind === "cash")) {
+    const value=pennies(asset.value,"Cash asset value");
+    if(asset.owner === "shared") {const first=hasPartner ? Math.round(value*primaryShare) : value;cash.primary+=first;cash.partner+=value-first;}
+    else if(asset.owner === "partner" && hasPartner) cash.partner+=value;
+    else cash.primary+=value;
+  }
+  const enabled=assumptions.allocationEnabled === true;
+  const label=typeof assumptions.tradingLabel === "string" ? assumptions.tradingLabel.trim() : "";
+  if(label.length>60) throw new RangeError("Account label must be no longer than 60 characters.");
+  const people=(hasPartner ? ["primary","partner"] : ["primary"]).map(owner=>{
+    const first=owner === "primary", reserveTarget=first ? primaryTarget : target-primaryTarget, monthlySaving=first ? primarySurplus : surplus-primarySurplus;
+    const gap=Math.max(0,reserveTarget-cash[owner]), headroom=Math.round((allowance-(first ? usedPrimary : usedPartner))*100);
+    const toCash=enabled ? Math.min(monthlySaving,gap) : 0, toIsa=enabled ? Math.min(monthlySaving-toCash,headroom) : 0;
+    return {owner,person:names[owner] || (first ? holdings.name || "You" : holdings.partnerName || "Partner"),share:(first ? primaryShare : 1-primaryShare)*100,monthlySaving:monthlySaving/100,reserveTarget:reserveTarget/100,currentCash:cash[owner]/100,reserveGap:gap/100,cash:toCash/100,isa:toIsa/100,general:enabled ? (monthlySaving-toCash-toIsa)/100 : 0,isaHeadroom:headroom/100};
+  });
+  const allocations=[];
+  if(enabled && surplus) {
+    allocations.push({bucket:"cash-reserve",label:"Cash reserve",monthlyAmount:people.reduce((sum,p)=>sum+Math.round(p.cash*100),0)/100,capacity:people.reduce((sum,p)=>sum+Math.round(p.reserveGap*100),0)/100});
+    for(const person of people) allocations.push({bucket:`isa-${person.owner}`,label:`${person.person}'s ISA`,monthlyAmount:person.isa,capacity:person.isaHeadroom});
+    allocations.push({bucket:label ? "trading":"unallocated",label:label || "Not yet assigned",monthlyAmount:people.reduce((sum,p)=>sum+Math.round(p.general*100),0)/100,capacity:null});
+  }
+  return {enabled,surplus:surplus/100,cashTarget:target/100,currentCash:(cash.primary+cash.partner)/100,cashGap:people.reduce((sum,p)=>sum+Math.round(p.reserveGap*100),0)/100,reserveMonths,recurringSpending:recurringPence/100,allowance,usedPrimary,usedPartner,hasPartner,people,primaryShare:primaryShare*100,allocations,summary};
+}
+
+/** Monthly approximation from the selected month through March. Deposits only; no asset growth or withdrawals. */
+export function projectTaxYearSaving(flow, holdings = {}, names = {}) {
+  const [year, month] = flow.asOfMonth.split('-').map(Number);
+  const endYear = month >= 4 ? year + 1 : year;
+  const endMonth = `${endYear}-03`;
+  const workingFlow = structuredClone(flow), workingHoldings = structuredClone(holdings);
+  workingHoldings.assets ||= [];
+  const months = [], totals = new Map();
+  for (let current = flow.asOfMonth; current <= endMonth; current = addMonths(current, 1)) {
+    workingFlow.asOfMonth = current;
+    const plan = computeAllocationWaterfall(workingFlow, workingHoldings, names);
+    months.push({month:current, people:plan.people, shortfall:Math.max(0,-plan.summary.remainder)});
+    for (const person of plan.people) {
+      if (!totals.has(person.owner)) totals.set(person.owner,{owner:person.owner,person:person.person,cash:0,isa:0,general:0,isaUsed:person.owner === 'primary' ? plan.usedPrimary : plan.usedPartner,isaFilledMonth:null});
+      const total=totals.get(person.owner);
+      for (const key of ['cash','isa','general']) total[key]=Math.round((total[key]+person[key])*100)/100;
+      const usedKey=person.owner === 'primary' ? 'isaUsedPrimary' : 'isaUsedPartner';
+      workingFlow.assumptions[usedKey]=Math.round(((workingFlow.assumptions[usedKey] || 0)+person.isa)*100)/100;
+      if (!total.isaFilledMonth && person.isa>0 && workingFlow.assumptions[usedKey]>=plan.allowance) total.isaFilledMonth=current;
+      workingHoldings.assets.push({kind:'cash',owner:person.owner,value:person.cash});
     }
-    allocations.push({ bucket: label ? "trading" : "unallocated", label: label || "Not yet assigned", monthlyAmount: remaining / 100, capacity: null });
   }
-  return {
-    enabled,
-    surplus: surplusPence / 100,
-    cashTarget: cashTargetPence / 100,
-    currentCash: currentCashPence / 100,
-    cashGap: cashGapPence / 100,
-    reserveMonths,
-    allowance,
-    usedPrimary,
-    usedPartner,
-    hasPartner,
-    allocations,
-    summary,
-  };
+  return {startMonth:flow.asOfMonth,endMonth,taxYear:`${endYear-1}–${String(endYear).slice(2)}`,months,people:[...totals.values()].map(person=>({...person,isaTotal:Math.round((person.isaUsed+person.isa)*100)/100}))};
 }

@@ -641,7 +641,7 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 #planning-content { margin-top: 25px; }
 #planning-content .flow-allocation-panel { margin-top: 0; }
 @media (max-width: 800px) { .flow-savings-panel { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .flow-timeline { padding: 20px 18px; } .flow-timeline-heading { align-items: stretch; flex-direction: column; } .flow-timeline-heading label { max-width: 220px; } .flow-savings-panel { padding: 21px 18px; } .flow-next-planning { align-items: start; flex-direction: column; padding: 22px 18px; } #flow-diagram-view { overflow-x: auto; } #flow-sankey { display: block; min-width: 1220px; } .picture-steps { overflow-x: auto; padding-bottom: 5px; } .picture-step { flex: none; } }
+@media (max-width: 700px) { .flow-timeline { padding: 20px 18px; } .flow-timeline-heading { align-items: stretch; flex-direction: column; } .flow-timeline-heading label { max-width: 220px; } .flow-savings-panel { padding: 21px 18px; } .flow-next-planning { align-items: start; flex-direction: column; padding: 22px 18px; } #flow-diagram-view { overflow-x: auto; } #flow-sankey { display: block; min-width: 1400px; } .flow-legend { min-width: 1400px; } .picture-steps { overflow-x: auto; padding-bottom: 5px; } .picture-step { flex: none; } }
 .flow-ribbon { opacity: .56; stroke: #fffefa; stroke-width: 1.5px; stroke-linejoin: round; }
 .flow-ribbon-in { opacity: .48; }
 .flow-ribbon-cut { opacity: .68; }
@@ -673,13 +673,21 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-split input { width: 70px; min-height: 40px; border: 1px solid #9fb9a5; border-radius: 7px; padding: 5px; font: inherit; }
 .flow-split p { margin: 6px 0 0; }
 @media (max-width: 700px) { .flow-timeline { grid-template-columns: 1fr; padding: 12px; } .flow-timeline-heading { display: flex; flex-direction: row; justify-content: space-between; } .flow-timeline-heading label { flex: none; } .flow-result { grid-template-columns: 1fr; padding: 13px 16px; } .flow-result-maths { padding: 4px 0 0; border: 0; } .flow-timeline-events { max-width: 100%; } }
-.flow-svg-heading { fill: #355d49; font: 720 15px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .035em; }
-.flow-svg-stage-total { fill: #254d3b; font: 620 16px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
-.flow-svg-label { fill: #2b4c3c; font: 500 15px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-.flow-svg-deduction-label { fill: #2b4c3c; font: 500 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+.flow-svg-heading { fill: #355d49; font: 680 17px "Avenir Next", Avenir, "Segoe UI", sans-serif; }
+.flow-svg-stage-total { fill: #254d3b; font: 650 18px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+.flow-svg-label { fill: #263f34; font: 520 17px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.flow-svg-deduction-label { fill: #263f34; font: 520 15px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
 .flow-svg-net-label { fill: #285943; font: 600 16px "Avenir Next", Avenir, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-.flow-svg-stage { stroke: #dbe6dc; stroke-width: 1px; }
+.flow-svg-stage { stroke: #cbd9cf; stroke-width: 1.5px; }
 .flow-svg-node { stroke: #fffefa; stroke-width: 2px; }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 9px 20px; margin: 17px 0 4px; padding: 0; color: #314f40; list-style: none; }
+.flow-legend li { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; font-size: .88rem; font-weight: 650; }
+.flow-legend-swatch { display: inline-block; width: 15px; height: 15px; border: 1px solid #294b3d40; border-radius: 4px; }
+.flow-legend-income { background: linear-gradient(135deg,#28745f 0 48%,#8064a4 52% 100%); }
+.flow-legend-tax { background: #ad6b58; }
+.flow-legend-pension { background: #9276a9; }
+.flow-legend-spending { background: #bd8247; }
+.flow-legend-saving { background: #277a80; }
 .flow-bridge-equation { display: flex; align-items: stretch; gap: 10px; margin-top: 24px; }
 .flow-bridge-amount { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; min-height: 106px; padding: 16px 18px; border: 1px solid #d5e2d8; border-radius: 13px; background: #f8faf6; }
 .flow-bridge-amount span { color: #426451; font-size: .85rem; font-weight: 680; }
@@ -924,3 +932,181 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 @media (max-width: 700px) { .flow-progressive > summary { padding: 15px 18px; } .flow-progressive-body { padding: 18px; } }
 @media (max-width: 900px) { .flow-result-maths { padding: 5px 0 0; border-top: 0; } }
 @media (max-width: 700px) { .flow-timeline { padding: 12px; } .flow-timeline-heading { flex-direction: row; } .flow-result { padding: 13px 16px; } }
+
+/* Monthly picture: timeline → flow → one entry ledger. */
+.flow-heading h1 { font-size:clamp(2.2rem,3.4vw,3.2rem); margin:10px 0; }
+.flow-heading p:last-child { max-width:850px; font-size:1rem; }
+.flow-timeline { display:grid; grid-template-columns:190px minmax(0,1fr); align-items:center; gap:8px 24px; padding:14px 20px; margin-top:22px; }
+.flow-timeline-heading { display:block; }
+.flow-timeline-heading > div { display:none; }
+.flow-timeline-heading label { font-size:16px; display:flex; align-items:center; gap:8px; }
+.flow-timeline-heading input { width:145px; min-height:44px; font:inherit; }
+.flow-time-slider { width:100%; accent-color:#28745f; cursor:pointer; }
+.flow-timeline-events { grid-column:2; display:flex; gap:16px; overflow-x:auto; padding:0 0 4px; }
+.flow-timeline-event { flex:0 0 auto; min-height:44px; padding:4px 8px; border:0; border-radius:5px; background:transparent; }
+.flow-timeline-event strong { font:500 16px "Avenir Next",sans-serif; }
+.flow-timeline-event small { display:none; }
+.flow-timeline-event[aria-pressed="true"] { background:#e1eee5; box-shadow:none; }
+#flow-timeline-context { grid-column:1/-1; font:400 16px "Avenir Next",sans-serif; white-space:normal; }
+.flow-result { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 24px; padding:12px 20px; }
+.flow-result > div:first-child > strong { font:500 1.6rem "Avenir Next",sans-serif; }
+.flow-result > div:first-child > span,.flow-result-maths span { font-size:16px; font-weight:500; }
+.flow-result p { display:none; }
+.flow-result-maths strong { font:500 1.1rem "Avenir Next",sans-serif; }
+.flow-split { width:100%; font-size:16px; }
+.flow-split:not([open]) { display:none; }
+.flow-map-panel { margin-top:16px; }
+.flow-map-heading .section-kicker { display:none; }
+.flow-map-heading h2 { font-size:1.6rem; }
+.flow-view-help { font-size:16px; max-width:950px; }
+.flow-legend { gap:10px 22px; }
+.flow-legend li { font-size:16px; font-weight:400; }
+.flow-svg-heading { font:500 21px "Avenir Next",Arial,sans-serif; fill:#25483a; }
+.flow-svg-label { font:500 19px "Avenir Next",Arial,sans-serif; fill:#253e34; }
+.flow-svg-value { font:400 19px "Avenir Next",Arial,sans-serif; fill:#38584a; font-variant-numeric:tabular-nums; }
+.flow-svg-caption { font:400 17px "Avenir Next",Arial,sans-serif; fill:#4e6759; }
+.flow-curved-ribbon { opacity:.48; stroke:#fffefa; stroke-width:1; transition:opacity .15s; }
+.flow-curved-ribbon:hover { opacity:.8; cursor:pointer; }
+.flow-chart-target { cursor:pointer; }
+.flow-chart-target:hover text { fill:#165f48; text-decoration:underline; }
+.flow-chart-target:focus { outline:2px solid #28745f; outline-offset:4px; }
+.flow-input-shortcuts { padding:22px 26px; }
+.flow-input-heading { display:block; margin-bottom:16px; }
+.flow-input-heading h2 { font-size:1.6rem; margin:0 0 3px; }
+.flow-input-heading p { margin:0; font-size:16px; color:#52675a; }
+.flow-entry-overview { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+.flow-entry-column { min-width:0; }
+.flow-entry-column h3 { font:500 18px "Avenir Next",sans-serif; margin:0; padding:10px 0; border-bottom:2px solid #b4c9bc; }
+.flow-entry-row { display:grid; grid-template-columns:minmax(0,1fr) auto 20px; gap:12px; align-items:center; width:100%; min-height:52px; padding:10px 4px; border:0; border-bottom:1px solid #dce5de; background:transparent; text-align:left; color:#263f34; font:400 18px "Avenir Next",Arial,sans-serif; cursor:pointer; }
+.flow-entry-row:hover { background:#f0f6ef; }
+.flow-entry-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.flow-entry-arrow { color:#537c65; }
+.flow-entry-add { min-height:44px; padding:10px 12px; margin-top:8px; border:1px solid #9bb7a5; border-radius:8px; background:#fffefa; color:#245840; font:500 16px "Avenir Next",sans-serif; cursor:pointer; margin-right:8px; }
+.flow-entry-empty { font-size:18px; }
+.flow-property-details { margin-top:20px; border-top:1px solid #d4dfd6; padding-top:16px; }
+.flow-property-details summary { min-height:44px; cursor:pointer; font-size:18px; }
+.flow-scheduled-heading { font:500 18px "Avenir Next",sans-serif; margin:20px 0 8px; }
+.flow-scheduled-heading:has(+ .flow-dated-list:empty) { display:none; }
+.flow-edit-dialog { width:min(850px,calc(100vw - 32px)); max-height:90vh; overflow:auto; padding:24px; border:1px solid #a1b9aa; border-radius:16px; background:#fffefa; color:#263f34; }
+.flow-edit-dialog::backdrop { background:#18372d66; }
+.flow-dialog-heading { display:flex; justify-content:space-between; align-items:center; gap:20px; }
+.flow-dialog-heading h2 { font-size:1.5rem; margin:0; }
+.flow-edit-dialog .flow-editor { padding:0; margin:16px 0 0; border:0; }
+.flow-edit-dialog .flow-editor-part { border:0; padding:0; }
+.flow-edit-dialog .flow-editor-part > summary { display:none; }
+.flow-edit-dialog .flow-pay-grid { grid-template-columns:1fr; }
+.flow-edit-dialog .flow-pay-card[hidden] { display:none; }
+.flow-edit-dialog .flow-input-row { font-size:18px; }
+.flow-edit-dialog .flow-category-help,.flow-edit-dialog .flow-input-guidance { font-size:16px; }
+@media(max-width:700px) {
+ .flow-timeline { grid-template-columns:1fr; gap:8px; padding:12px; }
+ .flow-timeline-events { grid-column:1; }
+ .flow-entry-overview { grid-template-columns:1fr; gap:20px; }
+ .flow-result-maths { border:0; padding:0; }
+ .flow-input-shortcuts { padding:20px 16px; }
+ .flow-legend { min-width:0; }
+ #flow-sankey { display:block; min-width:1200px; }
+ .flow-edit-dialog { padding:18px; }
+}
+.flow-edit-dialog .flow-pay-section > h3 { display:none; }
+.flow-timeline-events { position:relative; height:22px; overflow:visible; margin-inline:8px; padding:0; }
+.flow-timeline-event { position:absolute; top:0; width:18px; min-height:18px; height:18px; padding:0; transform:translateX(-50%); border:2px solid #fffefa; border-radius:50%; background:#769686; box-shadow:0 0 0 1px #769686; }
+.flow-timeline-event strong { display:none; }
+.flow-timeline-event[aria-pressed="true"] { background:#245d43; box-shadow:0 0 0 2px #245d43; }
+.flow-timeline-event:focus-visible { outline:3px solid #3b7fa1; outline-offset:3px; }
+.flow-time-slider { margin:0; }
+.flow-property-details .flow-link-panel { margin-top:10px; }
+.flow-timeline-events { height:28px; }
+.flow-timeline-event { width:44px; height:44px; min-height:44px; top:-8px; border:0; background:transparent; box-shadow:none; }
+.flow-timeline-event::after { content:""; position:absolute; left:15px; top:15px; width:14px; height:14px; border:2px solid #fffefa; border-radius:50%; background:#769686; box-shadow:0 0 0 1px #769686; }
+.flow-timeline-event[aria-pressed="true"] { background:transparent; box-shadow:none; }
+.flow-timeline-event[aria-pressed="true"]::after { background:#245d43; box-shadow:0 0 0 2px #245d43; }
+@media(min-width:701px) {
+ .flow-time-slider,.flow-timeline-events { grid-row:1; grid-column:2; }
+ .flow-timeline-events { pointer-events:none; align-self:center; }
+ .flow-timeline-event { pointer-events:auto; }
+}
+@media(max-width:700px) {
+ .flow-time-slider,.flow-timeline-events { grid-row:2; grid-column:1; }
+ .flow-timeline-events { pointer-events:none; align-self:center; }
+ .flow-timeline-event { pointer-events:auto; }
+}
+.flow-dated-row-main strong { font-weight:500; }
+.flow-dated-row-amount { font-weight:400; }
+.flow-dated-status { font-weight:500; }
+/* The flow carries the totals and colour labels. */
+.flow-timeline { grid-template-columns:260px minmax(0,1fr); }
+.flow-timeline-heading label { white-space:nowrap; }
+.flow-timeline-heading input { width:205px; min-width:205px; font-weight:400; }
+.flow-entry-name small { display:block; margin-top:3px; color:#53695c; font-size:16px; }
+.flow-scheduled-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:24px; }
+.flow-scheduled-heading h3 { margin:0; font:500 18px "Avenir Next",sans-serif; }
+.flow-scheduled-heading .flow-entry-add { margin:0; }
+.flow-future-empty { color:#53695c; font-size:16px; }
+.flow-past-entries { margin-top:16px; }
+.flow-past-entries > summary { min-height:44px; cursor:pointer; font-size:16px; }
+.flow-map-panel > .flow-split { margin-top:16px; }
+@media(max-width:700px) { .flow-timeline { grid-template-columns:1fr; } }
+@media(min-width:701px) { .flow-timeline { grid-template-columns:310px minmax(0,1fr); } }
+/* Shared entry patterns: person records, dated events and chosen saving destinations. */
+.flow-state-records { border-top:1px solid #ccdacf; margin-top:24px; padding-top:18px; }
+.flow-state-records h3 { font:500 18px "Avenir Next",sans-serif; margin:0; }
+.flow-state-record-hint { font-size:16px; color:#52675a; margin:6px 0 10px; }
+.flow-state-record { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; min-height:64px; width:100%; padding:12px 4px; border:0; border-bottom:1px solid #dbe4dc; background:transparent; color:#294638; text-align:left; font:400 18px "Avenir Next",sans-serif; cursor:pointer; }
+.flow-state-record small { display:block; font-size:16px; color:#53695c; }
+.flow-state-record > span:last-child { font-size:16px; }
+.flow-state-record:hover { background:#eff6ef; }
+.flow-state-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-block:18px; }
+.flow-state-grid label,#flow-state-until-row { display:grid; gap:6px; font-size:18px; }
+.flow-state-grid input,.flow-state-grid select,#flow-state-until { width:100%; min-height:44px; border:1px solid #a6bdad; border-radius:8px; padding:8px; background:white; color:#264333; font:inherit; }
+.flow-state-grid small,#flow-state-until-row small { font-size:16px; color:#53695c; }
+.flow-state-check { display:flex; gap:10px; align-items:center; min-height:44px; margin:18px 0 8px; font-size:18px; }
+.flow-state-check input { width:22px; height:22px; accent-color:#28745f; }
+.flow-state-preview { padding:16px; border:1px solid #b9d0be; border-radius:10px; background:#f0f7ef; font-size:18px; }
+.flow-state-basis { font-size:16px; }
+.flow-state-basis summary { min-height:44px; cursor:pointer; }
+.flow-dialog-intro,.flow-dialog-note { font-size:16px; color:#4c6555; }
+.flow-event-options { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:22px; }
+.flow-event-options button { min-height:90px; padding:16px; border:1px solid #b7cdbc; border-radius:10px; background:#f7faf4; color:#284d39; font:500 18px "Avenir Next",sans-serif; text-align:left; }
+.flow-event-options small { display:block; margin-top:5px; color:#53695c; font-size:16px; font-weight:400; }
+#flow-dated-dialog .flow-dated-form { border:0; margin:0; padding:0; }
+#flow-dated-dialog h3 { font:500 1.5rem "Avenir Next",sans-serif; }
+#flow-dated-replaces-row small { font-size:16px; color:#52675a; }
+.flow-property-details summary small { display:block; margin-left:20px; color:#53695c; font-size:16px; }
+.flow-linked-badge { color:#386f58 !important; }
+.flow-allocation-panel { margin-top:20px; padding:24px 26px; border:1px solid #ccdacf; border-radius:18px; background:#fffefa; }
+.flow-allocation-heading .section-kicker { display:none; }
+.flow-allocation-heading h2 { margin:0; font-size:1.6rem; }
+.flow-allocation-heading p { max-width:100%; font-size:16px; }
+.flow-allocation-steps { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px; }
+.flow-person-route { min-width:0; }
+.flow-person-route-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; border-bottom:2px solid #b4c9bc; padding-bottom:10px; }
+.flow-person-route-heading h3 { margin:0; font:500 18px "Avenir Next",sans-serif; }
+.flow-person-route-heading span { font-size:16px; }
+.flow-route-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:12px 0; border-bottom:1px solid #dbe4dc; font-size:18px; }
+.flow-route-row small { display:block; font-size:16px; color:#53695c; }
+.flow-route-row > span:last-child { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.flow-route-note { grid-column:1/-1; font-size:16px; margin:0; color:#53695c; }
+.flow-routing-settings { border-top:1px solid #ccdacf; margin-top:18px; padding-top:10px; font-size:16px; }
+.flow-routing-settings > summary { min-height:44px; cursor:pointer; padding-block:8px; }
+.flow-routing-split:not([open]) { display:block; }
+.flow-routing-settings .flow-allocation-toggle { font-size:16px; }
+@media(max-width:700px) { .flow-state-grid,.flow-event-options,.flow-allocation-steps { grid-template-columns:1fr; } .flow-allocation-panel { padding:20px 16px; } }
+
+/* Compact records and aligned saving inputs. */
+.flow-state-records { display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; }
+.flow-state-records h3,.flow-state-record-hint { grid-column:1/-1; }
+.flow-state-record-hint { margin:0; }
+.flow-state-record { padding:8px 10px; background:#f6f9f5; border:1px solid #d3dfd5; border-radius:8px; }
+.flow-saving-period { grid-column:1/-1; display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; font-size:16px; }
+.flow-saving-table { width:100%; border-collapse:collapse; font-size:18px; }
+.flow-saving-table th { text-align:right; font-size:16px; font-weight:500; padding:10px 0; color:#52675a; }
+.flow-saving-table th:first-child { text-align:left; }
+.flow-saving-table td { padding:12px 0; border-bottom:1px solid #dbe4dc; vertical-align:top; }
+.flow-saving-table td:not(:first-child) { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; padding-left:14px; }
+.flow-saving-table small { display:block; font-size:16px; color:#52675a; margin-top:4px; }
+.flow-routing-settings .flow-allocation-grid { align-items:stretch; }
+.flow-routing-settings .flow-allocation-grid label { display:flex; flex-direction:column; justify-content:flex-end; gap:6px; }
+.flow-routing-settings .flow-allocation-grid input { margin-top:auto; width:100%; box-sizing:border-box; }
+.flow-routing-settings .flow-allocation-grid label small { margin:0; min-height:22px; }
+@media(max-width:700px) { .flow-state-records { grid-template-columns:1fr; } .flow-saving-table { font-size:16px; } }

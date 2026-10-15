@@ -7,7 +7,9 @@
     <meta name="theme-color" content="#f4f1ea" />
     <title>Your money picture · Steadybee</title>
     <meta name="description" content="Explore Alex and Gemma’s editable household example, then build a picture of what you own and owe." />
-    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="./manifest.webmanifest?v=2" />
     <link rel="stylesheet" href="./asset-canvas.css?v=20261015g" />
     <script type="module" src="./asset-canvas.mjs?v=20261015h"></script>
   </head>
@@ -133,14 +135,17 @@
         </section>
         <section id="flow-screen" class="flow-screen" aria-labelledby="flow-title" hidden>
           <nav class="picture-steps" aria-label="Your picture sections"><button id="step-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>2</span> Income &amp; spending</span><span class="step-connector" aria-hidden="true"></span><button id="flow-to-planning" class="picture-step" type="button"><span>3</span> Planning</button></nav>
-          <div class="flow-heading"><div><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> A monthly picture across time</p><h1 id="flow-title" tabindex="-1">Where your money goes.</h1><p>Add income and expenses for now or later, then choose a month to see that picture. Future amounts stay as entered: no inflation, pay growth or future tax changes are applied.</p></div><button id="back-to-assets" class="heading-action heading-action-secondary" type="button">← Back to assets</button></div>
+          <div class="flow-heading"><div><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> A monthly picture across time</p><h1 id="flow-title" tabindex="-1">Where your money goes.</h1><p>See your monthly flow. Add or edit an entry below, including changes planned for later.</p></div><button id="back-to-assets" class="heading-action heading-action-secondary" type="button">← Back to assets</button></div>
           <section class="flow-timeline" aria-labelledby="flow-timeline-title"><div class="flow-timeline-heading"><div><p class="section-kicker">Move through time</p><h2 id="flow-timeline-title">How the picture changes</h2></div><label for="flow-month">View month <input id="flow-month" type="month" /></label></div><div id="flow-timeline-events" class="flow-timeline-events" aria-label="Months when income or spending changes"></div><p id="flow-timeline-context">Select a change or choose any month. Figures are held in today’s pounds; this is not a forecast.</p></section>
-          <section class="flow-result" aria-label="Monthly money summary"><div><span id="flow-result-label">Saving after spending</span><strong id="flow-result-value">£0</strong><p id="flow-result-context">The remainder is shown as saving.</p></div><div class="flow-result-maths"><div><span>Money in</span><strong id="flow-income-total">£0</strong></div><span aria-hidden="true">−</span><div><span>Spending</span><strong id="flow-spending-total">£0</strong></div></div><details id="flow-split" class="flow-split"><summary id="flow-split-summary">Saving split</summary><label for="flow-primary-share">First person's share of saving <span class="flow-percent-input"><input id="flow-primary-share" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="Auto" />%</span></label><p id="flow-split-help">By default, saving follows each person's take-home income. Shared income is split equally. Enter a percentage to change this illustration.</p></details></section>
+          <section class="flow-result" aria-label="Monthly money summary" hidden><div><span id="flow-result-label">Saving after spending</span><strong id="flow-result-value">£0</strong><p id="flow-result-context">The remainder is shown as saving.</p></div><div class="flow-result-maths"><div><span>Money in</span><strong id="flow-income-total">£0</strong></div><span aria-hidden="true">−</span><div><span>Spending</span><strong id="flow-spending-total">£0</strong></div></div><details id="flow-split" class="flow-split"><summary id="flow-split-summary">Saving split</summary><label for="flow-primary-share">First person's share of saving <span class="flow-percent-input"><input id="flow-primary-share" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="Auto" />%</span></label><p id="flow-split-help">By default, saving follows each person's take-home income. Shared income is split equally. Enter a percentage to change this illustration.</p></details></section>
           <section id="flow-input-shortcuts" class="flow-input-shortcuts" aria-labelledby="flow-input-title"><div class="flow-input-heading"><div><p class="section-kicker">The amounts behind this picture</p><h2 id="flow-input-title">Update your monthly inputs</h2></div><p>Open a card to edit the figures that feed the flow below. Rename, add or remove spending categories.</p></div><div id="flow-entry-overview" class="flow-entry-overview" aria-label="Pay, other money in and regular spending"></div></section>
           <section class="flow-map-panel" aria-labelledby="flow-map-title">
             <div class="flow-map-heading"><div><p class="section-kicker">Follow the money</p><h2 id="flow-map-title">Monthly flow</h2></div><div class="flow-view-switch" role="group" aria-label="Monthly flow view"><button id="flow-view-diagram" type="button" aria-label="Sankey view" title="Sankey view" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h5v4H3zM16 3h5v4h-5zM16 17h5v4h-5zM8 8c5 0 3-3 8-3M8 8c5 0 3 11 8 11"/></svg></button><button id="flow-view-bridge" type="button" aria-label="Bridge view" title="Bridge view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h15M3 12h10M3 19h18M18 5v7M13 12v7"/></svg></button><button id="flow-view-sunburst" type="button" aria-label="Sunburst view" title="Sunburst view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M21 12h-5M12 21v-5"/></svg></button><button id="flow-view-treemap" type="button" aria-label="Treemap view" title="Treemap view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h8v8H3zM13 4h8v4h-8zM13 10h8v10h-8zM3 14h8v6H3z"/></svg></button><button id="flow-view-donut" type="button" aria-label="Drill-down donut view" title="Drill-down donut view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15A9 9 0 1 1 9 3.2V12zM12 3a9 9 0 0 1 9 9h-9z"/></svg></button><button id="flow-view-table" type="button" aria-label="Table view" title="Table view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M3 14h18M10 4v16"/></svg></button></div></div>
-            <p id="flow-view-help" class="flow-view-help">Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose Table for exact figures.</p>
-            <div id="flow-diagram-view"><div id="flow-empty" class="flow-empty" hidden>Start with income or spending to build your monthly flow.</div><svg id="flow-sankey" viewBox="0 0 1150 430" role="img" aria-labelledby="flow-svg-title flow-svg-desc"><title id="flow-svg-title">Monthly income and spending</title><desc id="flow-svg-desc">An illustrative monthly flow from gross pay through estimated Income Tax, National Insurance and pension deductions to take-home pay, spending and saving.</desc></svg></div>
+            <p id="flow-view-help" class="flow-view-help">Estimated gross pay separates into tax, National Insurance, pension and take-home. Other income joins before spending and saving.</p>
+            <div id="flow-diagram-view">
+              <div id="flow-empty" class="flow-empty" hidden>Start with income or spending to build your monthly flow.</div>
+              <svg id="flow-sankey" viewBox="0 0 1400 740" role="img" aria-labelledby="flow-svg-title flow-svg-desc"><title id="flow-svg-title">Monthly income and spending</title><desc id="flow-svg-desc">An illustrative monthly flow from household income through estimated payroll deductions to available money, spending and saving. Flow colour distinguishes tax and National Insurance, employee pension, spending and saving.</desc></svg>
+            </div>
             <div id="flow-bridge-view" hidden aria-label="Monthly money bridge"></div>
             <div id="flow-sunburst-view" class="flow-hierarchy-view" hidden aria-label="Sunburst chart"></div>
             <div id="flow-treemap-view" class="flow-hierarchy-view" hidden aria-label="Treemap chart"></div>
@@ -150,15 +155,15 @@
           </section>
           <section id="flow-allocation-panel" class="flow-allocation-panel" aria-labelledby="flow-allocation-title">
             <div class="flow-allocation-heading"><div><p class="section-kicker">After spending</p><h2 id="flow-allocation-title">What happens to the remainder?</h2><p id="flow-allocation-context">No destination is assumed. You can illustrate how you intend to use this month's remaining money.</p></div></div>
-            <label class="flow-allocation-toggle"><input id="flow-allocation-enabled" type="checkbox" /> Show this example order: cash reserve → ISAs → my named account</label>
+            <label class="flow-allocation-toggle"><input id="flow-allocation-enabled" type="checkbox" /> Use my chosen order: cash reserve → own ISA → general investment account</label>
             <div id="flow-allocation-settings" hidden>
-              <p class="flow-allocation-note">This month's illustration counts the cash reserve gap first, then each person's unused ISA allowance. Any balance stays unassigned until you name an account. This describes your inputs; it is not an instruction to invest.</p>
+              <p class="flow-allocation-note">Each person’s share tops up their own reserve, then their own remaining ISA allowance. The rest goes to their general investment account in this illustration.</p>
               <div class="flow-allocation-grid">
                 <label for="flow-reserve-months">Cash reserve <small>Months of recorded spending</small><input id="flow-reserve-months" type="number" min="1" max="24" step="1" inputmode="numeric" placeholder="6" /></label>
                 <label for="flow-isa-allowance">ISA limit per person <small>2026–27 overall limit</small><input id="flow-isa-allowance" type="number" min="0" max="100000" step="1" inputmode="numeric" placeholder="20000" /></label>
                 <label for="flow-isa-used-primary"><span id="flow-isa-primary-label">Your ISA subscriptions this tax year</span><input id="flow-isa-used-primary" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
                 <label id="flow-isa-used-partner-row" for="flow-isa-used-partner"><span id="flow-isa-partner-label">Partner ISA subscriptions this tax year</span><input id="flow-isa-used-partner" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
-                <label for="flow-trading-label">Your account for any balance <small>Optional label; no investment is assumed</small><input id="flow-trading-label" type="text" maxlength="60" placeholder="e.g. an existing trading account" /></label>
+                <label for="flow-trading-label">General investment account label <small>Optional; no particular investment is assumed</small><input id="flow-trading-label" type="text" maxlength="60" placeholder="e.g. an existing trading account" /></label>
               </div>
               <p class="flow-allocation-source">ISA limit: <a href="https://www.gov.uk/individual-savings-accounts" target="_blank" rel="noopener noreferrer">GOV.UK, 2026–27</a>. Current rules, subject to change. A blank “subscriptions” field is treated as £0; enter what you have already paid in this tax year. Existing ISA balances do not use this year's allowance.</p>
             </div>
@@ -172,13 +177,14 @@
               <h3 id="flow-dated-form-title">Add income</h3>
               <div class="flow-dated-form-grid">
                 <label>Type<select id="flow-dated-side"><option value="income">Income received</option><option value="spending">Expense paid</option></select></label>
+                <label id="flow-dated-replaces-row" hidden>Expense to change<select id="flow-dated-replaces"></select><small>The new amount replaces this category during its dates, rather than being added on top.</small></label>
                 <label>Name<input id="flow-dated-label" type="text" maxlength="80" placeholder="e.g. Part-time work or school fees" required /></label>
                 <label>Amount (£)<input id="flow-dated-amount" type="number" min="0" max="100000000" step="0.01" inputmode="decimal" placeholder="0" required /></label>
                 <label>How often?<select id="flow-dated-frequency"><option value="monthly">Each month</option><option value="yearly">Each year</option><option value="once">One-off</option></select></label>
                 <label>Start month <span id="flow-dated-start-hint" class="optional">Optional</span><input id="flow-dated-start" type="month" /></label>
                 <label id="flow-dated-end-row">End month <span class="optional">Optional</span><input id="flow-dated-end" type="month" /></label>
               </div>
-              <p class="flow-dated-help">Future entries are welcome: set the start and optional end month, then explore them on the timeline. A one-off item needs its month. Enter income as the amount available after any tax impact; this screen does not calculate tax on State Pension or other added income. Yearly amounts are shown as monthly averages. Avoid costs already included above.</p>
+              <p class="flow-dated-help">Set a future start month to plan ahead. Leave the end month blank for an ongoing entry. Yearly amounts appear as monthly averages. Enter income after tax.</p>
               <p id="flow-dated-error" class="form-error" role="alert" hidden></p>
               <div class="flow-dated-form-actions"><button id="flow-dated-delete" class="text-button text-button-danger" type="button" hidden>Remove entry</button><button id="flow-dated-cancel" class="heading-action heading-action-secondary" type="button">Cancel</button><button class="button button-primary" type="submit">Save entry</button></div>
             </form>
@@ -197,14 +203,50 @@
                 <label for="flow-growth-shares">Shares growth (%) <input id="flow-growth-shares" type="number" min="-30" max="30" step="0.1" inputmode="decimal" placeholder="Not entered" /></label>
               </div><p>Inflation is your chosen figure; the <a href="https://www.bankofengland.co.uk/monetary-policy" target="_blank" rel="noopener noreferrer">Bank of England's 2% target</a> is context, not a return forecast. Illustration, not advice.</p></div>
           </details>
-          <div class="flow-next-planning"><div><p class="section-kicker">Third part of your picture</p><h2>Planning comes next.</h2><p>Keep your assumptions and illustrative remainder routing together in a separate space.</p></div><button id="continue-planning" class="button button-primary" type="button">Continue to planning →</button></div>
+          <div class="flow-next-planning"><div><p class="section-kicker">Third part of your picture</p><h2>Planning comes next.</h2><p>Add growth and inflation assumptions for a future projection.</p></div><button id="continue-planning" class="button button-primary" type="button">Continue to planning →</button></div>
           <p class="flow-caveat">Illustration, not advice. Current rules, subject to change. Future months use entered amounts in today’s pounds; no inflation, income growth, investment returns or future tax changes are applied. Mortgage end dates use the entered remaining term and assume it does not change.</p>
         </section>
-        <section id="planning-screen" class="planning-screen" aria-labelledby="planning-title" hidden><nav class="picture-steps" aria-label="Your picture sections"><button id="planning-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><button id="planning-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>3</span> Planning</span></nav><div class="planning-heading"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> Plan your next steps</p><h1 id="planning-title" tabindex="-1">Planning.</h1><p>Keep your assumptions and an optional illustration of how you might direct a month’s remainder. We’ll return to a full future projection later.</p></div><div id="planning-content"></div><p class="flow-caveat">Illustration, not advice. Current rules, subject to change. No future investment return, inflation or tax outcome is calculated here.</p></section>
+        <section id="planning-screen" class="planning-screen" aria-labelledby="planning-title" hidden><nav class="picture-steps" aria-label="Your picture sections"><button id="planning-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><button id="planning-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>3</span> Planning</span></nav><div class="planning-heading"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> Plan your next steps</p><h1 id="planning-title" tabindex="-1">Planning.</h1><p>Set the assumptions for your future illustration. Growth and inflation inputs are recorded here; they do not alter the monthly flow.</p></div><div id="planning-content"></div><p class="flow-caveat">Illustration, not advice. Current rules, subject to change. No future investment return, inflation or tax outcome is calculated here.</p></section>
       </main>
 
       <footer class="site-footer"><span>Steadybee · A working prototype</span><span>Snapshot only · Illustration, not advice</span></footer>
     </div>
+
+    <dialog id="flow-state-dialog" class="flow-edit-dialog" aria-labelledby="flow-state-title">
+      <form id="flow-state-form">
+        <div class="flow-dialog-heading"><h2 id="flow-state-title">State Pension</h2><button id="flow-state-close" class="heading-action heading-action-secondary" type="button">Cancel</button></div>
+        <p class="flow-dialog-intro">Record what you know now. Add the start month from <a href="https://www.gov.uk/state-pension-age" target="_blank" rel="noopener">GOV.UK’s pension age check</a> when you have it.</p>
+        <div class="flow-state-grid">
+          <label>Person<select id="flow-state-owner"><option value="primary">Alex</option><option value="partner">Gemma</option></select></label>
+          <label>Qualifying NI years so far<input id="flow-state-years" type="number" min="0" max="60" step="1" required /><small>Include qualifying years from contributions or credits.</small></label>
+          <label>Record checked in<input id="flow-state-assessment" type="month" required /></label>
+          <label>State Pension starts<input id="flow-state-start" type="month" /><small>Use the month from your official forecast; it is separate from stopping work.</small></label>
+        </div>
+        <label class="flow-state-check"><input id="flow-state-continue" type="checkbox" /> Assume one full qualifying NI year for each future year until:</label>
+        <label id="flow-state-until-row">Last month of expected qualifying years<input id="flow-state-until" type="month" /><small>Your pay end month is offered as a starting point. NI credits can continue after work ends.</small></label>
+        <div class="flow-state-grid">
+          <label>Amount basis<select id="flow-state-mode"><option value="record">Record years only for now</option><option value="official">Use my official weekly forecast</option><option value="simplified">Use a simplified 35-year illustration</option></select></label>
+          <label id="flow-state-weekly-row">Official forecast (£ per week)<input id="flow-state-weekly" type="number" min="0" max="10000" step="0.01" /></label>
+          <label id="flow-state-other-row">Other taxable income (£ per year)<input id="flow-state-other" type="number" min="0" max="100000000" step="0.01" value="0" /><small>Excluding pay already entered. Used only to estimate tax on this pension.</small></label>
+        </div>
+        <p id="flow-state-preview" class="flow-state-preview" aria-live="polite"></p>
+        <details class="flow-state-basis"><summary>How this illustration works</summary><p>The 2026–27 full rate is £241.30 a week. A simplified estimate uses projected qualifying years ÷ 35, capped at the full rate, with a 10-year minimum. Records before April 2016, contracting out, overseas years and protected amounts can change entitlement. Use an <a href="https://www.gov.uk/check-state-pension" target="_blank" rel="noopener">official forecast</a> for your own amount.</p><p>Future qualifying years are an assumption of complete 12-month periods, not a check of your NI record. Income Tax uses recorded pay and the other taxable income you enter, under 2026–27 England/Wales/NI rules. No NI is deducted from State Pension. Other taxes and future changes are not modelled.</p><a href="https://www.gov.uk/government/publications/your-new-state-pension-explained/your-state-pension-explained" target="_blank" rel="noopener">DWP rules and rate</a></details>
+        <p class="flow-dialog-note">Optional approximate illustration, not advice. Current rules, subject to change. Amounts use today’s pounds.</p>
+        <p id="flow-state-error" class="form-error" role="alert" hidden></p>
+        <div class="flow-dated-form-actions"><button id="flow-state-remove" type="button" class="text-button text-button-danger">Remove record</button><button type="submit" class="button button-primary">Save State Pension</button></div>
+      </form>
+    </dialog>
+    <dialog id="flow-event-dialog" class="flow-edit-dialog" aria-labelledby="flow-event-title">
+      <div class="flow-dialog-heading"><h2 id="flow-event-title">Plan a future change</h2><button id="flow-event-close" type="button" class="heading-action heading-action-secondary">Close</button></div>
+      <div class="flow-event-options">
+        <button type="button" data-flow-event="income">Recurring income<small>Part-time work, rent or another income</small></button>
+        <button type="button" data-flow-event="spending">Recurring expense<small>A cost with its own start and end dates</small></button>
+        <button type="button" data-flow-event="change">Change an existing expense<small>A lower or higher monthly amount from a chosen date</small></button>
+        <button type="button" data-flow-event="windfall">One-off money in<small>A gift, inheritance or another single payment</small></button>
+        <button type="button" data-flow-event="cost">One-off cost<small>A car, home project or other large expense</small></button>
+        <button type="button" data-flow-event="pension">State Pension<small>NI years, forecast and pension start month</small></button>
+      </div>
+    </dialog>
 
     <dialog id="add-dialog" class="form-dialog small-dialog" aria-labelledby="add-dialog-title">
       <div class="dialog-heading"><h2 id="add-dialog-title">Add a piece</h2><button id="close-add-button" class="icon-button" type="button" aria-label="Close asset choices">×</button></div>
