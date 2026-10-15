@@ -625,7 +625,7 @@ function showScreen(screen) {
   $("flow-screen").hidden = screen !== "flow";
   if (screen === "flow") {
     renderFlow();
-    if (mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) $("flow-editor").open = true;
+    if (mode !== "example" && !summarizeMonthlyFlow(flowDraft, draft).hasEntries) { $("flow-editor").open = true; $("flow-pay-detail").open = true; }
   }
   (screen === "flow" ? $("flow-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -849,6 +849,7 @@ $("flow-include-mortgage").addEventListener("change", (event) => {
   renderFlow();
 });
 function showDatedForm(side, id = null, trigger = null) {
+  $("flow-more-entries").open = true;
   const entry = flowDraft.datedEntries.find((item) => item.id === id);
   editingFlowEntryId = entry?.id || null;
   flowEntryTrigger = trigger;
@@ -887,6 +888,7 @@ $("flow-entry-overview").addEventListener("click", (event) => {
   const regular = event.target.closest("[data-flow-regular]");
   if (!pay && !regular) return;
   $("flow-editor").open = true;
+  $(pay ? "flow-pay-detail" : "flow-spending-detail").open = true;
   const target = pay ? $(`flow-pay-${pay.dataset.flowPay}-annualGross`) : $("flow-spending-homeBills");
   target.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   target.focus();
@@ -938,7 +940,7 @@ for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-m
   const entry = event.target.closest("[data-flow-entry]");
   if (entry) { showDatedForm("income", entry.dataset.flowEntry, entry); return; }
   const pay = event.target.closest("[data-flow-pay]");
-  if (pay) { $("flow-editor").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
+  if (pay) { $("flow-editor").open = true; $("flow-pay-detail").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
   const debt = event.target.closest("[data-flow-debt]");
   if (debt) { showScreen("assets"); returnToFlowAssetId = debt.dataset.flowDebt; showItemDialog("debt", debt.dataset.flowDebt, debt); return; }
   const asset = event.target.closest("[data-flow-asset]");
@@ -947,6 +949,7 @@ for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-m
   if (!item) return;
   const [side, key] = item.dataset.flowFocus.split(":");
   $("flow-editor").open = true;
+  $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
   $(`flow-${side}-${key}`).focus();
   $("flow-editor").scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 });
@@ -1160,6 +1163,53 @@ $("confirm-clear-button").addEventListener("click", () => {
   announce("Your name, age, assets and debts have been cleared from this tab.");
 });
 
+function organizeFlowInputs() {
+  const panel = $("flow-dated-panel");
+  panel.querySelector(".section-kicker").textContent = "1 · Start with monthly amounts";
+  $("flow-dated-title").textContent = "Build your monthly picture";
+  panel.querySelector(".flow-dated-heading p:last-child").textContent = "Start with pay and regular spending. Edit a card to change its figures; the monthly flow above updates immediately.";
+  $("flow-map-title").parentElement.parentElement.querySelector("p:last-child").textContent = "A monthly average from your entries below. Ribbon widths show relative amounts.";
+  const editor = $("flow-editor");
+  editor.querySelector("summary").firstChild.textContent = "Edit pay and regular amounts ";
+  const payDetail = document.createElement("details");
+  payDetail.id = "flow-pay-detail";
+  payDetail.className = "flow-editor-part";
+  payDetail.innerHTML = "<summary>Pay and other money in <span>Yearly salary, pension contributions and regular income</span></summary>";
+  const spendingDetail = document.createElement("details");
+  spendingDetail.id = "flow-spending-detail";
+  spendingDetail.className = "flow-editor-part";
+  spendingDetail.innerHTML = "<summary>Regular spending <span>Monthly amounts by category</span></summary>";
+  payDetail.addEventListener("toggle", () => { if (payDetail.open) spendingDetail.open = false; });
+  spendingDetail.addEventListener("toggle", () => { if (spendingDetail.open) payDetail.open = false; });
+  const grid = editor.querySelector(".flow-edit-grid");
+  payDetail.append(editor.querySelector(".flow-pay-section"), grid.firstElementChild);
+  spendingDetail.append(grid.firstElementChild);
+  grid.replaceWith(payDetail, spendingDetail);
+  $("flow-entry-overview").after(editor);
+
+  const extras = document.createElement("details");
+  extras.id = "flow-more-entries";
+  extras.className = "flow-progressive";
+  extras.innerHTML = '<summary><span><strong>2 · Other income, expenses and property</strong><small>Add dated items or include recorded rent and mortgage payments</small></span><span class="flow-progressive-chevron" aria-hidden="true">⌄</span></summary><div class="flow-progressive-body"></div>';
+  panel.after(extras);
+  const extrasBody = extras.querySelector(".flow-progressive-body");
+  extrasBody.append($("flow-dated-list"), $("flow-dated-empty"), $("flow-dated-form"), $("flow-link-panel"));
+  $("flow-entry-overview").after(panel.querySelector(".flow-dated-actions"));
+  const extrasIntro = document.createElement("p");
+  extrasIntro.className = "flow-progressive-intro";
+  extrasIntro.innerHTML = 'Entries active in <span id="flow-dated-asof">this month</span> affect the diagram. Future and ended items stay here for later planning.';
+  extrasBody.prepend(extrasIntro);
+  panel.querySelector("#flow-dated-asof")?.remove();
+
+  const later = document.createElement("details");
+  later.id = "flow-later";
+  later.className = "flow-progressive";
+  later.innerHTML = '<summary><span><strong>3 · Plan what happens later</strong><small>Optional remainder routing, growth and inflation assumptions</small></span><span class="flow-progressive-chevron" aria-hidden="true">⌄</span></summary><div class="flow-progressive-body"></div>';
+  extras.after(later);
+  later.querySelector(".flow-progressive-body").append($("flow-allocation-panel"), $("flow-growth-panel"));
+}
+
+organizeFlowInputs();
 setupFlowInputs();
 syncFlowInputs();
 render();

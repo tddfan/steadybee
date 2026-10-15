@@ -735,3 +735,31 @@ button.flow-list-item:hover { border-color: #79a68e; background: #f1f8f2; }
 .flow-growth-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
 @media (max-width: 900px) { .flow-allocation-grid,.flow-growth-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .flow-allocation-steps { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 700px) { .flow-allocation-panel { padding: 21px 18px; } .flow-allocation-heading { flex-direction: column; gap: 5px; } .flow-allocation-grid,.flow-growth-grid,.flow-allocation-steps { grid-template-columns: 1fr; } .flow-growth-panel summary { padding: 16px 18px; } .flow-growth-panel summary span { display: block; margin: 4px 0 0; } .flow-growth-body { padding: 0 18px 20px; } }
+
+/* Progressive monthly inputs: current amounts, extra entries, then later assumptions. */
+#flow-dated-panel { margin-top: 26px; }
+#flow-dated-panel .flow-dated-heading { display: block; }
+#flow-dated-panel .flow-dated-heading p:last-child { max-width: 780px; }
+#flow-dated-panel .flow-editor { margin-top: 18px; }
+#flow-dated-panel .flow-dated-actions { justify-content: flex-start; margin-top: 18px; }
+.flow-editor-part { margin: 12px 22px; border: 1px solid #d8e4d9; border-radius: 11px; background: #fbfdf9; }
+.flow-editor-part > summary { min-height: 57px; padding: 13px 17px; color: #285d46; font-weight: 740; cursor: pointer; }
+.flow-editor-part > summary span { margin-left: 10px; color: #52675a; font-size: .86rem; font-weight: 400; }
+.flow-editor-part[open] > summary { border-bottom: 1px solid #d8e4d9; }
+.flow-editor-part > .flow-pay-section,.flow-editor-part > fieldset { margin: 18px; }
+@media (max-width: 700px) { .flow-editor-part { margin: 12px; } .flow-editor-part > summary span { display: block; margin: 3px 0 0; } .flow-editor-part > .flow-pay-section,.flow-editor-part > fieldset { margin: 14px; } }
+.flow-progressive { margin-top: 14px; border: 1px solid #cddbd0; border-radius: 18px; background: #fffefa; overflow: hidden; }
+.flow-progressive > summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 78px; padding: 15px 27px; color: #254d3a; cursor: pointer; list-style: none; }
+.flow-progressive > summary::-webkit-details-marker { display: none; }
+.flow-progressive > summary strong,.flow-progressive > summary small { display: block; }
+.flow-progressive > summary strong { font-size: 1.08rem; }
+.flow-progressive > summary small { margin-top: 4px; color: #52675a; font-size: .89rem; font-weight: 400; }
+.flow-progressive-chevron { flex: none; color: #28644a; font-size: 1.55rem; line-height: 1; transition: transform .2s ease; }
+.flow-progressive[open] .flow-progressive-chevron { transform: rotate(180deg); }
+.flow-progressive-body { padding: 20px 27px 27px; border-top: 1px solid #dce7de; }
+.flow-progressive-intro { margin: 0 0 15px; color: #506657; font-size: .94rem; }
+#flow-more-entries .flow-dated-actions { justify-content: flex-start; }
+#flow-more-entries .flow-link-panel { margin-top: 22px; }
+#flow-later .flow-allocation-panel,#flow-later .flow-growth-panel { margin-top: 0; }
+#flow-later .flow-growth-panel { margin-top: 15px; }
+@media (max-width: 700px) { .flow-progressive > summary { padding: 15px 18px; } .flow-progressive-body { padding: 18px; } }

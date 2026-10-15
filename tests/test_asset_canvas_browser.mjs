@@ -137,6 +137,9 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await p.locator("#flow-pay-primary-annualBonus").inputValue(), "50000");
   assert.equal(await p.locator("#flow-pay-primary-employeePensionRate").inputValue(), "7");
   assert.equal(await p.locator("#flow-pay-partner-annualGross").inputValue(), "125000");
+  assert.equal(await p.locator("#flow-more-entries").evaluate((element) => element.open), false);
+  assert.equal(await p.locator("#flow-later").evaluate((element) => element.open), false);
+  await p.locator("#flow-more-entries > summary").click();
   await p.locator("#flow-include-mortgage").uncheck();
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 8816.67);
   await p.locator("#flow-include-mortgage").check();
@@ -150,6 +153,8 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   await p.locator("#flow-include-rent").check();
   assert.equal(await displayedAmount(p, "#flow-income-total"), 15012.38);
   await p.locator("#flow-editor > summary").click();
+  await p.locator("#flow-spending-detail > summary").click();
+  assert.equal(await p.locator("#flow-pay-detail").evaluate((element) => element.open), false);
   await p.locator("#flow-spending-homeBills").fill("1200");
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 11991.97);
   assert.equal(await displayedAmount(p, "#flow-result-value"), 3020.41);
@@ -186,6 +191,7 @@ test("the remainder stays unassigned until an illustrative monthly order is sele
   await p.locator("#step-to-flow").click();
   assert.match(await p.locator("#flow-sankey").textContent(), /Unassigned · £3,770.41/);
   assert.equal(await p.locator("#flow-allocation-settings").isVisible(), false);
+  await p.locator("#flow-later > summary").click();
   await p.locator("#flow-allocation-enabled").check();
   assert.equal(await p.locator("#flow-allocation-settings").isVisible(), true);
   assert.match(await p.locator("#flow-allocation-steps").innerText(), /Cash reserve[\s\S]*£0\/month[\s\S]*Alex's ISA[\s\S]*£3,770.41\/month/);
@@ -206,8 +212,10 @@ test("personal monthly flow starts empty and shows an unfunded gap honestly", as
   await p.locator("#step-to-flow").click();
   assert.equal(await p.locator("#flow-empty").isVisible(), true);
   assert.equal(await p.locator("#flow-editor").evaluate((element) => element.open), true);
+  assert.equal(await p.locator("#flow-pay-detail").evaluate((element) => element.open), true);
   assert.equal(await p.locator("#flow-rent-toggle-row").isVisible(), false);
   await p.locator("#flow-pay-primary-annualTakeHome").fill("36000");
+  await p.locator("#flow-spending-detail > summary").click();
   await p.locator("#flow-spending-homeBills").fill("3500");
   assert.equal(await p.locator("#flow-result-label").innerText(), "More spent than recorded income");
   assert.equal(await displayedAmount(p, "#flow-result-value"), 500);
