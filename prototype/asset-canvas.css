@@ -582,7 +582,8 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-map-heading h2,.flow-link-panel h2 { margin: 5px 0 0; font-size: 1.8rem; }
 .flow-map-heading > p { max-width: 380px; margin: 0; color: #53665a; font-size: .89rem; }
 .flow-view-switch { display: inline-flex; flex: none; gap: 4px; padding: 4px; border: 1px solid #c8d9cd; border-radius: 12px; background: #eaf1eb; }
-.flow-view-switch button { min-width: 92px; min-height: 44px; padding: 8px 15px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #3d5a48; font: inherit; font-weight: 720; cursor: pointer; }
+.flow-view-switch button { display: grid; place-items: center; width: 48px; min-height: 44px; padding: 7px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #3d5a48; font: inherit; font-weight: 720; cursor: pointer; }
+.flow-view-switch svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .flow-view-switch button[aria-pressed="true"] { border-color: #66947a; background: #fffefa; color: #1d563e; box-shadow: 0 1px 3px #173c2820; }
 .flow-view-switch button:hover { color: #18543b; }
 .flow-view-help { margin: 11px 0 0; color: #53665a; font-size: .94rem; }
@@ -601,9 +602,44 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-table-action { width: 76px; text-align: right; }
 .flow-table-edit { min-height: 44px; padding: 8px 10px; border: 1px solid #a8c6af; border-radius: 8px; background: #fff; color: #236147; font: inherit; font-weight: 730; cursor: pointer; }
 .flow-table-edit:hover { background: #edf6ed; border-color: #6b9a78; }
-@media (max-width: 700px) { .flow-map-heading { align-items: start; } .flow-view-switch button { min-width: 74px; } .flow-table th,.flow-table td { padding-inline: 9px; } .flow-table-action { width: 58px; } }
+@media (max-width: 700px) { .flow-map-heading { align-items: start; } .flow-view-switch button { width: 44px; } .flow-table th,.flow-table td { padding-inline: 9px; } .flow-table-action { width: 58px; } }
 .flow-mobile-explain { display: none; }
 #flow-sankey { display: block; width: 100%; margin: 15px auto 0; }
+#flow-sankey[hidden] { display: none; }
+.flow-payroll-note { margin: 14px 0 0; color: #52675a; font-size: .9rem; }
+.flow-payroll-note a { color: #1d694c; text-decoration: underline; text-underline-offset: 3px; }
+.flow-timeline { margin-top: 27px; padding: 23px 31px; border: 1px solid #cdded0; border-radius: 18px; background: #f7faf5; }
+.flow-timeline-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.flow-timeline-heading h2 { margin: 5px 0 0; font: 500 1.6rem Georgia, "Times New Roman", serif; }
+.flow-timeline-heading label { display: grid; gap: 5px; color: #315743; font-size: .9rem; font-weight: 700; }
+.flow-timeline-heading input { min-height: 44px; padding: 7px 10px; border: 1px solid #a7bfad; border-radius: 9px; background: white; color: #203d2d; font: inherit; }
+.flow-timeline-events { display: flex; gap: 12px; overflow-x: auto; margin-top: 23px; padding: 12px 1px 18px; scrollbar-color: #a9c1ae transparent; }
+.flow-timeline-event { position: relative; flex: 0 0 155px; display: grid; align-content: start; gap: 4px; min-height: 91px; padding: 18px 11px 9px; border: 1px solid #d7e3d8; border-top: 3px solid #9ab59f; border-radius: 10px; background: white; color: #274936; text-align: left; font: inherit; cursor: pointer; }
+.flow-timeline-event::before { content: ""; position: absolute; top: -15px; left: 0; width: calc(100% + 12px); height: 2px; background: #9ab59f; }
+.flow-timeline-event:last-child::before { width: 100%; }
+.flow-timeline-dot { position: absolute; top: -22px; left: 13px; width: 15px; height: 15px; border: 3px solid #65957a; border-radius: 50%; background: white; }
+.flow-timeline-event[aria-pressed="true"] { border-color: #2a7655; border-top-color: #2a7655; background: #eaf4ea; box-shadow: 0 1px 4px #153c291c; }
+.flow-timeline-event[aria-pressed="true"] .flow-timeline-dot { background: #2a7655; }
+.flow-timeline-event strong { font-size: .96rem; }
+.flow-timeline-event small { color: #536858; font-size: .83rem; line-height: 1.3; }
+#flow-timeline-context { margin: 1px 0 0; color: #4f6455; font-size: .9rem; }
+.flow-savings-panel { display: grid; grid-template-columns: minmax(0,1fr) minmax(320px,.8fr); gap: 18px 35px; margin-top: 22px; padding: 25px 31px; border: 1px solid #d0dfd3; border-radius: 18px; background: #f8fbf7; }
+.flow-savings-panel h2 { margin: 5px 0 6px; font: 500 1.65rem Georgia, "Times New Roman", serif; }
+.flow-savings-panel p { margin: 0; color: #4f6655; font-size: .93rem; }
+.flow-savings-grid { display: grid; gap: 10px; }
+.flow-savings-grid label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #315743; font-weight: 720; }
+.flow-savings-grid .flow-money-input { flex: none; }
+.flow-savings-status { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid #d9e5da; }
+.flow-next-planning { display: flex; align-items: center; justify-content: space-between; gap: 25px; margin-top: 23px; padding: 25px 31px; border: 1px solid #c4d9c8; border-radius: 18px; background: #eef6ed; }
+.flow-next-planning h2 { margin: 5px 0; font-size: 1.45rem; }
+.flow-next-planning p:last-child { margin: 0; color: #4c6453; }
+.planning-screen { padding: 48px 0 80px; }
+.planning-heading h1 { margin: 10px 0 8px; font-size: clamp(2.7rem,4vw,4rem); }
+.planning-heading > p:last-child { max-width: 780px; margin: 0; color: #52675a; }
+#planning-content { margin-top: 25px; }
+#planning-content .flow-allocation-panel { margin-top: 0; }
+@media (max-width: 800px) { .flow-savings-panel { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .flow-timeline { padding: 20px 18px; } .flow-timeline-heading { align-items: stretch; flex-direction: column; } .flow-timeline-heading label { max-width: 220px; } .flow-savings-panel { padding: 21px 18px; } .flow-next-planning { align-items: start; flex-direction: column; padding: 22px 18px; } #flow-diagram-view { overflow-x: auto; } #flow-sankey { display: block; min-width: 760px; } .picture-steps { overflow-x: auto; padding-bottom: 5px; } .picture-step { flex: none; } }
 .flow-ribbon { opacity: .46; }
 .flow-ribbon-in { opacity: .35; }
 .flow-svg-heading { fill: #4d6757; font: 700 16px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .04em; }

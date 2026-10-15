@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, computeAllocationWaterfall } from "../prototype/monthly-flow.mjs";
+import { createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall } from "../prototype/monthly-flow.mjs";
 import { createAlexExample } from "../prototype/asset-ledger.mjs";
 
 test("fictional monthly flow reconciles inputs and linked rent once", () => {
@@ -17,6 +17,58 @@ test("fictional monthly flow reconciles inputs and linked rent once", () => {
   assert.equal(summary.payDetails[1].annualGross, 125000);
   assert.equal(Math.round(summary.sources.reduce((sum, source) => sum + source.amount * 100, 0)), Math.round(summary.chartTotal * 100));
   assert.equal(Math.round(summary.uses.reduce((sum, use) => sum + use.amount * 100, 0)), Math.round(summary.chartTotal * 100));
+});
+
+test("the diagram shows gross pay, estimated payroll deductions and net household spending once", () => {
+  const diagram = buildMonthlyFlowDiagram(createExampleMonthlyFlow(), createAlexExample(), { primary: "Alex", partner: "Gemma" });
+  assert.equal(diagram.sources.find((item) => item.key === "primaryPay")?.amount, 16375);
+  assert.equal(diagram.uses.find((item) => item.key === "primaryTax")?.amount, 5834.44);
+  assert.equal(diagram.uses.find((item) => item.key === "primaryNI")?.amount, 495.05);
+  assert.equal(diagram.uses.find((item) => item.key === "primaryPension")?.amount, 854.58);
+  assert.equal(diagram.incomeTotal, 14962.38);
+  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round(diagram.uses.reduce((sum, item) => sum + item.amount * 100, 0)));
+});
+
+test("saving assignments are explicit, separate by person and never exceed the available remainder", () => {
+  const flow = createExampleMonthlyFlow();
+  flow.savings.primary = 2000;
+  flow.savings.partner = 1500;
+  let diagram = buildMonthlyFlowDiagram(flow, createAlexExample(), { primary: "Alex", partner: "Gemma" });
+  assert.equal(diagram.uses.find((item) => item.key === "primarySaving")?.amount, 2000);
+  assert.equal(diagram.uses.find((item) => item.key === "partnerSaving")?.amount, 1500);
+  assert.equal(diagram.uses.find((item) => item.key === "unallocated")?.amount, 270.41);
+  assert.equal(diagram.savingsUnfunded, 0);
+  flow.spending.other = 6000;
+  diagram = buildMonthlyFlowDiagram(flow, createAlexExample(), { primary: "Alex", partner: "Gemma" });
+  assert.equal(diagram.savingsUnfunded, 1729.59);
+  assert.equal(diagram.uses.find((item) => item.key === "partnerSaving")?.amount ?? 0, 0);
+  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round(diagram.uses.reduce((sum, item) => sum + item.amount * 100, 0)));
+});
+
+test("future months turn dated income and expenses on, then end pay and the mortgage", () => {
+  const flow = createExampleMonthlyFlow();
+  flow.timelineStartMonth = "2026-10";
+  flow.asOfMonth = "2026-10";
+  flow.datedEntries.push({ id: "state-pension", side: "income", label: "State Pension", amount: 1200, frequency: "monthly", startMonth: "2043-01", endMonth: "" });
+  const holdings = createAlexExample();
+  let summary = summarizeMonthlyFlow(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(summary.uses.some((item) => item.label === "School fees (senior)"), false);
+  flow.asOfMonth = "2028-11";
+  summary = summarizeMonthlyFlow(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(summary.uses.some((item) => item.label === "School fees (current)"), false);
+  assert.equal(summary.uses.some((item) => item.label === "School fees (senior)"), true);
+  flow.asOfMonth = "2043-01";
+  summary = summarizeMonthlyFlow(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(summary.sources.some((item) => item.label === "State Pension"), true);
+  flow.asOfMonth = "2044-01";
+  summary = summarizeMonthlyFlow(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(summary.sources.some((item) => item.key === "partnerPay"), false);
+  flow.asOfMonth = "2047-10";
+  summary = summarizeMonthlyFlow(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(summary.uses.some((item) => item.kind === "mortgage"), false);
+  const events = monthlyFlowEvents(flow, holdings, { primary: "Alex", partner: "Gemma" });
+  assert.equal(events.some((event) => event.month === "2043-01" && event.label.includes("State Pension")), true);
+  assert.equal(events.some((event) => event.month === "2047-10" && event.label.includes("mortgage")), true);
 });
 
 test("personal rent waits for inclusion, while pension pots and mortgage balances never become monthly flows", () => {

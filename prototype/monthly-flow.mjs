@@ -32,7 +32,9 @@ export function createBlankMonthlyFlow() {
     income: Object.fromEntries(INCOME_FIELDS.map(({ key }) => [key, 0])),
     spending: Object.fromEntries(SPENDING_FIELDS.map(({ key }) => [key, 0])),
     asOfMonth: new Date().toISOString().slice(0, 7),
+    timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [],
+    savings: { primary: 0, partner: 0 },
     includeLinkedRent: false,
     includeLinkedMortgage: false,
     assumptions: {
@@ -55,10 +57,12 @@ export function createExampleMonthlyFlow() {
     income: { pensionIncome: 0, otherIncome: 0 },
     spending: { homeBills: 400, everyday: 1500, transport: 350, lifestyle: 900, other: 4000 },
     asOfMonth: new Date().toISOString().slice(0, 7),
+    timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [
       { id: "school-fees-1", side: "spending", label: "School fees (current)", amount: 20000, frequency: "yearly", startMonth: new Date().toISOString().slice(0, 7), endMonth: addMonths(new Date().toISOString().slice(0, 7), 24) },
       { id: "school-fees-2", side: "spending", label: "School fees (senior)", amount: 30000, frequency: "yearly", startMonth: addMonths(new Date().toISOString().slice(0, 7), 25), endMonth: addMonths(new Date().toISOString().slice(0, 7), 84) },
     ],
+    savings: { primary: 0, partner: 0 },
     includeLinkedRent: true,
     includeLinkedMortgage: true,
     assumptions: {
@@ -119,6 +123,7 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   const sources = [];
   const uses = [];
   const payDetails = [];
+  const timelineStartMonth = flow.timelineStartMonth || flow.asOfMonth;
   for (const owner of ["primary", "partner"]) {
     const pay = flow.pay[owner];
     const estimate = estimateUkTakeHome2026({ baseSalary: pay.annualGross, bonus: pay.annualBonus, employeePensionAmount: pay.employeePension, employeePensionRate: pay.employeePensionRate, employerPensionAmount: pay.employerPension, employerPensionRate: pay.employerPensionRate });
@@ -126,8 +131,9 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     const annualTakeHome = enteredTakeHome ? pennies(pay.annualTakeHome, "Annual take-home pay") / 100 : estimate.takeHome;
     if (pay.endDate && !/^\d{4}-(0[1-9]|1[0-2])$/.test(pay.endDate)) throw new RangeError("Pay end date must be a valid month and year.");
     const person = names[owner] || (owner === "primary" ? "Your" : "Partner");
-    const monthlyTakeHome = Math.round(annualTakeHome * 100 / 12) / 100;
-    payDetails.push({ owner, person, annualTakeHome, annualGross: estimate.grossPay, annualBonus: pay.annualBonus, employeePension: estimate.employeePension, employerPension: estimate.employerPension, endDate: pay.endDate, monthlyTakeHome, enteredTakeHome, estimate });
+    const active = !pay.endDate || flow.asOfMonth <= pay.endDate;
+    const monthlyTakeHome = active ? Math.round(annualTakeHome * 100 / 12) / 100 : 0;
+    payDetails.push({ owner, person, annualTakeHome, annualGross: estimate.grossPay, annualBonus: pay.annualBonus, employeePension: estimate.employeePension, employerPension: estimate.employerPension, endDate: pay.endDate, active, monthlyTakeHome, enteredTakeHome, estimate });
     if (monthlyTakeHome) sources.push({ key: `${owner}Pay`, label: `${person}'s ${enteredTakeHome ? "pay received" : "estimated take-home pay"}`, amount: monthlyTakeHome, kind: "income" });
   }
   for (const { key, label } of INCOME_FIELDS) {
@@ -149,10 +155,11 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     .map((debt) => {
       const entered = debt.monthlyPayment !== undefined;
       const calculated = entered ? null : estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears });
-      return { id: debt.id, label: debt.label?.trim() || "Mortgage", amount: entered ? pennies(debt.monthlyPayment, "Monthly mortgage payment") / 100 : calculated, estimated: !entered, balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears };
+      const endMonth = debt.remainingYears ? addMonths(timelineStartMonth, Math.round(debt.remainingYears * 12)) : null;
+      return { id: debt.id, label: debt.label?.trim() || "Mortgage", amount: entered ? pennies(debt.monthlyPayment, "Monthly mortgage payment") / 100 : calculated, estimated: !entered, balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, endMonth, active: !endMonth || flow.asOfMonth < endMonth };
     }).filter((debt) => debt.amount !== null);
   if (flow.includeLinkedMortgage) {
-    for (const mortgage of linkedMortgages) if (mortgage.amount > 0)
+    for (const mortgage of linkedMortgages) if (mortgage.amount > 0 && mortgage.active)
       uses.push({ key: `mortgage:${mortgage.id}`, label: `${mortgage.label} ${mortgage.estimated ? "estimated " : ""}payment`, amount: mortgage.amount, kind: "mortgage" });
   }
   const entryDetails = summarizeDatedEntries(flow, sources, uses);
@@ -168,6 +175,75 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     remainder: remainderPence / 100,
     chartTotal: Math.max(incomePence, spendingPence) / 100,
     hasEntries: incomePence > 0 || spendingPence > 0,
+  };
+}
+
+/** Dated changes to the current-money picture; markers are navigation, not a forecast. */
+export function monthlyFlowEvents(flow, holdings = {}, names = {}) {
+  const start = flow.timelineStartMonth || flow.asOfMonth;
+  if (!validMonth(start)) throw new RangeError("The timeline start must be a valid month and year.");
+  const events = [{ month: start, label: "Current picture" }];
+  const add = (month, label) => { if (month && month >= start) events.push({ month, label }); };
+  for (const entry of flow.datedEntries || []) {
+    const label = entry.label?.trim() || "Entry";
+    add(entry.startMonth, `${label} begins`);
+    if (entry.endMonth) add(addMonths(entry.endMonth, 1), `${label} ends`);
+    else if (entry.frequency === "once" && entry.startMonth) add(addMonths(entry.startMonth, 1), `${label} ends`);
+  }
+  for (const owner of ["primary", "partner"]) {
+    const pay = flow.pay[owner];
+    if (pay.endDate && (pay.annualGross || pay.annualTakeHome)) add(addMonths(pay.endDate, 1), `${names[owner] || (owner === "primary" ? "Your" : "Partner")} pay ends`);
+  }
+  for (const debt of holdings.debts || []) {
+    if (debt.kind === "mortgage" && debt.remainingYears && flow.includeLinkedMortgage)
+      add(addMonths(start, Math.round(debt.remainingYears * 12)), `${debt.label?.trim() || "Mortgage"} payment ends`);
+  }
+  return events.sort((a, b) => a.month.localeCompare(b.month) || a.label.localeCompare(b.label));
+}
+
+/** Reconciled gross-to-destination view. Entered take-home pay stays net because its deductions are unknown. */
+export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
+  const summary = summarizeMonthlyFlow(flow, holdings, names);
+  const sources = summary.sources.map((item) => ({ ...item }));
+  const uses = summary.uses.filter((item) => item.kind !== "unallocated").map((item) => ({ ...item }));
+  const deductions = [];
+  let payrollEstimated = false;
+  for (const detail of summary.payDetails) {
+    if (detail.enteredTakeHome || !detail.annualGross) continue;
+    const source = sources.find((item) => item.key === `${detail.owner}Pay`);
+    if (!source) continue;
+    payrollEstimated = true;
+    const grossPence = Math.round(detail.annualGross * 100 / 12);
+    const netPence = Math.round(detail.monthlyTakeHome * 100);
+    const pensionPence = Math.round(detail.employeePension * 100 / 12);
+    const niPence = Math.round(detail.estimate.employeeNI * 100 / 12);
+    const taxPence = grossPence - netPence - pensionPence - niPence;
+    source.label = `${detail.person}'s estimated gross pay`;
+    source.amount = grossPence / 100;
+    for (const [key, label, amount, kind] of [
+      ["Tax", "Income Tax", taxPence, "tax"],
+      ["NI", "National Insurance", niPence, "nationalInsurance"],
+      ["Pension", "employee pension", pensionPence, "pensionContribution"],
+    ]) if (amount > 0) deductions.push({ key: `${detail.owner}${key}`, label: `${detail.person} ${label}`, amount: amount / 100, kind });
+  }
+  uses.unshift(...deductions);
+  const availablePence = Math.max(0, Math.round(summary.remainder * 100));
+  const requestedPrimary = pennies(flow.savings?.primary ?? 0, "Monthly saving for the first person");
+  const hasPartner = Boolean(names.partner?.trim() || holdings.partnerName?.trim());
+  const requestedPartner = hasPartner ? pennies(flow.savings?.partner ?? 0, "Monthly saving for the partner") : 0;
+  const primaryPence = Math.min(requestedPrimary, availablePence);
+  const partnerPence = Math.min(requestedPartner, availablePence - primaryPence);
+  const unassignedPence = availablePence - primaryPence - partnerPence;
+  if (primaryPence) uses.push({ key: "primarySaving", label: `${names.primary || "Your"} savings`, amount: primaryPence / 100, kind: "saving" });
+  if (partnerPence) uses.push({ key: "partnerSaving", label: `${names.partner || "Partner"} savings`, amount: partnerPence / 100, kind: "saving" });
+  if (unassignedPence) uses.push({ key: "unallocated", label: "Available to assign to savings", amount: unassignedPence / 100, kind: "unallocated" });
+  const chartTotal = sources.reduce((sum, item) => sum + Math.round(item.amount * 100), 0) / 100;
+  return {
+    ...summary, sources, uses, chartTotal, payrollEstimated,
+    savingsAvailable: availablePence / 100,
+    savingsAssigned: (primaryPence + partnerPence) / 100,
+    savingsUnfunded: (requestedPrimary + requestedPartner - primaryPence - partnerPence) / 100,
+    hasPartner,
   };
 }
 

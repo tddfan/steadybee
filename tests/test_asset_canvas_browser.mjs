@@ -131,12 +131,13 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await displayedAmount(p, "#flow-income-total"), 14962.38);
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 11191.97);
   assert.equal(await displayedAmount(p, "#flow-result-value"), 3770.41);
-  assert.match(await p.locator("#flow-sankey").textContent(), /Alex pay · £9,190.93/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex gross · £16,375/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex tax · £5,834.44/);
   assert.match(await p.locator("#flow-sankey").textContent(), /Mortgage · £2,375.30/);
   assert.equal(await p.locator("#flow-view-diagram").getAttribute("aria-pressed"), "true");
   await p.locator("#flow-view-table").click();
   assert.equal(await p.locator("#flow-sankey").isVisible(), false);
-  assert.match(await p.locator("#flow-source-list").innerText(), /Alex's estimated take-home pay[\s\S]*£9,190.93/);
+  assert.match(await p.locator("#flow-source-list").innerText(), /Alex's estimated gross pay[\s\S]*£16,375/);
   await p.locator("#flow-view-diagram").click();
   assert.equal(await p.locator("#flow-sankey").isVisible(), true);
   assert.equal(await p.locator("#flow-pay-primary-annualGross").inputValue(), "146500");
@@ -144,7 +145,7 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await p.locator("#flow-pay-primary-employeePensionRate").inputValue(), "7");
   assert.equal(await p.locator("#flow-pay-partner-annualGross").inputValue(), "125000");
   assert.equal(await p.locator("#flow-more-entries").evaluate((element) => element.open), false);
-  assert.equal(await p.locator("#flow-later").evaluate((element) => element.open), false);
+  assert.equal(await p.locator("#planning-screen").isVisible(), false);
   await p.locator("#flow-more-entries > summary").click();
   await p.locator("#flow-include-mortgage").uncheck();
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 8816.67);
@@ -192,23 +193,45 @@ test("dated entries are editable and update the monthly summary only when active
   await p.close();
 });
 
-test("the remainder stays unassigned until an illustrative monthly order is selected", async () => {
+test("monthly saving is assigned only by the person, while optional planning stays in its own section", async () => {
   const p = await page();
   await p.locator("#step-to-flow").click();
-  assert.match(await p.locator("#flow-sankey").textContent(), /Unassigned · £3,770.41/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /To assign · £3,770.41/);
+  await p.locator("#flow-saving-primary").fill("2000");
+  await p.locator("#flow-saving-partner").fill("1500");
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,000[\s\S]*Gemma saving · £1,500[\s\S]*To assign · £270.41/);
+  await p.locator("#flow-to-planning").click();
+  assert.equal(await p.locator("#planning-screen").isVisible(), true);
   assert.equal(await p.locator("#flow-allocation-settings").isVisible(), false);
-  await p.locator("#flow-later > summary").click();
   await p.locator("#flow-allocation-enabled").check();
   assert.equal(await p.locator("#flow-allocation-settings").isVisible(), true);
   assert.match(await p.locator("#flow-allocation-steps").innerText(), /Cash reserve[\s\S]*£0\/month[\s\S]*Alex's ISA[\s\S]*£3,770.41\/month/);
   await p.locator("#flow-isa-used-primary").fill("20000");
   await p.locator("#flow-isa-used-partner").fill("20000");
-  assert.match(await p.locator("#flow-sankey").textContent(), /Unassigned · £3,770.41/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,000/);
   await p.locator("#flow-trading-label").fill("My trading account");
   assert.match(await p.locator("#flow-allocation-steps").innerText(), /My trading account[\s\S]*£3,770.41\/month/);
   await p.locator("#flow-growth-panel > summary").click();
   await p.locator("#flow-inflation-rate").fill("2.5");
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 11191.97);
+  await p.close();
+});
+
+test("timeline markers show dated school costs, mortgage ending and entered State Pension", async () => {
+  const p = await page();
+  await p.locator("#step-to-flow").click();
+  await p.locator('[data-flow-month="2028-11"]').click();
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 12025.30);
+  await p.locator('[data-flow-month="2047-10"]').click();
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 100);
+  assert.equal(await displayedAmount(p, "#flow-spending-total"), 7150);
+  await p.locator("#flow-add-state-pension").click();
+  await p.locator("#flow-dated-amount").fill("1200");
+  await p.locator("#flow-dated-start").fill("2047-11");
+  await p.locator("#flow-dated-form button[type=submit]").click();
+  await p.locator('[data-flow-month="2047-11"]').click();
+  assert.equal(await displayedAmount(p, "#flow-income-total"), 1300);
+  assert.match(await p.locator("#flow-source-list").innerText(), /State Pension/);
   await p.close();
 });
 
