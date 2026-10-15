@@ -901,6 +901,10 @@ function renderFlow() {
   $("flow-rent-toggle-row").hidden = summary.linkedRents.length === 0;
   $("flow-mortgage-toggle-row").hidden = summary.linkedMortgages.length === 0;
   $("flow-link-description").textContent = "Recorded rent and mortgage payments can flow into this picture. A repayment estimate needs the balance, current rate and remaining term; enter your actual payment to replace it.";
+  const propertySummary = $("flow-property-summary");
+  const rentTotal = summary.linkedRents.reduce((sum,item)=>sum+item.amount,0);
+  const mortgageTotal = summary.linkedMortgages.reduce((sum,item)=>sum+item.amount,0);
+  propertySummary.textContent = [summary.linkedRents.length ? `Rent ${money(rentTotal)}/month${flowDraft.includeLinkedRent ? " · included" : " · not included"}` : "", summary.linkedMortgages.length ? `Mortgage ${money(mortgageTotal)}/month${flowDraft.includeLinkedMortgage ? " · included" : " · not included"}` : ""].filter(Boolean).join(" · ") || "No linked property payments";
   const rents = $("flow-rent-list"); rents.replaceChildren();
   for (const rent of summary.linkedRents) {
     const row = make("button", "flow-rent-row"); row.type = "button"; row.dataset.flowAsset = rent.id;
@@ -1790,15 +1794,15 @@ function organizeFlowInputs() {
   dialog.append(dialogHeading,editor); document.body.append(dialog); editorHeading.remove();
   dialog.addEventListener("close",()=>{payDetail.open=false;spendingDetail.open=false;});
   for (const [detail,side] of [[payDetail,"income"],[spendingDetail,"spending"]]) detail.addEventListener("toggle",()=>{if(detail.open && !dialog.open)openFlowEditor(side);});
-  const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Upcoming income & expenses"));
-  const planFuture=make("button","flow-entry-add","+ Plan a future entry"); planFuture.type="button";
+  const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Starts later"));
+  const planFuture=make("button","flow-entry-add","+ Add future entry"); planFuture.type="button";
   planFuture.addEventListener("click",()=>$("flow-event-dialog").showModal());
   futureHeading.append(planFuture);
   const pensionRecords=make("section","flow-state-records"); pensionRecords.id="flow-state-records";
   inputPanel.append(pensionRecords,$("flow-dated-form"),futureHeading,$("flow-dated-list"),$("flow-dated-empty"));
   const datedDialog=document.createElement("dialog"); datedDialog.id="flow-dated-dialog"; datedDialog.className="flow-edit-dialog"; datedDialog.setAttribute("aria-labelledby","flow-dated-form-title"); datedDialog.append($("flow-dated-form"));document.body.append(datedDialog);
   datedDialog.addEventListener("close",()=>{$("flow-dated-form").hidden=true;});
-  const property = document.createElement("details"); property.id="flow-more-entries"; property.className="flow-property-details"; property.innerHTML='<summary>Property cash-flow settings <small>Manage which linked rent and mortgage payments appear here</small></summary>';
+  const property = document.createElement("details"); property.id="flow-more-entries"; property.className="flow-property-details"; property.innerHTML='<summary><span>Property cash-flow settings<small id="flow-property-summary">Linked rent and mortgage amounts</small></span><span aria-hidden="true">⌄</span></summary>';
   extras.removeAttribute("id"); property.append($("flow-link-panel")); inputPanel.append(property);
   const actions=panel.querySelector(".flow-dated-actions") || extras.querySelector(".flow-dated-actions");
   actions.hidden=true; inputPanel.append(actions); panel.hidden=true; extras.hidden=true;
