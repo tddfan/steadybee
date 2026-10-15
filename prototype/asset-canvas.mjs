@@ -485,6 +485,77 @@ function renderSankey(summary) {
     });
   }
 }
+function renderFlowBridge(diagram) {
+  const root = $("flow-bridge-view"); root.replaceChildren();
+  if (!diagram.hasEntries) { root.append(make("p", "flow-empty", "Add income or spending below to build this view.")); return; }
+  const gross = diagram.sources.filter((item) => item.kind !== "gap").reduce((sum, item) => sum + item.amount, 0);
+  const deductions = diagram.deductions.reduce((sum, item) => sum + item.amount, 0);
+  const equation = make("div", "flow-bridge-equation");
+  for (const [label, value, kind, operator] of [
+    ["Gross pay and other income", gross, "gross", ""],
+    ["Tax, NI and employee pension", deductions, "deductions", "−"],
+    ["Money after deductions", diagram.incomeTotal, "net", "="],
+  ]) {
+    if (operator) equation.append(make("span", "flow-bridge-operator", operator));
+    const card = make("div", `flow-bridge-amount flow-bridge-${kind}`);
+    card.append(make("span", "", label), make("strong", "", money(value)));
+    equation.append(card);
+  }
+  root.append(equation);
+  const groups = [
+    { label: "Home", color: "#ae744b", test: (item) => item.key === "homeBills" || item.kind === "mortgage" },
+    { label: "Everyday", color: "#c2935d", test: (item) => ["everyday", "transport"].includes(item.key) },
+    { label: "Lifestyle and other", color: "#967c64", test: (item) => ["lifestyle", "other"].includes(item.key) },
+    { label: "Dated costs", color: "#b56d5d", test: (item) => item.kind === "datedSpending" },
+  ];
+  const spending = diagram.uses.filter((item) => item.kind === "spending" || item.kind === "mortgage" || item.kind === "datedSpending");
+  const assigned = new Set();
+  const buckets = groups.map((group) => {
+    const items = spending.filter((item) => group.test(item));
+    items.forEach((item) => assigned.add(item));
+    return { ...group, items, amount: items.reduce((sum, item) => sum + item.amount, 0) };
+  });
+  const other = spending.filter((item) => !assigned.has(item));
+  if (other.length) buckets.push({ label: "Other costs", color: "#a88968", items: other, amount: other.reduce((sum, item) => sum + item.amount, 0) });
+  const saving = diagram.uses.filter((item) => item.kind === "saving");
+  const savingTotal = saving.reduce((sum, item) => sum + item.amount, 0);
+  const section = make("section", "flow-bridge-breakdown");
+  const heading = make("div", "flow-bridge-breakdown-heading");
+  heading.append(make("h3", "", "Where that money goes"), make("p", "", `${money(diagram.spendingTotal)} spending · ${money(savingTotal)} saving`));
+  section.append(heading);
+  const bar = make("div", "flow-bridge-bar"); bar.setAttribute("role", "img");
+  bar.setAttribute("aria-label", `Monthly spending ${money(diagram.spendingTotal)}; saving ${money(savingTotal)}${diagram.remainder < 0 ? `; uncovered gap ${money(-diagram.remainder)}` : ""}`);
+  const total = diagram.spendingTotal + savingTotal;
+  for (const group of buckets.filter((group) => group.amount > 0)) {
+    const segment = make("span", "flow-bridge-segment"); segment.style.width = `${group.amount / total * 100}%`; segment.style.background = group.color;
+    segment.title = `${group.label}: ${money(group.amount)}`; bar.append(segment);
+  }
+  if (savingTotal) { const segment = make("span", "flow-bridge-segment"); segment.style.width = `${savingTotal / total * 100}%`; segment.style.background = "#398568"; segment.title = `Saving: ${money(savingTotal)}`; bar.append(segment); }
+  section.append(bar);
+  if (diagram.remainder < 0) section.append(make("p", "flow-bridge-gap", `${money(-diagram.remainder)} of this spending is not covered by recorded income. No funding source is assumed.`));
+  const list = make("div", "flow-bridge-groups");
+  for (const group of buckets.filter((bucket) => bucket.amount > 0)) {
+    const detail = make("details", "flow-bridge-group");
+    const heading = make("summary", "");
+    const label = make("span", "flow-bridge-group-label");
+    const swatch = make("span", "flow-bridge-swatch"); swatch.style.background = group.color;
+    label.append(swatch, document.createTextNode(group.label));
+    heading.append(label, make("strong", "", money(group.amount))); detail.append(heading);
+    const items = make("ul", "flow-bridge-items");
+    for (const item of group.items) { const row = make("li", ""); row.append(make("span", "", item.label), make("strong", "", money(item.amount))); items.append(row); }
+    detail.append(items); list.append(detail);
+  }
+  if (savingTotal) {
+    const detail = make("div", "flow-bridge-group flow-bridge-saving");
+    const heading = make("div", "flow-bridge-saving-heading");
+    const label = make("span", "flow-bridge-group-label"); const swatch = make("span", "flow-bridge-swatch"); swatch.style.background = "#398568";
+    label.append(swatch, document.createTextNode("Saving")); heading.append(label, make("strong", "", money(savingTotal))); detail.append(heading);
+    const items = make("ul", "flow-bridge-items");
+    for (const item of saving) { const row = make("li", ""); row.append(make("span", "", item.label), make("strong", "", money(item.amount))); items.append(row); }
+    detail.append(items); list.append(detail);
+  }
+  section.append(list); root.append(section);
+}
 function flowListItem(item, side) {
   const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
   const editable = payOwner || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
@@ -631,6 +702,7 @@ function renderFlow() {
   $("flow-table-scroll").hidden = !summary.hasEntries;
   $("flow-table-empty").hidden = summary.hasEntries;
   renderSankey(diagram);
+  renderFlowBridge(diagram);
   $("flow-payroll-note").hidden = !diagram.payrollEstimated;
   $("flow-split").hidden = !diagram.hasPartner || summary.remainder <= 0;
   $("flow-split-summary").textContent = `${draft.name || "First person"} ${diagram.primaryShare.toFixed(1)}% · ${draft.partnerName || "Partner"} ${(100 - diagram.primaryShare).toFixed(1)}% · Change split`;
@@ -862,15 +934,20 @@ $("flow-primary-share").addEventListener("input", (event) => {
 });
 function setFlowView(view) {
   const table = view === "table";
-  $("flow-diagram-view").hidden = table;
+  const bridge = view === "bridge";
+  $("flow-diagram-view").hidden = table || bridge;
+  $("flow-bridge-view").hidden = !bridge;
   $("flow-table-view").hidden = !table;
-  $("flow-view-diagram").setAttribute("aria-pressed", String(!table));
+  $("flow-view-diagram").setAttribute("aria-pressed", String(!table && !bridge));
+  $("flow-view-bridge").setAttribute("aria-pressed", String(bridge));
   $("flow-view-table").setAttribute("aria-pressed", String(table));
   $("flow-view-help").textContent = table
     ? "Exact monthly averages from the same entries, including estimated payroll deductions. Use Edit to change a figure."
+    : bridge ? "Follow the calculation, then open a spending group to see its entries. Saving is the amount left after spending."
     : "Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose Table for exact figures.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
+$("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
 $("flow-view-table").addEventListener("click", () => setFlowView("table"));
 $("flow-editor").addEventListener("input", (event) => {
   const input = event.target.closest("[data-flow-side], [data-flow-pay-owner]");

@@ -135,6 +135,11 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.match(await p.locator("#flow-sankey").textContent(), /Income Tax & NI · £8,991.38/);
   assert.match(await p.locator("#flow-sankey").textContent(), /Mortgage · £2,375.30/);
   assert.equal(await p.locator("#flow-view-diagram").getAttribute("aria-pressed"), "true");
+  await p.locator("#flow-view-bridge").click();
+  assert.equal(await p.locator("#flow-bridge-view").isVisible(), true);
+  assert.match(await p.locator("#flow-bridge-view").innerText(), /Gross pay and other income[\s\S]*Tax, NI and employee pension[\s\S]*Money after deductions[\s\S]*£14,962.38/);
+  await p.locator("#flow-bridge-view details").first().locator("summary").click();
+  assert.match(await p.locator("#flow-bridge-view").innerText(), /Main home mortgage estimated payment/);
   await p.locator("#flow-view-table").click();
   assert.equal(await p.locator("#flow-sankey").isVisible(), false);
   assert.match(await p.locator("#flow-source-list").innerText(), /Alex's estimated gross pay[\s\S]*£16,375/);

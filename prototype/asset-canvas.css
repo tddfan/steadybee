@@ -586,6 +586,7 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-view-switch svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .flow-view-switch button[aria-pressed="true"] { border-color: #66947a; background: #fffefa; color: #1d563e; box-shadow: 0 1px 3px #173c2820; }
 .flow-view-switch button:hover { color: #18543b; }
+.flow-view-switch button:focus-visible { outline: 3px solid #7eb1c3; outline-offset: 2px; }
 .flow-view-help { margin: 11px 0 0; color: #53665a; font-size: .94rem; }
 .flow-table-scroll { overflow-x: auto; margin-top: 20px; border: 1px solid #d9e4d9; border-radius: 12px; }
 .flow-table { width: 100%; border-collapse: collapse; color: #274437; font-variant-numeric: tabular-nums; }
@@ -672,6 +673,32 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-svg-heading { fill: #4d6757; font: 700 14px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: .025em; }
 .flow-svg-label { fill: #2b4c3c; font: 650 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
 .flow-svg-net-label { fill: #285943; font: 700 13.5px "Avenir Next", Avenir, "Segoe UI", sans-serif; letter-spacing: -.012em; }
+.flow-bridge-equation { display: flex; align-items: stretch; gap: 10px; margin-top: 24px; }
+.flow-bridge-amount { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; min-height: 106px; padding: 16px 18px; border: 1px solid #d5e2d8; border-radius: 13px; background: #f8faf6; }
+.flow-bridge-amount span { color: #426451; font-size: .85rem; font-weight: 680; }
+.flow-bridge-amount strong { color: #214b38; font-size: clamp(1.35rem,2.2vw,2rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.flow-bridge-deductions { border-color: #e3cec6; background: #fcf6f3; }
+.flow-bridge-deductions strong { color: #a34f3b; }
+.flow-bridge-net { border-color: #b9d5c2; background: #edf7ee; }
+.flow-bridge-operator { align-self: center; color: #6b7c6d; font-size: 1.7rem; }
+.flow-bridge-breakdown { margin-top: 21px; }
+.flow-bridge-breakdown-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 15px; }
+.flow-bridge-breakdown-heading h3 { margin: 0; font: 500 1.45rem Georgia, "Times New Roman", serif; }
+.flow-bridge-breakdown-heading p { margin: 0; color: #47614f; font-weight: 700; font-variant-numeric: tabular-nums; }
+.flow-bridge-bar { display: flex; height: 28px; overflow: hidden; margin-top: 12px; border-radius: 8px; background: #e7ece6; }
+.flow-bridge-segment + .flow-bridge-segment { border-left: 2px solid #fffefa; }
+.flow-bridge-groups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; margin-top: 15px; }
+.flow-bridge-group { border: 1px solid #dce6dc; border-radius: 10px; background: #fbfcf9; }
+.flow-bridge-group summary,.flow-bridge-saving-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 48px; padding: 10px 13px; color: #294e3b; cursor: pointer; }
+.flow-bridge-saving-heading { cursor: default; }
+.flow-bridge-group summary strong,.flow-bridge-saving-heading strong { font-variant-numeric: tabular-nums; }
+.flow-bridge-group-label { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; }
+.flow-bridge-swatch { width: 12px; height: 12px; border-radius: 3px; }
+.flow-bridge-items { margin: 0; padding: 0 13px 11px; list-style: none; }
+.flow-bridge-items li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid #e4eae3; color: #45604e; font-size: .89rem; }
+.flow-bridge-items strong { color: #294e3b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-bridge-gap { margin: 10px 0 0; color: #a3462f; font-weight: 700; }
+@media (max-width: 760px) { .flow-bridge-equation { flex-wrap: wrap; } .flow-bridge-amount { flex-basis: 40%; } .flow-bridge-breakdown-heading { align-items: start; flex-direction: column; gap: 3px; } .flow-bridge-groups { grid-template-columns: 1fr; } }
 .flow-empty { margin-top: 20px; padding: 36px 25px; border: 1px dashed #adbfaf; border-radius: 12px; background: #f6faf6; color: #3b604c; }
 .flow-list-swatch { width: 10px; height: 10px; border-radius: 50%; }
 .flow-link-panel { display: grid; grid-template-columns: minmax(0,1fr) minmax(270px,.85fr); gap: 9px 25px; background: #f7faf6; }
