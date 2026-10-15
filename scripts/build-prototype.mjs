@@ -32,11 +32,13 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true });
 for (const path of files.filter((path) => path.endsWith(".html"))) {
-  const html = await readFile(join(output, path), "utf8");
+  let html = await readFile(join(output, path), "utf8");
   const marker =
     /<meta\s+name="steadybee-version"\s+content="development"\s*\/?>/;
   if (!marker.test(html))
     throw new Error(`Missing deployment version marker in ${path}`);
+  if (path === "asset-canvas.html")
+    html = html.replace(/asset-canvas\.mjs\?v=[^"]+/, `asset-canvas.mjs?v=${version}`);
   await writeFile(
     join(output, path),
     html.replace(marker, (match) =>
