@@ -1,4 +1,4 @@
-/** Present-day monthly cash flow with an optional annualised pay estimate. No forecast or pension-pot withdrawals. */
+/** Present-day monthly cash flow. Optional user-directed routing is a single-month illustration, not a forecast. */
 import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
@@ -15,6 +15,17 @@ export const SPENDING_FIELDS = Object.freeze([
   { key: "other", label: "Other spending" },
 ]);
 
+// 2026–27 overall ISA subscription limit. Recheck when the tax year changes.
+export const ISA_ALLOWANCE_2026_27 = 20_000;
+export const DEFAULT_RESERVE_MONTHS = 6;
+
+function addMonths(monthStr, count) {
+  if (!monthStr || !count) return null;
+  const [year, month] = monthStr.split("-").map(Number);
+  const d = new Date(year, month - 1 + count, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function createBlankMonthlyFlow() {
   return {
     pay: { primary: { annualTakeHome: null, annualGross: 0, annualBonus: 0, employeePension: 0, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "" }, partner: { annualTakeHome: null, annualGross: 0, annualBonus: 0, employeePension: 0, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "" } },
@@ -24,7 +35,17 @@ export function createBlankMonthlyFlow() {
     datedEntries: [],
     includeLinkedRent: false,
     includeLinkedMortgage: false,
-    assumptions: { annualInflation: null },
+    assumptions: {
+      annualInflation: null,
+      incomeGrowthRate: null,
+      assetGrowthRates: { cash: null, isa: null, pension: null, property: null, shares: null },
+      cashReserveMonths: null,
+      isaAllowance: null,
+      isaUsedPrimary: null,
+      isaUsedPartner: null,
+      allocationEnabled: false,
+      tradingLabel: "",
+    },
   };
 }
 
@@ -32,12 +53,25 @@ export function createExampleMonthlyFlow() {
   return {
     pay: { primary: { annualTakeHome: null, annualGross: 146500, annualBonus: 50000, employeePension: 0, employeePensionRate: 7, employerPension: 0, employerPensionRate: 16, endDate: "2045-12" }, partner: { annualTakeHome: null, annualGross: 125000, annualBonus: 0, employeePension: 25000, employeePensionRate: 0, employerPension: 0, employerPensionRate: 0, endDate: "2043-12" } },
     income: { pensionIncome: 0, otherIncome: 0 },
-    spending: { homeBills: 400, everyday: 1500, transport: 600, lifestyle: 900, other: 400 },
+    spending: { homeBills: 400, everyday: 1500, transport: 350, lifestyle: 900, other: 4000 },
     asOfMonth: new Date().toISOString().slice(0, 7),
-    datedEntries: [],
+    datedEntries: [
+      { id: "school-fees-1", side: "spending", label: "School fees (current)", amount: 20000, frequency: "yearly", startMonth: new Date().toISOString().slice(0, 7), endMonth: addMonths(new Date().toISOString().slice(0, 7), 24) },
+      { id: "school-fees-2", side: "spending", label: "School fees (senior)", amount: 30000, frequency: "yearly", startMonth: addMonths(new Date().toISOString().slice(0, 7), 25), endMonth: addMonths(new Date().toISOString().slice(0, 7), 84) },
+    ],
     includeLinkedRent: true,
     includeLinkedMortgage: true,
-    assumptions: { annualInflation: null },
+    assumptions: {
+      annualInflation: null,
+      incomeGrowthRate: null,
+      assetGrowthRates: { cash: null, isa: null, pension: null, property: null, shares: null },
+      cashReserveMonths: null,
+      isaAllowance: null,
+      isaUsedPrimary: null,
+      isaUsedPartner: null,
+      allocationEnabled: false,
+      tradingLabel: "",
+    },
   };
 }
 
@@ -78,9 +112,9 @@ function summarizeDatedEntries(flow, sources, uses) {
 
 export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   const { assets = [], debts = [] } = holdings;
-  if (flow.assumptions?.annualInflation !== null && flow.assumptions?.annualInflation !== undefined) {
-    const inflation = flow.assumptions.annualInflation;
-    if (typeof inflation !== "number" || !Number.isFinite(inflation) || inflation < 0 || inflation > 30) throw new RangeError("Annual inflation assumption must be from 0% to 30%.");
+  for (const [label, rate] of [["Annual inflation", flow.assumptions?.annualInflation], ["Income growth", flow.assumptions?.incomeGrowthRate], ...Object.entries(flow.assumptions?.assetGrowthRates || {}).map(([kind, value]) => [`${kind} growth`, value])]) {
+    if (rate !== null && rate !== undefined && (typeof rate !== "number" || !Number.isFinite(rate) || rate < -30 || rate > 30))
+      throw new RangeError(`${label} assumption must be from -30% to 30%.`);
   }
   const sources = [];
   const uses = [];
@@ -134,5 +168,60 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     remainder: remainderPence / 100,
     chartTotal: Math.max(incomePence, spendingPence) / 100,
     hasEntries: incomePence > 0 || spendingPence > 0,
+  };
+}
+
+/** One-month arithmetic for a routing order the user has explicitly chosen. */
+export function computeAllocationWaterfall(flow, holdings = {}, names = {}) {
+  const summary = summarizeMonthlyFlow(flow, holdings, names);
+  const assumptions = flow.assumptions || {};
+  const reserveMonths = assumptions.cashReserveMonths ?? DEFAULT_RESERVE_MONTHS;
+  if (!Number.isInteger(reserveMonths) || reserveMonths < 1 || reserveMonths > 24)
+    throw new RangeError("Cash reserve target must be from 1 to 24 months.");
+  const allowance = assumptions.isaAllowance ?? ISA_ALLOWANCE_2026_27;
+  const usedPrimary = assumptions.isaUsedPrimary ?? 0;
+  const usedPartner = assumptions.isaUsedPartner ?? 0;
+  for (const [label, value] of [["ISA allowance", allowance], ["ISA used by primary person", usedPrimary], ["ISA used by partner", usedPartner]]) {
+    const amount = pennies(value, label);
+    if (amount > 100_000 * 100) throw new RangeError(`${label} cannot exceed £100,000.`);
+  }
+  if (usedPrimary > allowance || usedPartner > allowance)
+    throw new RangeError("ISA subscriptions already used cannot exceed the entered annual allowance.");
+  const surplusPence = Math.max(0, Math.round(summary.remainder * 100));
+  const cashTargetPence = Math.round(summary.spendingTotal * 100) * reserveMonths;
+  const currentCashPence = (holdings.assets || []).filter((asset) => asset.kind === "cash")
+    .reduce((sum, asset) => sum + pennies(asset.value, "Cash asset value"), 0);
+  const cashGapPence = Math.max(0, cashTargetPence - currentCashPence);
+  const enabled = assumptions.allocationEnabled === true;
+  const hasPartner = Boolean(names.partner?.trim() || holdings.partnerName?.trim());
+  const label = typeof assumptions.tradingLabel === "string" ? assumptions.tradingLabel.trim() : "";
+  if (label.length > 60) throw new RangeError("Account label must be no longer than 60 characters.");
+  const allocations = [];
+  if (enabled && surplusPence) {
+    let remaining = surplusPence;
+    for (const [bucket, title, capacity] of [
+      ["cash-reserve", "Cash reserve", cashGapPence],
+      ["isa-primary", `${names.primary || "Your"}'s ISA`, Math.round((allowance - usedPrimary) * 100)],
+      ...(hasPartner ? [["isa-partner", `${names.partner || "Partner"}'s ISA`, Math.round((allowance - usedPartner) * 100)]] : []),
+    ]) {
+      const amount = Math.min(remaining, capacity);
+      allocations.push({ bucket, label: title, monthlyAmount: amount / 100, capacity: capacity / 100 });
+      remaining -= amount;
+    }
+    allocations.push({ bucket: label ? "trading" : "unallocated", label: label || "Not yet assigned", monthlyAmount: remaining / 100, capacity: null });
+  }
+  return {
+    enabled,
+    surplus: surplusPence / 100,
+    cashTarget: cashTargetPence / 100,
+    currentCash: currentCashPence / 100,
+    cashGap: cashGapPence / 100,
+    reserveMonths,
+    allowance,
+    usedPrimary,
+    usedPartner,
+    hasPartner,
+    allocations,
+    summary,
   };
 }

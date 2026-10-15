@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow } from "../prototype/monthly-flow.mjs";
+import { createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, computeAllocationWaterfall } from "../prototype/monthly-flow.mjs";
 import { createAlexExample } from "../prototype/asset-ledger.mjs";
 
 test("fictional monthly flow reconciles inputs and linked rent once", () => {
   const summary = summarizeMonthlyFlow(createExampleMonthlyFlow(), createAlexExample(), { primary: "Alex", partner: "Gemma" });
   assert.equal(summary.incomeTotal, 14962.38);
-  assert.equal(summary.spendingTotal, 6175.30);
-  assert.equal(summary.remainder, 8787.08);
+  assert.equal(summary.spendingTotal, 11191.97);
+  assert.equal(summary.remainder, 3770.41);
   assert.equal(summary.sources.find((source) => source.kind === "rent")?.amount, 100);
-  assert.equal(summary.uses.find((use) => use.kind === "unallocated")?.amount, 8787.08);
+  assert.equal(summary.uses.find((use) => use.kind === "unallocated")?.amount, 3770.41);
   assert.equal(summary.uses.find((use) => use.kind === "mortgage")?.amount, 2375.30);
   assert.equal(summary.payDetails[0].employerPension, 23440);
   assert.equal(summary.payDetails[0].annualBonus, 50000);
@@ -135,5 +135,64 @@ test("a one-off entry affects only its occurrence month", () => {
   flow.asOfMonth = "2026-12";
   assert.equal(summarizeMonthlyFlow(flow).entryDetails[0].status, "ended");
   flow.datedEntries[0].endMonth = "2026-12";
+  assert.throws(() => summarizeMonthlyFlow(flow), RangeError);
+});
+
+test("unassigned money stays unassigned until the person opts into a plan", () => {
+  const flow = createBlankMonthlyFlow();
+  flow.pay.primary.annualTakeHome = 60000;
+  flow.spending.homeBills = 2000;
+  const result = computeAllocationWaterfall(flow, { assets: [] });
+  assert.equal(result.surplus, 3000);
+  assert.equal(result.enabled, false);
+  assert.equal(result.allocations.length, 0);
+  assert.equal(result.cashTarget, 12000);
+});
+
+test("an opted-in monthly plan reconciles cash, individual ISA headroom, and remaining money", () => {
+  const flow = createBlankMonthlyFlow();
+  flow.pay.primary.annualTakeHome = 120000;
+  flow.spending.homeBills = 1000;
+  flow.assumptions.allocationEnabled = true;
+  flow.assumptions.isaUsedPrimary = 19000;
+  flow.assumptions.isaUsedPartner = 18000;
+  const result = computeAllocationWaterfall(flow, { assets: [{ kind: "cash", value: 5000 }], partnerName: "Gemma" }, { primary: "Alex", partner: "Gemma" });
+  assert.deepEqual(result.allocations.map((item) => item.monthlyAmount), [1000, 1000, 2000, 5000]);
+  assert.equal(result.allocations.reduce((sum, item) => sum + item.monthlyAmount, 0), result.surplus);
+  assert.equal(result.cashTarget, 6000);
+});
+
+test("a plan cannot claim ISA headroom above the current-year allowance", () => {
+  const flow = createBlankMonthlyFlow();
+  flow.assumptions.isaUsedPrimary = 20001;
+  assert.throws(() => computeAllocationWaterfall(flow), RangeError);
+});
+
+test("a single-person plan fills only the cash gap when the monthly remainder is smaller", () => {
+  const flow = createBlankMonthlyFlow();
+  flow.pay.primary.annualTakeHome = 24000;
+  flow.spending.homeBills = 1500;
+  flow.assumptions.allocationEnabled = true;
+  const result = computeAllocationWaterfall(flow);
+  assert.equal(result.cashTarget, 9000);
+  assert.equal(result.surplus, 500);
+  assert.equal(result.hasPartner, false);
+  assert.deepEqual(result.allocations.map((item) => item.monthlyAmount), [500, 0, 0]);
+});
+
+test("growth and inflation inputs are stored but do not change the current snapshot", () => {
+  const flow = createBlankMonthlyFlow();
+  flow.pay.primary.annualTakeHome = 36000;
+  flow.spending.homeBills = 1000;
+  const before = summarizeMonthlyFlow(flow);
+  flow.assumptions.annualInflation = 2;
+  flow.assumptions.incomeGrowthRate = 3;
+  flow.assumptions.assetGrowthRates.cash = 4;
+  const after = summarizeMonthlyFlow(flow);
+  assert.equal(after.remainder, before.remainder);
+  assert.equal(after.incomeTotal, before.incomeTotal);
+  flow.assumptions.assetGrowthRates.cash = -5;
+  assert.equal(summarizeMonthlyFlow(flow).remainder, before.remainder);
+  flow.assumptions.assetGrowthRates.cash = -31;
   assert.throws(() => summarizeMonthlyFlow(flow), RangeError);
 });

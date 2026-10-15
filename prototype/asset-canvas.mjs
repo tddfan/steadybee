@@ -9,7 +9,7 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow } from "./monthly-flow.mjs";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, computeAllocationWaterfall, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -370,7 +370,9 @@ function render() {
 const flowColors = {
   primaryPay: "#28745f", partnerPay: "#8064a4", pensionIncome: "#5f8093", otherIncome: "#78916d",
   homeBills: "#b68849", everyday: "#ce9d62", transport: "#7893a5", lifestyle: "#9b80a8", other: "#9b8770",
-  rent: "#659277", mortgage: "#aa7251", datedIncome: "#3d8276", datedSpending: "#b87961", unallocated: "#8ba99a", gap: "#b25d45",
+  rent: "#659277", mortgage: "#aa7251", datedIncome: "#3d8276", datedSpending: "#b87961",
+  unallocated: "#8ba99a", gap: "#b25d45",
+  "cash-reserve": "#2a9d8f", "isa-primary": "#3a8f6a", "isa-partner": "#6db888", trading: "#d4a843",
 };
 const svgNS = "http://www.w3.org/2000/svg";
 function svgElement(tag, attributes = {}) {
@@ -378,7 +380,7 @@ function svgElement(tag, attributes = {}) {
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
   return node;
 }
-function flowColor(item) { return flowColors[item.key] || flowColors[item.kind] || "#78916d"; }
+function flowColor(item) { return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#78916d"; }
 function flowBand(x1, y1, x2, y2, height) {
   const middle = (x1 + x2) / 2;
   return `M ${x1} ${y1} C ${middle} ${y1} ${middle} ${y2} ${x2} ${y2} L ${x2} ${y2 + height} C ${middle} ${y2 + height} ${middle} ${y1 + height} ${x1} ${y1 + height} Z`;
@@ -439,7 +441,7 @@ function renderSankey(summary) {
     const labelY = labelPositions(items, chartHeight);
     items.forEach((item, index) => {
       svg.append(svgElement("rect", { x, y: item.y, width: 14, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
-      const chartName = item.key === "unallocated" ? "Unassigned" : item.key === "gap" ? "Gap" : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "pensionIncome" ? "Pension income" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} pay` : item.label.length > 16 ? `${item.label.slice(0, 15)}…` : item.label;
+      const chartName = item.bucket === "cash-reserve" ? "Cash" : item.bucket === "isa-primary" ? "ISA (you)" : item.bucket === "isa-partner" ? "ISA (partner)" : item.bucket === "trading" ? "Account" : item.key === "unallocated" || item.bucket === "unallocated" ? "Unassigned" : item.key === "gap" ? "Gap" : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "other" ? "Other" : item.key === "pensionIncome" ? "Pension" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} pay` : item.label.length > 10 ? `${item.label.slice(0, 9)}…` : item.label;
       addText(labelX, labelY[index] + 5, `${chartName} · ${money(item.amount)}`, anchor);
     });
   }
@@ -488,14 +490,40 @@ function renderDatedEntries(summary) {
     list.append(row);
   }
 }
+function renderAllocationOverview(plan) {
+  $("flow-allocation-enabled").checked = plan.enabled;
+  $("flow-allocation-settings").hidden = !plan.enabled;
+  $("flow-allocation-context").textContent = plan.surplus === 0
+    ? "There is no positive remainder to direct in this monthly picture."
+    : plan.enabled ? "This month's illustrative split follows the order you selected. No money is moved."
+      : "No destination is assumed. You can illustrate how you intend to use this month's remaining money.";
+  $("flow-isa-primary-label").textContent = `${plan.summary.payDetails[0].person}'s ISA subscriptions this tax year`;
+  $("flow-isa-partner-label").textContent = `${plan.summary.payDetails[1].person}'s ISA subscriptions this tax year`;
+  $("flow-isa-used-partner-row").hidden = !plan.hasPartner;
+  const steps = $("flow-allocation-steps"); steps.replaceChildren();
+  if (!plan.enabled || plan.surplus === 0) return;
+  for (const allocation of plan.allocations) {
+    const card = make("div", "flow-allocation-step");
+    const marker = make("span", "flow-allocation-marker"); marker.style.background = flowColor(allocation);
+    const amount = make("strong", "", `${money(allocation.monthlyAmount)}/month`);
+    const detail = allocation.bucket === "cash-reserve"
+      ? `${money(plan.currentCash)} cash counted · ${money(plan.cashTarget)} target (${plan.reserveMonths} × recorded outgoings)`
+      : allocation.bucket === "isa-primary" ? `${money(plan.allowance - plan.usedPrimary)} allowance left this tax year`
+      : allocation.bucket === "isa-partner" ? `${money(plan.allowance - plan.usedPartner)} allowance left this tax year`
+      : allocation.bucket === "unallocated" ? "Name an account above to describe this balance" : "Your named destination";
+    card.append(marker, make("span", "flow-allocation-step-name", allocation.label), amount, make("small", "", detail));
+    steps.append(card);
+  }
+}
 function renderFlow() {
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
+  const plan = computeAllocationWaterfall(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
   $("flow-income-total").textContent = money(summary.incomeTotal);
   $("flow-spending-total").textContent = money(summary.spendingTotal);
   $("flow-result-value").textContent = summary.hasEntries ? money(Math.abs(summary.remainder)) : "—";
-  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Not assigned to spending";
+  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : plan.enabled ? "Available after spending" : "Not assigned to spending";
   const payEstimated = summary.payDetails.some((detail) => !detail.enteredTakeHome && detail.annualGross > 0);
-  $("flow-result-context").textContent = !summary.hasEntries ? "Enter money in or spending below to see the flow." : summary.remainder < 0 ? "This gap is not assumed to be funded from your assets." : `This amount is not automatically savings or available for a plan.${payEstimated ? " Pay is an estimate; use actual take-home for a more reliable figure." : ""}`;
+  $("flow-result-context").textContent = !summary.hasEntries ? "Enter money in or spending below to see the flow." : summary.remainder < 0 ? "This gap is not assumed to be funded from your assets." : `${plan.enabled ? "Your chosen routing describes this month's remainder; no money is moved." : "No saving or investment destination is assumed."}${payEstimated ? " Pay is an estimate; use actual take-home for a more reliable figure." : ""}`;
   $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
   for (const detail of summary.payDetails) {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
@@ -521,10 +549,17 @@ function renderFlow() {
     row.append(make("span", "", `${mortgage.label} · ${basis}`), make("strong", "", `${money(mortgage.amount)}/month${mortgage.estimated ? " est." : ""}`), make("span", "flow-rent-edit", "Edit mortgage →"));
     mortgages.append(row);
   }
+  const uses = plan.enabled && summary.remainder > 0
+    ? summary.uses.filter((item) => item.kind !== "unallocated").concat(plan.allocations.filter((item) => item.monthlyAmount > 0).map((item) => ({ ...item, amount: item.monthlyAmount, key: `plan:${item.bucket}`, kind: item.bucket })))
+    : summary.uses;
+  const diagram = { ...summary, uses };
   const sources = $("flow-source-list"); sources.replaceChildren(...summary.sources.map((item) => flowListItem(item, "income")));
-  const uses = $("flow-use-list"); uses.replaceChildren(...summary.uses.map((item) => flowListItem(item, "spending")));
-  $("flow-list-grid").hidden = !summary.hasEntries;
-  renderSankey(summary);
+  const destinations = $("flow-use-list"); destinations.replaceChildren(...uses.map((item) => flowListItem(item, "spending")));
+  $("flow-breakdown").hidden = !summary.hasEntries;
+  if (window.matchMedia("(max-width: 700px)").matches) $("flow-breakdown").open = true;
+  renderSankey(diagram);
+  renderAllocationOverview(plan);
+
   renderDatedEntries(summary);
 }
 function setupFlowInputs() {
@@ -573,6 +608,17 @@ function syncFlowInputs() {
   $("flow-include-rent").checked = flowDraft.includeLinkedRent;
   $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
   $("flow-inflation-rate").value = flowDraft.assumptions.annualInflation ?? "";
+  $("flow-income-growth").value = flowDraft.assumptions.incomeGrowthRate ?? "";
+  for (const key of ["cash", "isa", "pension", "property", "shares"]) {
+    const el = $(`flow-growth-${key}`);
+    if (el) el.value = flowDraft.assumptions.assetGrowthRates?.[key] ?? "";
+  }
+  $("flow-reserve-months").value = flowDraft.assumptions.cashReserveMonths ?? DEFAULT_RESERVE_MONTHS;
+  $("flow-isa-allowance").value = flowDraft.assumptions.isaAllowance ?? ISA_ALLOWANCE_2026_27;
+  $("flow-isa-used-primary").value = flowDraft.assumptions.isaUsedPrimary ?? "";
+  $("flow-isa-used-partner").value = flowDraft.assumptions.isaUsedPartner ?? "";
+  $("flow-allocation-enabled").checked = flowDraft.assumptions.allocationEnabled === true;
+  $("flow-trading-label").value = flowDraft.assumptions.tradingLabel ?? "";
 }
 function showScreen(screen) {
   $("canvas-screen").hidden = screen !== "assets";
@@ -745,11 +791,59 @@ $("flow-include-rent").addEventListener("change", (event) => {
 });
 $("flow-inflation-rate").addEventListener("input", (event) => {
   const value = event.currentTarget.value.trim();
-  const valid = value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 30);
+  const valid = value === "" || (Number.isFinite(Number(value)) && Number(value) >= -30 && Number(value) <= 30);
   $("flow-input-error").hidden = valid;
   if (valid) flowDraft.assumptions.annualInflation = value === "" ? null : Number(value);
-  else $("flow-input-error").textContent = "Enter an annual inflation assumption from 0% to 30%.";
+  else $("flow-input-error").textContent = "Enter an annual inflation assumption from -30% to 30%.";
+  if (valid) renderFlow();
 });
+for (const key of ["cash", "isa", "pension", "property", "shares"]) {
+  const el = $(`flow-growth-${key}`);
+  if (el) el.addEventListener("input", (event) => {
+    const value = event.currentTarget.value.trim();
+    const valid = value === "" || (Number.isFinite(Number(value)) && Number(value) >= -30 && Number(value) <= 30);
+    $("flow-input-error").hidden = valid;
+    if (valid) {
+      if (!flowDraft.assumptions.assetGrowthRates) flowDraft.assumptions.assetGrowthRates = {};
+      flowDraft.assumptions.assetGrowthRates[key] = value === "" ? null : Number(value);
+      renderFlow();
+    } else $("flow-input-error").textContent = `Enter a ${key} growth rate from -30% to 30%.`;
+  });
+}
+$("flow-income-growth").addEventListener("input", (event) => {
+  const value = event.currentTarget.value.trim();
+  const valid = value === "" || (Number.isFinite(Number(value)) && Number(value) >= -30 && Number(value) <= 30);
+  $("flow-input-error").hidden = valid;
+  if (valid) { flowDraft.assumptions.incomeGrowthRate = value === "" ? null : Number(value); renderFlow(); }
+  else $("flow-input-error").textContent = "Enter an annual income growth rate from -30% to 30%.";
+});
+function updateAllocation(key, value) {
+  const candidate = structuredClone(flowDraft);
+  candidate.assumptions[key] = value;
+  try {
+    computeAllocationWaterfall(candidate, draft, { primary: draft.name, partner: draft.partnerName });
+    flowDraft.assumptions[key] = value;
+    $("flow-allocation-error").hidden = true;
+    renderFlow();
+  } catch (error) {
+    $("flow-allocation-error").textContent = error.message;
+    $("flow-allocation-error").hidden = false;
+  }
+}
+$("flow-allocation-enabled").addEventListener("change", (event) => updateAllocation("allocationEnabled", event.currentTarget.checked));
+for (const [id, key, integer] of [["flow-reserve-months", "cashReserveMonths", true], ["flow-isa-allowance", "isaAllowance", false], ["flow-isa-used-primary", "isaUsedPrimary", false], ["flow-isa-used-partner", "isaUsedPartner", false]]) {
+  $(id).addEventListener("input", (event) => {
+    const raw = event.currentTarget.value.trim();
+    const value = raw === "" ? null : Number(raw);
+    if (raw !== "" && (!Number.isFinite(value) || value < 0 || (integer && !Number.isInteger(value)))) {
+      $("flow-allocation-error").textContent = "Enter a valid non-negative amount.";
+      $("flow-allocation-error").hidden = false;
+      return;
+    }
+    updateAllocation(key, value);
+  });
+}
+$("flow-trading-label").addEventListener("input", (event) => updateAllocation("tradingLabel", event.currentTarget.value));
 $("flow-include-mortgage").addEventListener("change", (event) => {
   flowDraft.includeLinkedMortgage = event.currentTarget.checked;
   renderFlow();
