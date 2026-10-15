@@ -22,27 +22,23 @@ test("fictional monthly flow reconciles inputs and linked rent once", () => {
 test("the diagram shows gross pay, estimated payroll deductions and net household spending once", () => {
   const diagram = buildMonthlyFlowDiagram(createExampleMonthlyFlow(), createAlexExample(), { primary: "Alex", partner: "Gemma" });
   assert.equal(diagram.sources.find((item) => item.key === "primaryPay")?.amount, 16375);
-  assert.equal(diagram.uses.find((item) => item.key === "primaryTax")?.amount, 5834.44);
-  assert.equal(diagram.uses.find((item) => item.key === "primaryNI")?.amount, 495.05);
-  assert.equal(diagram.uses.find((item) => item.key === "primaryPension")?.amount, 854.58);
+  assert.equal(diagram.deductions.find((item) => item.key === "householdTaxNI")?.amount, 8991.38);
+  assert.equal(diagram.deductions.find((item) => item.key === "householdPension")?.amount, 2937.91);
   assert.equal(diagram.incomeTotal, 14962.38);
-  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round(diagram.uses.reduce((sum, item) => sum + item.amount * 100, 0)));
+  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round([...diagram.deductions, ...diagram.uses].reduce((sum, item) => sum + item.amount * 100, 0)));
 });
 
-test("saving assignments are explicit, separate by person and never exceed the available remainder", () => {
+test("the full remainder becomes saving, split by take-home income unless the household changes it", () => {
   const flow = createExampleMonthlyFlow();
-  flow.savings.primary = 2000;
-  flow.savings.partner = 1500;
   let diagram = buildMonthlyFlowDiagram(flow, createAlexExample(), { primary: "Alex", partner: "Gemma" });
-  assert.equal(diagram.uses.find((item) => item.key === "primarySaving")?.amount, 2000);
-  assert.equal(diagram.uses.find((item) => item.key === "partnerSaving")?.amount, 1500);
-  assert.equal(diagram.uses.find((item) => item.key === "unallocated")?.amount, 270.41);
-  assert.equal(diagram.savingsUnfunded, 0);
-  flow.spending.other = 6000;
+  assert.equal(diagram.savingsAssigned, 3770.41);
+  assert.equal(diagram.uses.filter((item) => item.kind === "saving").reduce((sum, item) => sum + item.amount, 0), 3770.41);
+  assert.equal(diagram.uses.some((item) => item.key === "unallocated"), false);
+  flow.savings.primaryShare = 60;
   diagram = buildMonthlyFlowDiagram(flow, createAlexExample(), { primary: "Alex", partner: "Gemma" });
-  assert.equal(diagram.savingsUnfunded, 1729.59);
-  assert.equal(diagram.uses.find((item) => item.key === "partnerSaving")?.amount ?? 0, 0);
-  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round(diagram.uses.reduce((sum, item) => sum + item.amount * 100, 0)));
+  assert.equal(diagram.uses.find((item) => item.key === "primarySaving")?.amount, 2262.25);
+  assert.equal(diagram.uses.find((item) => item.key === "partnerSaving")?.amount, 1508.16);
+  assert.equal(Math.round(diagram.sources.reduce((sum, item) => sum + item.amount * 100, 0)), Math.round([...diagram.deductions, ...diagram.uses].reduce((sum, item) => sum + item.amount * 100, 0)));
 });
 
 test("future months turn dated income and expenses on, then end pay and the mortgage", () => {

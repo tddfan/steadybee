@@ -34,7 +34,7 @@ export function createBlankMonthlyFlow() {
     asOfMonth: new Date().toISOString().slice(0, 7),
     timelineStartMonth: new Date().toISOString().slice(0, 7),
     datedEntries: [],
-    savings: { primary: 0, partner: 0 },
+    savings: { primaryShare: null },
     includeLinkedRent: false,
     includeLinkedMortgage: false,
     assumptions: {
@@ -62,7 +62,7 @@ export function createExampleMonthlyFlow() {
       { id: "school-fees-1", side: "spending", label: "School fees (current)", amount: 20000, frequency: "yearly", startMonth: new Date().toISOString().slice(0, 7), endMonth: addMonths(new Date().toISOString().slice(0, 7), 24) },
       { id: "school-fees-2", side: "spending", label: "School fees (senior)", amount: 30000, frequency: "yearly", startMonth: addMonths(new Date().toISOString().slice(0, 7), 25), endMonth: addMonths(new Date().toISOString().slice(0, 7), 84) },
     ],
-    savings: { primary: 0, partner: 0 },
+    savings: { primaryShare: null },
     includeLinkedRent: true,
     includeLinkedMortgage: true,
     assumptions: {
@@ -206,7 +206,7 @@ export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
   const summary = summarizeMonthlyFlow(flow, holdings, names);
   const sources = summary.sources.map((item) => ({ ...item }));
   const uses = summary.uses.filter((item) => item.kind !== "unallocated").map((item) => ({ ...item }));
-  const deductions = [];
+  const payrollPieces = [];
   let payrollEstimated = false;
   for (const detail of summary.payDetails) {
     if (detail.enteredTakeHome || !detail.annualGross) continue;
@@ -221,29 +221,33 @@ export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
     source.label = `${detail.person}'s estimated gross pay`;
     source.amount = grossPence / 100;
     for (const [key, label, amount, kind] of [
-      ["Tax", "Income Tax", taxPence, "tax"],
-      ["NI", "National Insurance", niPence, "nationalInsurance"],
+      ["TaxNI", "Income Tax & NI", taxPence + niPence, "tax"],
       ["Pension", "employee pension", pensionPence, "pensionContribution"],
-    ]) if (amount > 0) deductions.push({ key: `${detail.owner}${key}`, label: `${detail.person} ${label}`, amount: amount / 100, kind });
+    ]) if (amount > 0) payrollPieces.push({ key: `${detail.owner}${key}`, label: `${detail.person} ${label}`, amount: amount / 100, kind });
   }
-  uses.unshift(...deductions);
+  const deductions = [
+    { key: "householdTaxNI", label: "Income Tax & NI", kind: "tax", amount: payrollPieces.filter((item) => item.kind === "tax").reduce((sum, item) => sum + item.amount, 0) },
+    { key: "householdPension", label: "Employee pensions", kind: "pensionContribution", amount: payrollPieces.filter((item) => item.kind === "pensionContribution").reduce((sum, item) => sum + item.amount, 0) },
+  ].filter((item) => item.amount > 0);
   const availablePence = Math.max(0, Math.round(summary.remainder * 100));
-  const requestedPrimary = pennies(flow.savings?.primary ?? 0, "Monthly saving for the first person");
   const hasPartner = Boolean(names.partner?.trim() || holdings.partnerName?.trim());
-  const requestedPartner = hasPartner ? pennies(flow.savings?.partner ?? 0, "Monthly saving for the partner") : 0;
-  const primaryPence = Math.min(requestedPrimary, availablePence);
-  const partnerPence = Math.min(requestedPartner, availablePence - primaryPence);
-  const unassignedPence = availablePence - primaryPence - partnerPence;
+  const sharedIncome = summary.sources.filter((item) => !["primaryPay", "partnerPay", "gap"].includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  const primaryIncome = summary.payDetails[0].monthlyTakeHome + sharedIncome / 2;
+  const partnerIncome = summary.payDetails[1].monthlyTakeHome + sharedIncome / 2;
+  const enteredShare = flow.savings?.primaryShare;
+  if (enteredShare !== null && enteredShare !== undefined && (!Number.isFinite(Number(enteredShare)) || Number(enteredShare) < 0 || Number(enteredShare) > 100)) throw new RangeError("Saving split must be between 0% and 100%.");
+  const primaryShare = !hasPartner ? 100 : enteredShare !== null && enteredShare !== undefined ? Number(enteredShare) : primaryIncome + partnerIncome > 0 ? primaryIncome / (primaryIncome + partnerIncome) * 100 : 50;
+  const primaryPence = Math.round(availablePence * primaryShare / 100);
+  const partnerPence = availablePence - primaryPence;
   if (primaryPence) uses.push({ key: "primarySaving", label: `${names.primary || "Your"} savings`, amount: primaryPence / 100, kind: "saving" });
   if (partnerPence) uses.push({ key: "partnerSaving", label: `${names.partner || "Partner"} savings`, amount: partnerPence / 100, kind: "saving" });
-  if (unassignedPence) uses.push({ key: "unallocated", label: "Available to assign to savings", amount: unassignedPence / 100, kind: "unallocated" });
+  const netSources = summary.sources.map((item) => ({ ...item }));
   const chartTotal = sources.reduce((sum, item) => sum + Math.round(item.amount * 100), 0) / 100;
   return {
-    ...summary, sources, uses, chartTotal, payrollEstimated,
+    ...summary, sources, uses, deductions, netSources, chartTotal, payrollEstimated,
     savingsAvailable: availablePence / 100,
     savingsAssigned: (primaryPence + partnerPence) / 100,
-    savingsUnfunded: (requestedPrimary + requestedPartner - primaryPence - partnerPence) / 100,
-    hasPartner,
+    primaryShare, hasPartner,
   };
 }
 

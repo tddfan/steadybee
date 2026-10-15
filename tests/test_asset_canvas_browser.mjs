@@ -132,7 +132,7 @@ test("monthly Sankey links confirmed property rent and keeps asset values out of
   assert.equal(await displayedAmount(p, "#flow-spending-total"), 11191.97);
   assert.equal(await displayedAmount(p, "#flow-result-value"), 3770.41);
   assert.match(await p.locator("#flow-sankey").textContent(), /Alex gross · £16,375/);
-  assert.match(await p.locator("#flow-sankey").textContent(), /Alex tax · £5,834.44/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Income Tax & NI · £8,991.38/);
   assert.match(await p.locator("#flow-sankey").textContent(), /Mortgage · £2,375.30/);
   assert.equal(await p.locator("#flow-view-diagram").getAttribute("aria-pressed"), "true");
   await p.locator("#flow-view-table").click();
@@ -193,13 +193,13 @@ test("dated entries are editable and update the monthly summary only when active
   await p.close();
 });
 
-test("monthly saving is assigned only by the person, while optional planning stays in its own section", async () => {
+test("monthly remainder becomes saving with an editable split, while planning stays separate", async () => {
   const p = await page();
   await p.locator("#step-to-flow").click();
-  assert.match(await p.locator("#flow-sankey").textContent(), /To assign · £3,770.41/);
-  await p.locator("#flow-saving-primary").fill("2000");
-  await p.locator("#flow-saving-partner").fill("1500");
-  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,000[\s\S]*Gemma saving · £1,500[\s\S]*To assign · £270.41/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving[\s\S]*Gemma saving/);
+  await p.locator("#flow-split > summary").click();
+  await p.locator("#flow-primary-share").fill("60");
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,262.25[\s\S]*Gemma saving · £1,508.16/);
   await p.locator("#flow-to-planning").click();
   assert.equal(await p.locator("#planning-screen").isVisible(), true);
   assert.equal(await p.locator("#flow-allocation-settings").isVisible(), false);
@@ -208,7 +208,7 @@ test("monthly saving is assigned only by the person, while optional planning sta
   assert.match(await p.locator("#flow-allocation-steps").innerText(), /Cash reserve[\s\S]*£0\/month[\s\S]*Alex's ISA[\s\S]*£3,770.41\/month/);
   await p.locator("#flow-isa-used-primary").fill("20000");
   await p.locator("#flow-isa-used-partner").fill("20000");
-  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,000/);
+  assert.match(await p.locator("#flow-sankey").textContent(), /Alex saving · £2,262.25/);
   await p.locator("#flow-trading-label").fill("My trading account");
   assert.match(await p.locator("#flow-allocation-steps").innerText(), /My trading account[\s\S]*£3,770.41\/month/);
   await p.locator("#flow-growth-panel > summary").click();

@@ -382,7 +382,11 @@ function svgElement(tag, attributes = {}) {
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
   return node;
 }
-function flowColor(item) { return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#78916d"; }
+function flowColor(item) {
+  if (item.kind === "spending" || item.kind === "datedSpending" || item.kind === "mortgage") return "#bd8555";
+  if (item.kind === "saving") return "#398568";
+  return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#78916d";
+}
 function flowIconPath(item) {
   if (item.kind === "tax" || item.kind === "nationalInsurance") return "M5 3h14v18H5zM8 8h8M8 12h8M8 16h5";
   if (item.kind === "pensionContribution" || item.key === "pensionIncome") return iconPaths["dc-pension"];
@@ -420,42 +424,58 @@ function renderSankey(summary) {
   svg.hidden = !summary.hasEntries;
   $("flow-empty").hidden = summary.hasEntries;
   if (!summary.hasEntries) return;
-  const chartHeight = Math.max(430, 120 + Math.max(summary.sources.length, summary.uses.length) * 36);
-  const centreHeight = chartHeight - 160;
-  svg.setAttribute("viewBox", `0 0 1050 ${chartHeight}`);
-  const scale = centreHeight / summary.chartTotal;
-  const left = flowPositions(summary.sources, scale, chartHeight);
-  const right = flowPositions(summary.uses, scale, chartHeight);
+  const chartHeight = Math.max(430, 125 + Math.max(summary.sources.length, summary.uses.length) * 39);
+  const streamHeight = chartHeight - 150;
+  svg.setAttribute("viewBox", `0 0 1150 ${chartHeight}`);
+  const scale = streamHeight / Math.max(summary.chartTotal, 1);
+  const position = (items, start) => { let y = start; return items.map((item) => { const placed = { ...item, y, height: item.amount * scale }; y += placed.height; return placed; }); };
+  const left = position(summary.sources, 80);
+  const cuts = position(summary.deductions, 80);
+  const netStart = 80 + cuts.reduce((total, item) => total + item.height, 0);
+  const right = position(summary.uses, netStart);
+  const netTotal = summary.uses.reduce((total, item) => total + item.amount, 0);
+  const netHeight = netTotal * scale;
   const addText = (x, y, label, anchor = "start", className = "flow-svg-label") => {
     const node = svgElement("text", { x, y, "text-anchor": anchor, class: className });
     node.textContent = label;
     svg.append(node);
   };
-  addText(218, 30, "PAY & MONEY IN", "end", "flow-svg-heading");
-  addText(500, 30, "MONTHLY AVERAGE", "middle", "flow-svg-heading");
-  addText(780, 30, "OUTGOINGS & SAVING", "start", "flow-svg-heading");
+  addText(212, 30, "GROSS PAY & INCOME", "end", "flow-svg-heading");
+  addText(550, 30, "DEDUCTIONS → TAKE-HOME", "middle", "flow-svg-heading");
+  addText(917, 30, "SPENDING → SAVING", "start", "flow-svg-heading");
   let centreY = 80;
   for (const item of left) {
-    const path = svgElement("path", { d: flowBand(230, item.y, 492, centreY, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
+    const path = svgElement("path", { d: flowBand(226, item.y, 450, centreY, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-in" });
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
     path.append(title); svg.append(path);
     centreY += item.height;
   }
-  centreY = 80;
+  svg.append(svgElement("rect", { x: 450, y: 80, width: 14, height: streamHeight, rx: 5, fill: "#385f50" }));
+  for (const item of cuts) {
+    const path = svgElement("path", { d: flowBand(464, item.y, 575, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-cut" });
+    const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`; path.append(title); svg.append(path);
+    svg.append(svgElement("rect", { x: 575, y: item.y, width: 13, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
+    addText(606, item.y + Math.max(15, item.height / 2), `${item.label} · ${money(item.amount)}`);
+  }
+  if (netHeight > 0) {
+    svg.append(svgElement("path", { d: flowBand(464, netStart, 650, netStart, netHeight), fill: "#5a9b7c", class: "flow-ribbon flow-ribbon-net" }));
+    svg.append(svgElement("rect", { x: 650, y: netStart, width: 15, height: netHeight, rx: 5, fill: "#28745f" }));
+    addText(680, netStart + 22, `${summary.remainder < 0 ? "Income + gap" : "After deductions"} · ${money(netTotal)}`);
+  }
+  centreY = netStart;
   for (const item of right) {
-    const path = svgElement("path", { d: flowBand(508, centreY, 750, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
+    const path = svgElement("path", { d: flowBand(665, centreY, 887, item.y, item.height), fill: flowColor(item), class: "flow-ribbon flow-ribbon-out" });
     const title = svgElement("title"); title.textContent = `${item.label}: ${money(item.amount)} per month`;
     path.append(title); svg.append(path);
     centreY += item.height;
   }
-  svg.append(svgElement("rect", { x: 492, y: 80, width: 16, height: centreHeight, rx: 6, fill: "#315b4d" }));
-  for (const [items, x, labelX, anchor] of [[left, 230, 202, "end"], [right, 750, 780, "start"]]) {
+  for (const [items, x, labelX, anchor] of [[left, 212, 194, "end"], [right, 887, 917, "start"]]) {
     const labelY = labelPositions(items, chartHeight);
     items.forEach((item, index) => {
       svg.append(svgElement("rect", { x, y: item.y, width: 14, height: Math.max(3, item.height), rx: 3, fill: flowColor(item) }));
-      const glyph = svgElement("g", { transform: `translate(${anchor === "end" ? 208 : 760} ${labelY[index] - 10}) scale(.66)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
+      const glyph = svgElement("g", { transform: `translate(${anchor === "end" ? 200 : 897} ${labelY[index] - 10}) scale(.66)`, fill: "none", stroke: flowColor(item), "stroke-width": 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
       glyph.append(svgElement("path", { d: flowIconPath(item) })); svg.append(glyph);
-      const chartName = item.key === "unallocated" ? "To assign" : item.key === "gap" ? "Gap" : item.kind === "tax" ? `${item.label.split(" ")[0]} tax` : item.kind === "nationalInsurance" ? `${item.label.split(" ")[0]} NI` : item.kind === "pensionContribution" ? `${item.label.split(" ")[0]} pension` : item.kind === "saving" ? `${item.label.split(" ")[0]} saving` : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "other" ? "Other" : item.key === "pensionIncome" ? "Pension" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} gross` : item.label.length > 10 ? `${item.label.slice(0, 9)}…` : item.label;
+      const chartName = item.key === "gap" ? "Gap" : item.kind === "saving" ? `${item.label.split(" ")[0]} saving` : item.kind === "mortgage" ? "Mortgage" : item.kind === "rent" ? "Rent" : item.key === "homeBills" ? "Home & bills" : item.key === "everyday" ? "Everyday" : item.key === "other" ? "Other" : item.key === "pensionIncome" ? "Pension" : item.key === "otherIncome" ? "Other income" : item.key === "primaryPay" || item.key === "partnerPay" ? `${item.label.split("’")[0].split("'")[0]} gross` : item.label.length > 10 ? `${item.label.slice(0, 9)}…` : item.label;
       addText(labelX, labelY[index] + 5, `${chartName} · ${money(item.amount)}`, anchor);
     });
   }
@@ -567,9 +587,9 @@ function renderFlow() {
   $("flow-income-total").textContent = money(summary.incomeTotal);
   $("flow-spending-total").textContent = money(summary.spendingTotal);
   $("flow-result-value").textContent = summary.hasEntries ? money(Math.abs(summary.remainder)) : "—";
-  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Available after spending";
+  $("flow-result-label").textContent = !summary.hasEntries ? "Start with a monthly amount" : summary.remainder < 0 ? "More spent than recorded income" : summary.remainder === 0 ? "Income matches spending" : "Saving after spending";
   const payEstimated = summary.payDetails.some((detail) => !detail.enteredTakeHome && detail.annualGross > 0);
-  $("flow-result-context").textContent = !summary.hasEntries ? "Enter money in or spending below to see the flow." : summary.remainder < 0 ? "This gap is not assumed to be funded from your assets." : `${diagram.savingsAssigned ? `${money(diagram.savingsAssigned)} assigned to planned saving; no money is moved.` : "No saving destination is assumed."}${payEstimated ? " Pay is an estimate; use actual take-home for a more reliable figure." : ""}`;
+  $("flow-result-context").textContent = !summary.hasEntries ? "Enter income or spending below." : summary.remainder < 0 ? "This gap is not assumed to be funded from assets." : `Shown as saving, split ${diagram.primaryShare.toFixed(1)}% / ${(100 - diagram.primaryShare).toFixed(1)}%; no money moves.${payEstimated ? " Pay is estimated." : ""}`;
   $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
   for (const detail of summary.payDetails) {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
@@ -602,18 +622,14 @@ function renderFlow() {
     return row;
   };
   const sources = $("flow-source-list"); sources.replaceChildren(groupRow("Pay before deductions and other income"), ...diagram.sources.map((item) => flowListItem(item, "income")));
-  const destinations = $("flow-use-list"); destinations.replaceChildren(groupRow("Deductions, spending and saving"), ...diagram.uses.map((item) => flowListItem(item, "spending")));
+  const destinations = $("flow-use-list"); destinations.replaceChildren(groupRow("Deductions"), ...diagram.deductions.map((item) => flowListItem(item, "spending")), groupRow("Spending and saving"), ...diagram.uses.map((item) => flowListItem(item, "spending")));
   $("flow-table-scroll").hidden = !summary.hasEntries;
   $("flow-table-empty").hidden = summary.hasEntries;
   renderSankey(diagram);
   $("flow-payroll-note").hidden = !diagram.payrollEstimated;
-  $("flow-saving-primary-label").textContent = `${draft.name || "Your"} planned saving`;
-  $("flow-saving-partner-label").textContent = `${draft.partnerName || "Partner"} planned saving`;
-  $("flow-saving-partner-row").hidden = !diagram.hasPartner;
-  $("flow-savings-status").textContent = diagram.savingsUnfunded
-    ? `${money(diagram.savingsUnfunded)} of your entered saving amounts exceeds this month’s remainder and is not shown as saved.`
-    : diagram.savingsAvailable ? `${money(diagram.savingsAssigned)} assigned to planned saving · ${money(diagram.savingsAvailable - diagram.savingsAssigned)} still to assign.`
-      : "No positive remainder to assign in this month.";
+  $("flow-split").hidden = !diagram.hasPartner || summary.remainder <= 0;
+  $("flow-split-summary").textContent = `${draft.name || "First person"} ${diagram.primaryShare.toFixed(1)}% · ${draft.partnerName || "Partner"} ${(100 - diagram.primaryShare).toFixed(1)}% · Change split`;
+  $("flow-primary-share").setAttribute("aria-label", `${draft.name || "First person"} share of saving, percent`);
   renderAllocationOverview(plan);
 
   renderDatedEntries(summary);
@@ -675,8 +691,7 @@ function syncFlowInputs() {
   $("flow-isa-used-partner").value = flowDraft.assumptions.isaUsedPartner ?? "";
   $("flow-allocation-enabled").checked = flowDraft.assumptions.allocationEnabled === true;
   $("flow-trading-label").value = flowDraft.assumptions.tradingLabel ?? "";
-  $("flow-saving-primary").value = flowDraft.savings?.primary || "";
-  $("flow-saving-partner").value = flowDraft.savings?.partner || "";
+  $("flow-primary-share").value = flowDraft.savings?.primaryShare ?? "";
 }
 function showScreen(screen) {
   $("canvas-screen").hidden = screen !== "assets";
@@ -831,15 +846,13 @@ $("flow-timeline-events").addEventListener("click", (event) => {
   const marker = event.target.closest("[data-flow-month]");
   if (marker) { flowDraft.asOfMonth = marker.dataset.flowMonth; renderFlow(); document.querySelector(`[data-flow-month="${flowDraft.asOfMonth}"]`)?.focus(); }
 });
-for (const owner of ["primary", "partner"]) $(`flow-saving-${owner}`).addEventListener("input", (event) => {
+$("flow-primary-share").addEventListener("input", (event) => {
   const raw = event.currentTarget.value.trim();
-  const value = raw === "" ? 0 : Number(raw);
-  if (!Number.isFinite(value) || value < 0 || value > 100_000_000 || Math.abs(value * 100 - Math.round(value * 100)) > .001) {
-    $("flow-savings-status").textContent = "Enter a monthly saving amount from £0 to £100,000,000, with no more than two decimal places.";
-    return;
-  }
-  flowDraft.savings ||= { primary: 0, partner: 0 };
-  flowDraft.savings[owner] = value;
+  const value = raw === "" ? null : Number(raw);
+  if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) { event.currentTarget.setCustomValidity("Enter a percentage from 0 to 100."); return; }
+  event.currentTarget.setCustomValidity("");
+  flowDraft.savings ||= { primaryShare: null };
+  flowDraft.savings.primaryShare = value;
   renderFlow();
 });
 function setFlowView(view) {
@@ -850,7 +863,7 @@ function setFlowView(view) {
   $("flow-view-table").setAttribute("aria-pressed", String(table));
   $("flow-view-help").textContent = table
     ? "Exact monthly averages from the same entries, including estimated payroll deductions. Use Edit to change a figure."
-    : "Gross pay flows through estimated deductions to spending and planned saving. Choose Table for exact amounts.";
+    : "Gross pay splits into take-home pay and deductions. Take-home pay then flows to spending and saving. Choose Table for exact figures.";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-table").addEventListener("click", () => setFlowView("table"));
@@ -1042,7 +1055,7 @@ function editLinkedAsset(id, trigger) {
 }
 for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-mortgage-list"]) $(id).addEventListener("click", (event) => {
   const saving = event.target.closest("[data-flow-saving]");
-  if (saving) { $(`flow-saving-${saving.dataset.flowSaving}`).focus(); return; }
+  if (saving) { $("flow-split").open = true; $("flow-primary-share").focus(); return; }
   const entry = event.target.closest("[data-flow-entry]");
   if (entry) { showDatedForm("income", entry.dataset.flowEntry, entry); return; }
   const pay = event.target.closest("[data-flow-pay]");
