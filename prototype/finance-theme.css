@@ -510,3 +510,25 @@ input:focus,select:focus { border-color:#1967d2; box-shadow:0 0 0 2px #e8f0fe; }
   #canvas-screen .holdings-add-actions .button { padding:8px; font-size:15px; }
   #canvas-screen .holdings-list-title { margin-top:14px; }
 }
+
+/* Keep tax methodology available from an unobtrusive, touch-friendly info button. */
+#flow-view-help.flow-view-help { display:flex; align-items:center; gap:8px; margin:8px 0; color:var(--muted); }
+#flow-payroll-note { position:relative; flex:none; margin:0; color:var(--muted); font-size:15px; }
+#flow-payroll-note > summary { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:50%; background:#fff; color:#1967d2; font:500 18px var(--ui-font); cursor:pointer; list-style:none; }
+#flow-payroll-note > summary::-webkit-details-marker { display:none; }
+#flow-payroll-note[open] > p { position:absolute; z-index:40; top:calc(100% + 6px); left:0; width:min(390px,calc(100vw - 56px)); margin:0; padding:14px 16px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); box-shadow:0 4px 16px #20212420; font-size:15px; line-height:1.5; }
+#flow-payroll-note a { color:#1967d2; text-decoration:underline; text-underline-offset:2px; }
+@media(max-width:780px) {
+  #flow-view-help.flow-view-help { align-items:flex-start; font-size:15px; }
+  #flow-payroll-note > summary { width:44px; height:44px; }
+  #flow-payroll-note[open] > p { width:min(340px,calc(100vw - 48px)); left:auto; right:-4px; }
+}
+#flow-payroll-note { flex:0 0 44px; position:static; }
+#flow-payroll-note[open] { flex:1 0 100%; }
+#flow-payroll-note[open] > p { position:static; width:auto; margin:6px 0 8px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:#f8fafd; color:var(--muted); box-shadow:none; font-size:16px; line-height:1.5; }
+@media(max-width:780px) {
+  #flow-payroll-note[open] > p { width:auto; }
+}
+#flow-view-help:has(#flow-payroll-note[open]) { display:block; }
+#flow-payroll-note[open] { display:block; width:100%; min-width:0; box-sizing:border-box; margin:8px 0 0; }
+#flow-payroll-note[open] > p { width:auto; min-width:0; box-sizing:border-box; margin:8px 0; }
