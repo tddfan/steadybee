@@ -52,7 +52,7 @@ for (const path of files.filter((path) => path.endsWith(".html"))) {
 // This avoids mixing old calculation modules with a freshly deployed UI.
 for (const path of files.filter((path) => path.endsWith(".mjs"))) {
   const module = await readFile(join(output, path), "utf8");
-  await writeFile(join(output, path), module.replace(/(from\s*["']\.\/[^"'?]+)\?v=[^"']+(["'])/g, `$1?v=${version}$2`));
+  await writeFile(join(output, path), module.replace(/(from\s*["']\.\/[^"'?]+)(?:\?v=[^"']+)?(["'])/g, `$1?v=${version}$2`));
 }
 await writeFile(
   join(output, "version.json"),

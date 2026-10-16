@@ -8,11 +8,12 @@ import {
   createId,
   summarizeDraft,
   validateDraft,
-} from "./asset-ledger.mjs?v=20261015main12";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs";
-import { mountPlanning } from "./planning-view.mjs?v=20261015planning3";
-import { estimateStatePension } from "./state-pension.mjs";
-import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
+} from "./asset-ledger.mjs?v=20261016layout2";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
+import { mountPictureStorage } from './picture-storage-view.mjs?v=20261016layout2';
+import { mountPlanning } from "./planning-view.mjs?v=20261016layout2";
+import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
+import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -887,7 +888,7 @@ function renderFlowTimeline() {
     grouped.get(event.month).push(event.label);
   }
   const startIndex=Number(start.slice(0,4))*12+Number(start.slice(5));
-  const lastIndex=Math.max(startIndex+360,...[...grouped.keys()].map(month=>Number(month.slice(0,4))*12+Number(month.slice(5))));
+  const lastIndex=Math.max(startIndex+360,Number(flowDraft.asOfMonth.slice(0,4))*12+Number(flowDraft.asOfMonth.slice(5)),...[...grouped.keys()].map(month=>Number(month.slice(0,4))*12+Number(month.slice(5))));
   const horizon=lastIndex-startIndex;
   $("flow-time-slider").max=horizon;
   const rail = $("flow-timeline-events"); rail.replaceChildren();
@@ -904,7 +905,13 @@ function renderFlowTimeline() {
   const picker=$("flow-event-select");picker.replaceChildren(new Option('Jump to a change',''));
   for(const [month,labels] of grouped)picker.add(new Option(`${flowMonthLabel(month)} · ${labels.join(' / ')}`,month));
   picker.value=grouped.has(flowDraft.asOfMonth) ? flowDraft.asOfMonth : '';
-  $("flow-timeline-context").textContent = "Today’s pounds · no growth, inflation or future tax changes.";
+  const scale=$("flow-timeline-scale"); scale.replaceChildren();
+  for(const offset of [0,Math.round(horizon/2),horizon]) {
+    const tick=make("span","",String(Math.floor((startIndex-1+offset)/12)));scale.append(tick);
+  }
+  const selectedIndex=Number(flowDraft.asOfMonth.slice(0,4))*12+Number(flowDraft.asOfMonth.slice(5));
+  $("flow-time-slider").value=selectedIndex-startIndex;
+  $("flow-timeline-now").disabled=flowDraft.asOfMonth===start;
 }
 function renderFlow() {
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
@@ -971,6 +978,7 @@ function renderFlow() {
   renderDatedEntries(summary);
   renderStatePensionRecords(summary);
   if (!$("planning-screen").hidden) planningController?.refresh();
+  document.dispatchEvent(new Event("picture-updated"));
 }
 function setupFlowInputs() {
   for (const owner of ["primary", "partner"]) {
@@ -1086,6 +1094,7 @@ function syncFlowInputs() {
   $("flow-primary-share").value = flowDraft.savings?.primaryShare ?? "";
 }
 function showScreen(screen, {updateHistory=true} = {}) {
+  $("welcome-screen").hidden=true;
   if(updateHistory && location.hash!==`#${screen}`)history.pushState(null,"",`#${screen}`);
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
@@ -1236,6 +1245,7 @@ $("first-piece").addEventListener("click", (event) => {
 for (const id of ["step-to-flow", "continue-flow", "planning-to-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
 for (const id of ["step-to-assets", "planning-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
 for (const id of ["assets-to-planning", "flow-to-planning", "continue-planning"]) $(id).addEventListener("click", () => showScreen("planning"));
+$("flow-timeline-now").addEventListener("click",()=>{flowDraft.asOfMonth=flowDraft.timelineStartMonth || flowDraft.asOfMonth;renderFlow();});
 $("flow-event-select").addEventListener("change",event=>{if(event.target.value){flowDraft.asOfMonth=event.target.value;renderFlow();}});
 $("flow-month").addEventListener("change", (event) => {
   const month = event.currentTarget.value;
@@ -1675,6 +1685,7 @@ $("edit-profile-button").addEventListener("click", () => {
   $("profile-name").value = draft.name;
   $("profile-age").value = draft.age;
   $("profile-partner").value = draft.partnerName || "";
+  $("profile-partner-age").value = draft.partnerAge ?? "";
   $("profile-dialog").showModal();
   $("profile-name").focus();
 });
@@ -1682,7 +1693,7 @@ $("close-profile-button").addEventListener("click", () => $("profile-dialog").cl
 $("profile-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!event.currentTarget.reportValidity()) return;
-  const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value), partnerName: $("profile-partner").value.trim() };
+  const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value), partnerName: $("profile-partner").value.trim(), partnerAge: $("profile-partner").value.trim() && $("profile-partner-age").value!=="" ? Number($("profile-partner-age").value) : null };
   if (!candidate.name) {
     $("profile-name").setCustomValidity("Enter a name or nickname.");
     $("profile-name").reportValidity();
@@ -1690,7 +1701,7 @@ $("profile-form").addEventListener("submit", (event) => {
   }
   const check = validateDraft(candidate);
   if (!check.valid) {
-    const field = check.errors[0].path === "name" ? $("profile-name") : check.errors[0].path === "age" ? $("profile-age") : $("profile-partner");
+    const field = check.errors[0].path === "name" ? $("profile-name") : check.errors[0].path === "age" ? $("profile-age") : check.errors[0].path === "partnerAge" ? $("profile-partner-age") : $("profile-partner");
     field.setCustomValidity(check.errors[0].message);
     field.reportValidity();
     return;
@@ -1700,7 +1711,7 @@ $("profile-form").addEventListener("submit", (event) => {
   render();
   announce("People in the picture updated.");
 });
-for (const id of ["profile-name", "profile-age", "profile-partner"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
+for (const id of ["profile-name", "profile-age", "profile-partner", "profile-partner-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
 $("clear-button").addEventListener("click", () => $("clear-dialog").showModal());
 document.querySelector(".heading-utilities").addEventListener("click", (event) => {
@@ -1725,6 +1736,9 @@ $("start-own-button").addEventListener("click", () => {
   $("clear-dialog").showModal();
 });
 $("reset-example-button").addEventListener("click", () => {
+  storageController.pause();
+  mode="example";
+  planningController.restore(null);
   draft = createAlexExample();
   flowDraft = createExampleMonthlyFlow();
   syncFlowInputs();
@@ -1736,8 +1750,10 @@ $("reset-example-button").addEventListener("click", () => {
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 $("confirm-clear-button").addEventListener("click", () => {
+  storageController.pause();
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
+  planningController.restore(null);
   syncFlowInputs();
   mode = "personal";
   editingId = null;
@@ -1870,7 +1886,7 @@ function organizeFlowInputs() {
   const timeline = $("flow-month").closest(".flow-timeline");
   const slider=make("input","flow-time-slider"); slider.id="flow-time-slider"; slider.type="range"; slider.min="0"; slider.max="360"; slider.step="1"; slider.setAttribute("aria-label","Month on timeline");
   slider.addEventListener("input",()=>{const start=flowDraft.timelineStartMonth || flowDraft.asOfMonth; const [year,month]=start.split("-").map(Number);const date=new Date(Date.UTC(year,month-1+Number(slider.value),1));flowDraft.asOfMonth=date.toISOString().slice(0,7);renderFlow();});
-  timeline.querySelector(".flow-timeline-heading").after(slider);
+  timeline.querySelector(".flow-time-track").prepend(slider);
   const allocationPanel=$("flow-allocation-panel");
   $("flow-allocation-title").textContent="Where your saving goes";
   allocationPanel.querySelector(".section-kicker").textContent="Your chosen order";
@@ -1972,3 +1988,15 @@ document.querySelector('.wordmark').addEventListener('click',event=>{event.preve
 if(['flow','planning'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
+
+function clearStoredTab() {
+  for(const input of document.querySelectorAll('form input,form textarea')){if(input.type==='checkbox' || input.type==='radio')input.checked=false;else input.value='';}
+  draft=createAlexExample();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;openOwners.clear();openCategories.clear();
+  planningController.restore(null);syncFlowInputs();render();showScreen('assets');
+}
+const storageController=mountPictureStorage({
+  button:$('picture-storage-button'),
+  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
+  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;openOwners.clear();openCategories.clear();planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
+  clearTab:clearStoredTab,
+});

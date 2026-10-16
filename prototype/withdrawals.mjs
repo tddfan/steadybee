@@ -1,5 +1,5 @@
 /** User-directed drawdown illustration; current tax assumptions, not an optimal strategy. */
-import { capitalGainsTax, incomeTaxWithSavings } from './investment-tax.mjs';
+import { capitalGainsTax, incomeTaxWithSavings } from './investment-tax.mjs?v=20261015coverage6';
 const round=value=>Math.round(value*100)/100;
 export const WITHDRAWAL_ORDERS=Object.freeze({
   generalFirst:['cash','general','isa','pension'],
@@ -12,6 +12,16 @@ export function createWithdrawalState(assets,{taxFreeRemaining={},openingGainPer
   return {gains:{primary:0,partner:0},taxFreeRemaining:{primary:taxFreeRemaining.primary ?? 268275,partner:taxFreeRemaining.partner ?? 268275},basis:Object.fromEntries(assets.filter(item=>item.kind==='general'||item.kind==='shares').map(item=>[item.id,item.costBasis ?? round(item.value*(1-openingGainPercent/100))]))};
 }
 
+/** Same eligibility rule for drawdown and the coverage balance. Amounts remain before tax. */
+export function eligibleWithdrawalBucket(asset,context={}) {
+  const owner=asset.owner || 'primary';
+  if(asset.kind==='dc-pension')return ['primary','partner'].includes(owner) && Number.isFinite(context.ages?.[owner]) && context.ages[owner]>=Math.max(context.pensionAccessAge ?? 57,asset.pensionAccessAge || 0) ? 'pension' : null;
+  if(asset.kind==='isa')return owner==='shared' ? null : 'isa';
+  if(asset.kind==='cash')return 'cash';
+  if(asset.kind==='general' || (asset.kind==='shares' && (asset.accessBucket==='accessible' || (asset.accessBucket==='illiquid' && context.saleAssetIds?.includes(asset.id)))))return 'general';
+  return null;
+}
+
 export function withdrawForSpending(assets,needed,state,context={}) {
   if(!Number.isFinite(needed)||needed<0)throw new RangeError('The spending gap must be non-negative.');
   const order=context.order || WITHDRAWAL_ORDERS.generalFirst;
@@ -20,7 +30,7 @@ export function withdrawForSpending(assets,needed,state,context={}) {
   if(context.month && state.taxMonth!==context.month){state.taxMonth=context.month;state.monthlyTaxable={primary:0,partner:0};}
   const monthlyTaxable=context.month ? state.monthlyTaxable : {primary:0,partner:0},items=[];
   let left=round(needed),grossTotal=0,taxTotal=0;
-  const bucketOf=asset=>asset.kind==='dc-pension' ? 'pension' : asset.kind==='general'||(asset.kind==='shares' && (asset.accessBucket==='accessible' || (asset.accessBucket==='illiquid' && context.saleAssetIds?.includes(asset.id)))) ? 'general' : ['cash','isa'].includes(asset.kind) ? asset.kind : null;
+  const bucketOf=asset=>eligibleWithdrawalBucket(asset,context);
   const ownerOf=asset=>asset.owner || 'primary';
   function quote(asset,gross,bucket) {
     const owner=ownerOf(asset);

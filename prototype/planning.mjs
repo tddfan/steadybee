@@ -1,9 +1,10 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import { computeAllocationWaterfall } from './monthly-flow.mjs';
-import { estimateStatePension } from './state-pension.mjs';
-import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261015main12';
-import { savingsTax } from './investment-tax.mjs';
-import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261015coverage6';
+import { estimateStatePension } from './state-pension.mjs?v=20261015coverage6';
+import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261015coverage6';
+import { planHorizon } from './coverage.mjs?v=20261015coverage6';
+import { savingsTax } from './investment-tax.mjs?v=20261015coverage6';
+import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261015coverage6';
 
 export const PLANNING_DEFAULTS = Object.freeze({inflation:2,incomeGrowth:2,growth:Object.freeze({cash:2,isa:4,pension:4,property:2,shares:4}),years:30});
 const round = value => Math.round(value*100)/100;
@@ -25,8 +26,8 @@ function deposit(assets,owner,kind,value) {
 export function projectPlan(flow, holdings, options = {}) {
   const startMonth=flow.timelineStartMonth || flow.asOfMonth;
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth))throw new RangeError('Choose a valid opening month.');
-  const years=options.years ?? PLANNING_DEFAULTS.years;
-  if(!Number.isInteger(years)||years<1||years>50)throw new RangeError('Choose a horizon from 1 to 50 years.');
+  const years=options.planToAge!=null ? planHorizon(holdings,options).years : options.years ?? PLANNING_DEFAULTS.years;
+  if(!Number.isInteger(years)||years<1||years>100)throw new RangeError('Choose a horizon from 1 to 100 years.');
   const inflation=rate(options.inflation ?? flow.assumptions?.annualInflation ?? PLANNING_DEFAULTS.inflation,'Inflation');
   const incomeGrowth=rate(options.incomeGrowth ?? flow.assumptions?.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth,'Pay growth');
   const growth=Object.fromEntries(Object.keys(PLANNING_DEFAULTS.growth).map(key=>[key,rate(options.growth?.[key] ?? flow.assumptions?.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key],`${key} growth`)]));
@@ -41,7 +42,7 @@ export function projectPlan(flow, holdings, options = {}) {
   const pensionAccessAge=options.pensionAccessAge ?? 57,statePensionAge=options.statePensionAge ?? 67;
   for(const [label,value,min] of [['Personal pension access age',pensionAccessAge,57],['State Pension scenario age',statePensionAge,67]])if(!Number.isInteger(value)||value<min||value>75)throw new RangeError(`${label} must be from ${min} to 75.`);
   const ages={primary:options.ages?.primary ?? holdings.age,partner:options.ages?.partner ?? holdings.partnerAge};
-  for(const age of Object.values(ages))if(age!=null && (!Number.isInteger(age)||age<18||age>100))throw new RangeError('Enter current ages as whole years from 18 to 100.');
+  for(const age of Object.values(ages))if(age!=null && (!Number.isInteger(age)||age<18||age>120))throw new RangeError('Enter current ages as whole years from 18 to 120.');
   const spendingChanges=structuredClone(options.spendingChanges ?? (options.spendingChange ? [options.spendingChange] : [])).sort((a,b)=>a.year-b.year);
   const seenYears=new Set();
   for(const change of spendingChanges) {
@@ -205,9 +206,13 @@ export function projectPlan(flow, holdings, options = {}) {
     const assetsByType=totals(balances.assets,'value',item=>assetGroup(item.kind)),assetsByPerson=totals(balances.assets,'value',ownerOf);
     const debtsByType=totals(balances.debts,'balance',item=>item.kind==='mortgage' ? 'mortgage' : 'otherDebt'),debtsByPerson=totals(balances.debts,'balance',ownerOf);
     const assetsTotal=round(Object.values(assetsByType).reduce((sum,value)=>sum+value,0)),debtsTotal=round(Object.values(debtsByType).reduce((sum,value)=>sum+value,0));
-    months.push({month,deflator,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
+    const closingContext={pensionAccessAge,ages:Object.fromEntries(Object.entries(ages).map(([owner,age])=>[owner,Number.isFinite(age) ? age+(index+1)/12 : null]))};
+    const withdrawableAssets=round(balances.assets.filter(asset=>eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
+    const lockedPensions=round(balances.assets.filter(asset=>asset.kind==='dc-pension' && !eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
+    const otherAssets=round(assetsTotal-withdrawableAssets-lockedPensions);
+    months.push({month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
   }
-  return {startMonth,endMonth:months.at(-1).month,opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
+  return {startMonth,endMonth:months.at(-1).month,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
 }
 
 /** Calendar-year totals for flows; last monthly balance for stocks. Real flows discount each month. */

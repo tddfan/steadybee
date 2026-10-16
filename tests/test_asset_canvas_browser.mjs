@@ -52,7 +52,7 @@ after(async () => {
 async function page(width=1280) {
   const p=await browser.newPage({viewport:{width,height:844}});
   p.on('pageerror',error=>errors.push(error.message));
-  await p.goto(`${origin}/asset-canvas.html`);
+  await p.goto(`${origin}/app.html`);
   await p.locator('#canvas-screen').waitFor({state:'visible'});return p;
 }
 async function fits(p) {
@@ -72,13 +72,13 @@ test('phone sections, portrait Sankey, table and experimental charts remain reac
 });
 test('scenario growth leaves baseline unchanged and undo restores the previous outcome',async()=>{
  const p=await page();await p.locator('#assets-to-planning').click();
- const current=await p.locator('.plan-comparison-figures > div').nth(0).innerText();
- const original=await p.locator('.plan-comparison-figures > div').nth(1).innerText();
+ const current=await p.locator('.plan-comparison-figures > div').nth(2).locator('small').innerText();
+ const original=await p.locator('.plan-comparison-figures > div').nth(2).locator('strong').innerText();
  await p.getByText('Growth & inflation',{exact:true}).click();
  const growth=p.getByLabel('Shares & general account: exact percentage',{exact:true});await growth.fill('5');await growth.press('Tab');
- assert.equal(await p.locator('.plan-comparison-figures > div').nth(0).innerText(),current);
- assert.notEqual(await p.locator('.plan-comparison-figures > div').nth(1).innerText(),original);
- await p.locator('#plan-undo').click();assert.equal(await p.locator('.plan-comparison-figures > div').nth(1).innerText(),original);
+ assert.equal(await p.locator('.plan-comparison-figures > div').nth(2).locator('small').innerText(),current);
+ assert.notEqual(await p.locator('.plan-comparison-figures > div').nth(2).locator('strong').innerText(),original);
+ await p.locator('#plan-undo').click();assert.equal(await p.locator('.plan-comparison-figures > div').nth(2).locator('strong').innerText(),original);
  await p.close();
 });
 test('cash and SAYE payoff preserves ISA and exposes sale tax',async()=>{
@@ -94,4 +94,12 @@ test('320px planning chart and controls fit without horizontal scrolling',async(
  const p=await page(320);await p.locator('#assets-to-planning').click();await fits(p);
  const chart=await p.locator('#plan-chart').boundingBox();assert.ok(chart.width<=320);
  await p.locator('#plan-adjust').click();await fits(p);await p.close();
+});
+
+test('protected picture survives reload, requires review and can be deleted',async()=>{
+ const p=await page(390);await p.locator('#assets-to-planning').click();await p.locator('#plan-adjust').click();
+ await p.getByLabel('Plan to age: exact value',{exact:true}).fill('100');await p.locator('#plan-adjust').click();
+ await p.locator('#picture-storage-button').click();await p.locator('#storage-new-password').fill('Fictional browser test passphrase');await p.locator('#storage-confirm-password').fill('Fictional browser test passphrase');await p.getByRole('button',{name:'Save on this device',exact:true}).click();await p.getByText('Encrypted picture saved on this device.',{exact:true}).waitFor();await p.locator('#storage-close').click();
+ await p.reload();assert.equal(await p.locator('#picture-storage-button').innerText(),'Resume picture');await p.locator('#picture-storage-button').click();await p.locator('#storage-unlock-password').fill('Fictional browser test passphrase');await p.getByRole('button',{name:'Unlock saved picture',exact:true}).click();await p.locator('#storage-preview').waitFor({state:'visible'});await p.locator('#storage-open').click();await p.locator('#assets-to-planning').click();assert.equal(await p.locator('#plan-confirm').isVisible(),true);await p.locator('#plan-confirm-button').click();assert.match(await p.locator('#plan-comparison').innerText(),/Gemma 100/);
+ await p.locator('#picture-storage-button').click();await p.locator('#storage-delete').click();await p.locator('#storage-delete-final').click();await p.reload();assert.equal(await p.locator('#picture-storage-button').innerText(),'Save picture');await p.close();
 });

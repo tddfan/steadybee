@@ -1,5 +1,6 @@
-import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261015main12';
-import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261015main12';
+import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261016layout2';
+import { planHorizon, summarizeCoverage, agesAt } from './coverage.mjs?v=20261016layout2';
+import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261016layout2';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!=null)node.textContent=text;return node;};
 const currency=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
@@ -10,8 +11,9 @@ const metrics={netWorth:{title:'Net worth',note:'What you own minus what you owe
 function svgNode(tag,attrs={},text){const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));if(text!=null)node.textContent=text;return node;}
 
 export function mountPlanning(root,getInputs) {
-  let metric='netWorth',group='person',style='bars',real=true,selectedYear=null,projection=null,confirmedKey=null;
-  let scenario={years:30,retirementYears:{},mortgageYearsEarlier:0};
+  let metric='income',group='person',style='bars',real=true,selectedYear=null,projection=null,confirmedKey=null;
+  let scenario={years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0};
+  let restoredNeedsReview=false;
   let chartRows=[],chartKeys=[],chartBaselineRows=[],baseline=null,baselineKey='',baselineOptions={},history=[],lastSnapshot=null,editGroup=0,lastHistoryGroup=-1;
   root.addEventListener('focusin',event=>{if(event.target.matches('input,select'))editGroup++;});
   root.addEventListener('pointerdown',event=>{if(event.target.matches('input[type=range]'))editGroup++;});
@@ -23,12 +25,12 @@ export function mountPlanning(root,getInputs) {
     <p id="plan-error" class="form-error" role="alert" hidden></p>
     <section id="plan-comparison" class="plan-comparison" aria-label="Current plan and scenario comparison"></section><div class="plan-adjust-row"><button type="button" id="plan-adjust" class="button button-primary" aria-expanded="false" aria-controls="plan-controls">Adjust scenario</button><details id="plan-changes"><summary>What changed?</summary><ul id="plan-changes-list"></ul></details></div><div id="plan-workspace" class="plan-workspace">
       <section class="plan-chart-card" aria-label="Your illustration over time">
-        <div class="plan-metrics" role="group" aria-label="What to explore"><button type="button" data-metric="netWorth" aria-pressed="true">Net worth</button><button type="button" data-metric="income" aria-pressed="false">Income & spending</button><button type="button" data-metric="saving" aria-pressed="false">Saving</button><button type="button" data-metric="assets" aria-pressed="false">Assets</button><button type="button" data-metric="debts" aria-pressed="false">Debt</button></div>
-        <select id="plan-metric-select" class="plan-metric-select" aria-label="What to explore"><option value="netWorth">Net worth over time</option><option value="income">Income & spending over time</option><option value="saving">Saving over time</option><option value="assets">Assets over time</option><option value="debts">Debt over time</option></select><div class="plan-chart-heading"><div><h2 id="plan-result-title">Income over time</h2></div><div class="plan-money-toggle" role="group" aria-label="Value of money"><button type="button" data-money="real" aria-pressed="true">Today’s money</button><button type="button" data-money="nominal" aria-pressed="false">Future value</button></div></div>
-        <p id="plan-pension-note" class="plan-pension-note"></p><div class="plan-chart-controls"><div role="group" aria-label="Group the chart"><button type="button" data-group="person" aria-pressed="true">By person</button><button type="button" data-group="type" aria-pressed="false">By type</button></div><div role="group" aria-label="Chart style"><button type="button" data-style="bars" aria-pressed="true">Bars</button><button type="button" data-style="lines" aria-pressed="false">Lines</button></div></div>
+        <div class="plan-metrics" role="group" aria-label="What to explore"><button type="button" data-metric="income" aria-pressed="true">Income & spending</button><button type="button" data-metric="netWorth" aria-pressed="false">Net worth</button><button type="button" data-metric="saving" aria-pressed="false">Saving</button><button type="button" data-metric="assets" aria-pressed="false">Assets</button><button type="button" data-metric="debts" aria-pressed="false">Debt</button></div>
+        <select id="plan-metric-select" class="plan-metric-select" aria-label="What to explore"><option value="income">Income & spending over time</option><option value="netWorth">Net worth over time</option><option value="saving">Saving over time</option><option value="assets">Assets over time</option><option value="debts">Debt over time</option></select><div class="plan-chart-heading"><div><h2 id="plan-result-title">Income over time</h2></div><div class="plan-money-toggle" role="group" aria-label="Value of money"><button type="button" data-money="real" aria-pressed="true">Today’s money</button><button type="button" data-money="nominal" aria-pressed="false">Future value</button></div></div>
+        <div class="plan-chart-controls"><div role="group" aria-label="Group the chart"><button type="button" data-group="person" aria-pressed="true">Person</button><button type="button" data-group="type" aria-pressed="false">Type</button></div><div role="group" aria-label="Chart style"><button type="button" data-style="bars" aria-pressed="true">Bars</button><button type="button" data-style="lines" aria-pressed="false">Lines</button></div></div>
         <div id="plan-legend" class="plan-legend"></div>
-        <div class="plan-chart-wrap"><svg id="plan-chart" viewBox="0 0 1000 500" role="img" aria-label="Annual projection chart"></svg><div id="plan-chart-tooltip" class="plan-chart-tooltip" role="tooltip" hidden></div></div>
-        <details class="plan-figure-notes"><summary>How to read these figures</summary><p id="plan-chart-note"></p><p id="plan-money-explainer" class="plan-money-explainer"></p></details><div class="plan-year-control"><label for="plan-year">Explore a year <output id="plan-year-label"></output></label><input id="plan-year" type="range" min="0" max="30" step="1" value="1" /></div>
+        <div class="plan-chart-wrap"><svg id="plan-chart" viewBox="0 0 1000 500" role="group" aria-label="Annual projection chart"></svg><div id="plan-chart-tooltip" class="plan-chart-tooltip" role="tooltip" hidden></div></div>
+        <details class="plan-figure-notes"><summary>How to read these figures</summary><p id="plan-pension-note" class="plan-pension-note"></p><p id="plan-chart-note"></p><p id="plan-money-explainer" class="plan-money-explainer"></p></details><div class="plan-year-control"><label for="plan-compare-year" class="visually-hidden">Explore a year</label><select id="plan-compare-year" aria-label="Explore a year"></select><input aria-label="Year on chart" id="plan-year" type="range" min="0" max="30" step="1" value="1" /></div>
         <div id="plan-events" class="plan-events" aria-label="Changes on your timeline"></div>
         <div class="plan-year-detail"><div><p id="plan-detail-label"></p><strong id="plan-detail-total"></strong><span id="plan-detail-period"></span></div><dl id="plan-detail-values"></dl></div>
         <div id="plan-withdrawal-detail" class="plan-withdrawal-detail" hidden></div><p id="plan-gap" class="plan-gap" hidden></p><details id="plan-compare" class="plan-compare"><summary>Compare withdrawal orders</summary><p>Same scenario, different account orders. Values are illustrations, not a recommended order.</p><div id="plan-compare-results"></div></details>
@@ -48,6 +50,8 @@ export function mountPlanning(root,getInputs) {
   const toolbar=el('div','plan-toolbar');
   toolbar.append(document.querySelector('.planning-heading'),root.querySelector('.plan-source'));
   root.prepend(toolbar);
+  root.querySelector('.plan-chart-controls').append(root.querySelector('.plan-money-toggle'));
+  root.querySelector('.plan-chart-heading').append(el('span','plan-chart-unit','£ per year'));
   $('plan-growth-slot').append(growthPanel);
   growthPanel.open=false;
   growthPanel.querySelector('summary').textContent='Growth & inflation';
@@ -60,7 +64,7 @@ export function mountPlanning(root,getInputs) {
     label.replaceChildren();label.className='plan-slider';
     const line=el('span','plan-slider-label',title),out=el('output');out.htmlFor=id;line.append(out);label.append(line,input);
     input.type='range';input.min=min;input.max=max;input.step='.1';input.removeAttribute('placeholder');input.dataset.planRate=key;
-    const exact=el('input','plan-exact');exact.type='number';exact.step='.1';exact.min=min;exact.max=max;exact.setAttribute('aria-label',`${title}: exact percentage`);label.append(exact);exact.addEventListener('change',()=>{const value=Number(exact.value);if(['inflation','incomeGrowth'].includes(key))scenario[key]=value;else{scenario.growth ||= {};scenario.growth[key]=value;}refresh();});
+    const exact=el('input','plan-exact');exact.type='number';exact.step='.1';exact.min=min;exact.max=max;exact.setAttribute('aria-label',`${title}: exact percentage`);label.append(exact);exact.addEventListener('input',()=>{if(exact.value==='' || !exact.checkValidity())return;const value=Number(exact.value);if(['inflation','incomeGrowth'].includes(key))scenario[key]=value;else{scenario.growth ||= {};scenario.growth[key]=value;}refresh();});
     input.addEventListener('input',event=>{event.stopImmediatePropagation();const value=Number(input.value);if(['inflation','incomeGrowth'].includes(key))scenario[key]=value;else{scenario.growth ||= {};scenario.growth[key]=value;}out.textContent=`${value}%`;refresh();},true);
   }
   let controlsKey='';
@@ -68,7 +72,7 @@ export function mountPlanning(root,getInputs) {
     const label=el('label','plan-slider');label.htmlFor=id;
     const line=el('span','plan-slider-label',title),out=el('output','',`${value}${suffix}`);out.htmlFor=id;line.append(out);
     const input=el('input');input.id=id;input.type='range';input.min=min;input.max=max;input.step=suffix==='%' ? '.1' : '1';input.value=value;
-    input.addEventListener('input',()=>{out.textContent=`${input.value}${suffix}`;if(label.querySelector('.plan-exact'))label.querySelector('.plan-exact').value=input.value;callback(Number(input.value));refresh();});const exact=el('input','plan-exact');exact.type='number';exact.min=min;exact.max=max;exact.step=input.step;exact.value=value;exact.setAttribute('aria-label',`${title}: exact value${suffix ? ` (${suffix.trim()})` : ''}`);exact.addEventListener('change',()=>{const next=Number(exact.value);input.value=next;out.textContent=`${next}${suffix}`;callback(next);refresh();});input.addEventListener('input',()=>{exact.value=input.value;});label.append(line,input,exact);target.append(label);
+    input.addEventListener('input',()=>{out.textContent=`${input.value}${suffix}`;if(label.querySelector('.plan-exact'))label.querySelector('.plan-exact').value=input.value;callback(Number(input.value));refresh();});const exact=el('input','plan-exact');exact.type='number';exact.min=min;exact.max=max;exact.step=input.step;exact.value=value;exact.setAttribute('aria-label',`${title}: exact value${suffix ? ` (${suffix.trim()})` : ''}`);exact.addEventListener('input',()=>{if(exact.value==='' || !exact.checkValidity())return;const next=Number(exact.value);input.value=next;out.textContent=`${next}${suffix}`;callback(next);refresh();});input.addEventListener('input',()=>{exact.value=input.value;});label.append(line,input,exact);target.append(label);
   }
   function buildControls(flow,holdings) {
     const startYear=Number((flow.timelineStartMonth || flow.asOfMonth).slice(0,4));
@@ -82,7 +86,7 @@ export function mountPlanning(root,getInputs) {
       const age=owner==='primary' ? holdings.age : holdings.partnerAge;
       slider($('plan-retirement'),`plan-retire-${owner}`,name,startYear-1,startYear+45,scenario.retirementYears[owner] ?? finalYear,value=>scenario.retirementYears[owner]=value);
     }
-    slider($('plan-horizon'),'plan-horizon-slider','Years ahead',10,50,scenario.years,value=>scenario.years=value);
+    slider($('plan-horizon'),'plan-horizon-slider','Plan to age',70,120,scenario.planToAge ?? 95,value=>scenario.planToAge=value);
     const lastWorkYear=Math.max(...['primary',...(holdings.partnerName ? ['partner'] : [])].map(owner=>scenario.retirementYears[owner] ?? (Number(flow.pay[owner].endDate?.slice(0,4)) || startYear+20)));
     scenario.spendingChanges ??= [{year:lastWorkYear+1,percent:100}];
     renderSpendingChanges(flow);
@@ -129,6 +133,7 @@ export function mountPlanning(root,getInputs) {
     if(!scenario.spendingChanges?.length)list.append(el('p','plan-control-help','No changes; household costs keep their current level.'));
   }
   function name(key,holdings) {return key==='primary' ? holdings.name || 'You' : key==='partner' ? holdings.partnerName || 'Partner' : key==='shared' ? 'Shared / other' : labels[key] || key;}
+  function ageLabel(month,holdings,closing=true,source=projection) {return Object.entries(agesAt(source,month,{closing})).filter(([owner])=>owner==='primary'||holdings.partnerName).map(([owner,age])=>`${name(owner,holdings)} ${age}`).join(' · ');}
   function renderChart(holdings) {
     if(!projection)return;
     const rows=annualPlanView(projection,metric,group,real),meta=metrics[metric];
@@ -138,7 +143,7 @@ export function mountPlanning(root,getInputs) {
     if(group==='person')keys.sort((a,b)=>(['primary','partner','shared'].indexOf(a)<0 ? 3 : ['primary','partner','shared'].indexOf(a))-(['primary','partner','shared'].indexOf(b)<0 ? 3 : ['primary','partner','shared'].indexOf(b)));
     chartRows=rows;chartBaselineRows=baseRows;
     renderOutcome(rows[selected].year,holdings);
-    root.querySelector('.plan-chart-controls').hidden=metric==='netWorth';
+    for(const controls of root.querySelectorAll('.plan-chart-controls > div:not(.plan-money-toggle)'))controls.hidden=metric==='netWorth';
     const negatives=metric==='saving' ? ['withdrawn','unfunded'].filter(key=>rows.some(row=>row[key]>0)) : [];
     chartKeys=[...keys,...negatives];$('plan-chart-tooltip').hidden=true;
     $('plan-chart-note').textContent=meta.note;
@@ -151,13 +156,14 @@ export function mountPlanning(root,getInputs) {
       pensionNote.append(document.createTextNode(`State Pension scenario age ${projection.statePensionAge}; personal pension access ${projection.pensionAccessAge}. `));
       const edit=el('button','plan-text-button','Review pension assumptions');edit.type='button';edit.addEventListener('click',()=>{$('plan-pension-assumptions').open=true;$('plan-pension-assumptions').scrollIntoView({block:'nearest'});});pensionNote.append(edit);
     }
-    $('plan-result-title').textContent=`${meta.title} over time`;
+    root.querySelector('.plan-chart-unit').textContent=meta.balance ? '£ · year end' : '£ per year';
+    $('plan-result-title').textContent=`${meta.balance ? '' : 'Annual '}${meta.title}`;
     for(const button of root.querySelectorAll('[data-metric]'))button.setAttribute('aria-pressed',String(button.dataset.metric===metric));
     for(const button of root.querySelectorAll('[data-group]'))button.setAttribute('aria-pressed',String(button.dataset.group===group));
     for(const button of root.querySelectorAll('[data-style]'))button.setAttribute('aria-pressed',String(button.dataset.style===style));
     $('plan-legend').replaceChildren();
     for(const key of [...keys,...negatives,...(metric==='income' ? ['spending'] : []),'baseline']) {
-      const item=el('span'),swatch=el('i');swatch.style.background=key==='baseline' ? '#64758b' : colours[key] || '#ae725c';item.append(swatch,document.createTextNode(key==='baseline' ? 'Current plan (dashed)' : key==='spending' ? 'Spending (dashed)' : name(key,holdings)));$('plan-legend').append(item);
+      const item=el('span'),swatch=el('i');if(['baseline','spending'].includes(key))swatch.className='plan-line-key';swatch.style.background=key==='baseline' ? '#64758b' : colours[key] || '#ae725c';item.append(swatch,document.createTextNode(key==='baseline' ? 'Current plan' : key==='spending' ? 'Spending' : name(key,holdings)));$('plan-legend').append(item);
     }
     const svg=$('plan-chart');svg.replaceChildren(svgNode('title',{},`${meta.title} by ${group}, ${real ? 'today’s' : 'future'} pounds. Use the year slider for exact values.`));
     const W=Math.max(240,Math.min(1000,Math.round(svg.parentElement.clientWidth))),H=W<600 ? 330 : 460,left=62,right=12,top=16,bottom=38,width=W-left-right;
@@ -185,11 +191,11 @@ export function mountPlanning(root,getInputs) {
       if(index===0 || index===rows.length-1 || (Number(rows[index].year)%(W<600 ? 10 : 5)===0 && index>(W<600 ? 5 : 1) && index<rows.length-(W<600 ? 5 : 2)))svg.append(svgNode('text',{x:x(index),y:H-10,'text-anchor':'middle',class:'plan-axis'},rows[index].year));
       const hit=svgNode('rect',{x:left+index*step,y:top,width:step,height:plotHeight,fill:'transparent','data-year':rows[index].year,role:'button',tabindex:index===selected ? '0' : '-1','aria-label':`Explore ${rows[index].year}`});svg.append(hit);
     }
-    $('plan-year').max=rows.length-1;$('plan-year').value=selected;$('plan-year-label').value=selectedYear;
+    $('plan-year').max=rows.length-1;$('plan-year').value=selected;const yearPicker=$('plan-compare-year');yearPicker.replaceChildren();for(const item of rows){const last=projection.months.filter(month=>month.month.startsWith(item.year)).at(-1);const option=el('option','',`${item.year} · ${ageLabel(last.month,holdings)}`);option.value=item.year;yearPicker.append(option);}yearPicker.value=selectedYear;
     const row=rows[selected];
     $('plan-detail-label').textContent=`${meta.title} · ${row.year}`;
     $('plan-detail-total').textContent=row.valid ? currency(row.total) : 'Unfunded';
-    $('plan-detail-period').textContent=`${meta.balance ? `Balance at ${projection.months.filter(month=>month.month.startsWith(row.year)).at(-1).month}` : `${row.months} months in this calendar year`} · ${real ? 'today’s' : 'future'} pounds`;
+    $('plan-detail-period').textContent=`${meta.balance ? `Balance at ${projection.months.filter(month=>month.month.startsWith(row.year)).at(-1).month}` : `${row.months} months in this calendar year`} · ${real ? 'today’s' : 'future'} pounds · ${ageLabel(projection.months.filter(month=>month.month.startsWith(row.year)).at(-1).month,holdings)}`;
     const detail=$('plan-detail-values');detail.replaceChildren();
     for(const key of keys)if(key!=='netWorth' && row.values[key]>0)detail.append(el('dt','',name(key,holdings)),el('dd','',currency(row.values[key])));
     if(metric==='assets'||metric==='netWorth'){const end=projection.months.filter(month=>month.month.startsWith(row.year)).at(-1),divisor=real ? end.deflator : 1;detail.append(el('dt','','Total assets'),el('dd','',currency(end.assetsTotal/divisor)),el('dt','','Debt remaining'),el('dd','',currency(end.debtsTotal/divisor)));}
@@ -217,15 +223,22 @@ export function mountPlanning(root,getInputs) {
     if(scenario.oneOff?.amount>0 && scenario.oneOff.month)events.push({year:scenario.oneOff.month.slice(0,4),label:`One-off cost ${scenario.oneOff.month.slice(0,4)}`});
     if(projection.firstUnfundedMonth)events.push({year:projection.firstUnfundedMonth.slice(0,4),label:`Cash gap ${projection.firstUnfundedMonth.slice(0,4)}`});
     for(const event of events.filter(event=>rows.some(row=>row.year===event.year))) {const button=el('button','',event.label);button.type='button';button.addEventListener('click',()=>{selectedYear=event.year;renderChart(holdings);});$('plan-events').append(button);}
+    document.dispatchEvent(new Event('picture-updated'));
   }
   function renderOutcome(year,holdings) {
-    const last=projection.months.filter(month=>month.month.startsWith(year)).at(-1),base=baseline.months.filter(month=>month.month.startsWith(year)).at(-1);
-    const divisor=real ? last.deflator : 1,baseDivisor=real ? base.deflator : 1;
-    const current=(base.assetsTotal-base.debtsTotal)/baseDivisor,value=(last.assetsTotal-last.debtsTotal)/divisor,delta=value-current;
-    const output=$('plan-comparison');output.replaceChildren();const caption=el('div','plan-comparison-caption'),yearLabel=el('label','',`Net worth in `),yearSelect=el('select');yearSelect.id='plan-compare-year';yearSelect.setAttribute('aria-label','Compare year');for(const row of annualPlanView(projection)){const option=el('option','',row.year);option.value=row.year;yearSelect.append(option);}yearSelect.value=year;yearSelect.addEventListener('change',()=>{selectedYear=yearSelect.value;renderChart(holdings);});yearLabel.append(yearSelect);caption.append(yearLabel,el('span','',real ? 'Today’s money' : 'Future value'));output.append(caption);
+    const current=summarizeCoverage(baseline,{real}),value=summarizeCoverage(projection,{real});
+    const output=$('plan-comparison');output.replaceChildren();
+    const caption=el('div','plan-comparison-caption');caption.append(el('strong','','Spending coverage'),el('small','',`To ${new Date(`${value.endMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`));output.append(caption);
     const figures=el('div','plan-comparison-figures');
-    for(const [label,number] of [['Current plan',current],['Your scenario',value],['Difference',delta]]){const box=el('div');box.append(el('span','',label),el('strong','',`${label==='Difference' && number>0 ? '+' : ''}${currency(number)}`));figures.append(box);}output.append(figures);
-    if(projection.firstUnfundedMonth)output.append(el('p','plan-gap',`Spending is not fully funded from ${projection.firstUnfundedMonth}. Remaining assets may include money you cannot yet access.`));
+    for(const [label,result] of [['Current plan',current],['Your scenario',value]]) {
+      const box=el('div'),status=result.covered ? 'Covered' : `Gap from ${new Date(`${result.firstGap.month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
+      box.append(el('span','',label),el('strong',result.covered ? '' : 'coverage-gap',status),el('small','',result.covered ? '' : ageLabel(result.firstGap.month,holdings,false,label==='Current plan' ? baseline : projection)));figures.append(box);
+    }
+    const available=el('div');available.append(el('span','','Accessible before tax'),el('strong','',currency(value.accessibleAtEnd)),el('small','',Math.round(value.accessibleAtEnd)===Math.round(current.accessibleAtEnd) ? (real ? 'Today’s money' : 'Future value') : `Current plan ${currency(current.accessibleAtEnd)}`));figures.append(available);output.append(figures);
+    const note=el('details','plan-coverage-note');note.append(el('summary','','What counts?'),el('p','',`End ages: ${ageLabel(value.endMonth,holdings,true)}. Coverage includes recorded spending and included debt payments under these assumptions. Accessible assets are closing investments before withdrawal tax, in ${real ? 'today’s money' : 'future pounds'}. Property, possessions, unconfirmed shares and pensions before access are excluded.`));caption.append(note);
+    if(value.unmodelledDebt>0)output.append(el('p','plan-gap',`${currency(value.unmodelledDebt)} of debt has no modelled repayments. Add payment details before relying on spending coverage.`));
+    if(value.firstGap)output.append(el('p','plan-gap',`First unmet spending: ${currency(value.firstGap.amount)} in ${new Date(`${value.firstGap.month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}. Later income does not erase an earlier shortfall.`));
+    const horizon=planHorizon(holdings,scenario);if(horizon.missingOwners.length)output.append(el('p','plan-gap','An age is missing. The horizon uses known ages, or 30 years if none are recorded. Add ages in People or Ages & pensions.'));
     const changes=[];
     for(const owner of holdings.partnerName ? ['primary','partner'] : ['primary'])if(scenario.retirementYears?.[owner]!=null && scenario.retirementYears[owner]!==Number(getInputs().flow.pay[owner].endDate?.slice(0,4)))changes.push(`${name(owner,holdings)} final working year: ${scenario.retirementYears[owner]}`);
     if(scenario.mortgagePayoffNow)changes.push(`Mortgage paid at start · ${scenario.mortgagePayoffSource==='cashShares' ? 'cash and shares, preserving ISA' : 'selected withdrawal order'}`);
@@ -242,6 +255,7 @@ export function mountPlanning(root,getInputs) {
     if(scenario.oneOff?.amount>0)changes.push(`One-off cost: ${currency(scenario.oneOff.amount)} in ${scenario.oneOff.month}`);
     if(scenario.taxFreeRemaining)changes.push('Remaining pension tax-free allowance changed');
     if(scenario.ages)changes.push('Scenario ages changed');
+    if(scenario.planToAge!==95)changes.push(`Plan to age ${scenario.planToAge}`);
     if(scenario.debtPayments)changes.push('Other debt repayments changed');
     const list=$('plan-changes-list');list.replaceChildren(...(changes.length ? changes : ['No changes yet. Adjust a scenario to compare it with your current plan.']).map(text=>el('li','',text)));
     $('plan-changes').querySelector('summary').textContent=`What changed?${changes.length ? ` (${changes.length})` : ''}`;
@@ -267,10 +281,10 @@ export function mountPlanning(root,getInputs) {
     const {flow,holdings,mode}=getInputs();buildControls(flow,holdings);
     const sourceKey=JSON.stringify([holdings,flow.pay,flow.income,flow.spending,flow.customSpending,flow.datedEntries,flow.statePensions,flow.includeLinkedRent,flow.includeLinkedMortgage]);
     $('plan-source-text').textContent=`From ${new Date(`${flow.timelineStartMonth || flow.asOfMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
-    $('plan-comparison').hidden=mode!=='example' && confirmedKey!==sourceKey;
-    const needsConfirmation=mode!=='example' && confirmedKey!==sourceKey;
-    $('plan-confirm').hidden=!needsConfirmation;$('plan-workspace').hidden=needsConfirmation;
-    $('plan-confirm-button').onclick=()=>{confirmedKey=sourceKey;refresh();};
+    $('plan-comparison').hidden=(mode!=='example' || restoredNeedsReview) && confirmedKey!==sourceKey;
+    const needsConfirmation=(mode!=='example' || restoredNeedsReview) && confirmedKey!==sourceKey;
+    $('plan-confirm').hidden=!needsConfirmation;$('plan-workspace').hidden=needsConfirmation;root.querySelector('.plan-adjust-row').hidden=needsConfirmation;
+    $('plan-confirm-button').onclick=()=>{confirmedKey=sourceKey;restoredNeedsReview=false;refresh();};
     if(needsConfirmation)return;
     for(const [id,key] of rateControls) {
       const input=document.getElementById(id),value=key==='inflation' ? scenario.inflation ?? flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation : key==='incomeGrowth' ? scenario.incomeGrowth ?? flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth : scenario.growth?.[key] ?? flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key];
@@ -278,6 +292,7 @@ export function mountPlanning(root,getInputs) {
     }
     try {
       if(sourceKey!==baselineKey){baselineKey=sourceKey;baselineOptions={inflation:flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation,incomeGrowth:flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth,growth:Object.fromEntries(Object.keys(PLANNING_DEFAULTS.growth).map(key=>[key,flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key]]))};history=[];lastSnapshot=null;}
+      scenario.years=planHorizon(holdings,scenario).years;
       baseline=projectPlan(flow,holdings,{...baselineOptions,years:scenario.years});
       projection=projectPlan(flow,holdings,scenario);
       const snapshot=JSON.stringify(scenario);
@@ -299,9 +314,10 @@ export function mountPlanning(root,getInputs) {
       renderChart(holdings);
       const method=$('plan-method-body');method.replaceChildren();
       const end=projection.months.at(-1);
-      for(const text of [`Opening assets ${currency(projection.opening.assetsTotal)}; opening debt ${currency(projection.opening.debtsTotal)}. Monthly calculations run from ${projection.startMonth} to ${projection.endMonth}.`, 'Pay and rent rise with the pay-growth assumption; spending and dated future costs rise with inflation. State Pension keeps pace with inflation unless switched off; this is an assumption rather than a triple-lock forecast. Other fixed pension receipts stay nominal. Household spending changes affect regular categories; debt, one-off and separately scheduled costs retain their own schedules. Today’s pounds discount future values using the inflation slider.', 'Growth is compounded monthly before new deposits and fees. Cash return is treated as taxable interest; estimated interest tax is reserved from cash monthly. Other investment growth is capital appreciation, not dividend income. DC pension contributions stop with pay. Spending gaps use the selected account order, with pension access tested separately for each person. Income charts distinguish asset withdrawals from recurring income.', `Saving destination: ${scenario.savingsDestination==='general' ? 'all future surplus to general accounts, keeping the existing owner split' : 'existing cash → own ISA → general order when enabled; otherwise cash'}. ISA allowance resets in April, without splitting the month at 6 April. Existing ISA subscriptions are counted in the opening tax year; the entered allowance is held constant in future years.`, 'Mortgage rates and payment terms stay constant unless changed here. Dividend tax, pension contribution limits and rental income tax are not calculated. Drawdown tax is an annualised estimate using recorded pay/pension income and the State Pension input’s other taxable income. Pension withdrawals use up to 25% tax-free with the entered remaining lump-sum allowance. General-account realised gains use 18% / 24% bands based on annualised current income and interest after the £3,000 annual allowance; new deposits track their cost, while the opening gain percentage is assumed. Cash interest uses the Personal Allowance, savings starting rate and Personal Savings Allowance across all cash accounts per person; joint interest is split equally. These monthly estimates annualise current income and interest, rather than reconcile the full tax year. Income changes and later pension withdrawals can change the actual tax due. Current tax rates and thresholds are held fixed for all future years. No other gains/losses or pension protections are modelled. Any balance remaining at the mortgage term is paid in its final month. Other debt balances use the repayment and rate entered in the planning debt controls. Excluded mortgages and debts without repayment details stay unchanged. Balances continue through funding gaps, including inaccessible pensions. Unmet household spending is reported separately, not assumed borrowed or paid later. Debt servicing is funded first; any unpaid installment remains in the debt balance. Mortgage payoff now uses the selected opening assets. Cash + shares preserves ISAs and pensions, and explicitly permits sale of needs-sale shares for this payoff only. Standard CGT applies to assumed gains; employee-scheme relief, employment tax and lender charges are excluded. Partial repayment leaves the remainder outstanding.', 'State Pension starts at the selected scenario age, or a later recorded start month. The simplified estimate uses NI years/35 with a ten-year minimum and assumed future qualifying years while working. Records before 2016 can differ: a GOV.UK forecast is preferable. Ages imply an approximate birth month matching the opening month; these are not verified eligibility dates.', ...projection.warnings, `End of period: ${end.assetsTotal===null ? 'unavailable' : `${currency(end.assetsTotal)} assets and ${currency(end.debtsTotal)} debt before inflation adjustment`}.`]) method.append(el('p','',text));
+      for(const text of [`Opening assets ${currency(projection.opening.assetsTotal)}; opening debt ${currency(projection.opening.debtsTotal)}. Monthly calculations run from ${projection.startMonth} to ${projection.endMonth}.`, 'Pay and rent rise with the pay-growth assumption; spending and dated future costs rise with inflation. State Pension keeps pace with inflation unless switched off; this is an assumption rather than a triple-lock forecast. Other fixed pension receipts stay nominal. Household spending changes affect regular categories; debt, one-off and separately scheduled costs retain their own schedules. Today’s pounds discount future values using the inflation slider.', 'Growth is compounded monthly before new deposits. Investment fees are not deducted. Cash return is treated as taxable interest; estimated interest tax is reserved from cash monthly. Other investment growth is capital appreciation, not dividend income. DC pension contributions stop with pay. Spending gaps use the selected account order, with pension access tested separately for each person. Income charts distinguish asset withdrawals from recurring income.', `Saving destination: ${scenario.savingsDestination==='general' ? 'all future surplus to general accounts, keeping the existing owner split' : 'existing cash → own ISA → general order when enabled; otherwise cash'}. ISA allowance resets in April, without splitting the month at 6 April. Existing ISA subscriptions are counted in the opening tax year; the entered allowance is held constant in future years.`, 'Mortgage rates and payment terms stay constant unless changed here. Dividend tax, pension contribution limits and rental income tax are not calculated. Drawdown tax is an annualised estimate using recorded pay/pension income and the State Pension input’s other taxable income. Pension withdrawals use up to 25% tax-free with the entered remaining lump-sum allowance. General-account realised gains use 18% / 24% bands based on annualised current income and interest after the £3,000 annual allowance; new deposits track their cost, while the opening gain percentage is assumed. Cash interest uses the Personal Allowance, savings starting rate and Personal Savings Allowance across all cash accounts per person; joint interest is split equally. These monthly estimates annualise current income and interest, rather than reconcile the full tax year. Income changes and later pension withdrawals can change the actual tax due. Current tax rates and thresholds are held fixed for all future years. No other gains/losses or pension protections are modelled. Any balance remaining at the mortgage term is paid in its final month. Other debt balances use the repayment and rate entered in the planning debt controls. Excluded mortgages and debts without repayment details stay unchanged. Balances continue through funding gaps, including inaccessible pensions. Unmet household spending is reported separately, not assumed borrowed or paid later. Debt servicing is funded first; any unpaid installment remains in the debt balance. Mortgage payoff now uses the selected opening assets. Cash + shares preserves ISAs and pensions, and explicitly permits sale of needs-sale shares for this payoff only. Standard CGT applies to assumed gains; employee-scheme relief, employment tax and lender charges are excluded. Partial repayment leaves the remainder outstanding.', 'State Pension starts at the selected scenario age, or a later recorded start month. The simplified estimate uses NI years/35 with a ten-year minimum and assumed future qualifying years while working. Records before 2016 can differ: a GOV.UK forecast is preferable. Ages imply an approximate birth month matching the opening month; these are not verified eligibility dates.', ...projection.warnings, `End of period: ${end.assetsTotal===null ? 'unavailable' : `${currency(end.assetsTotal)} assets and ${currency(end.debtsTotal)} debt before inflation adjustment`}.`]) method.append(el('p','',text));
       const sources=el('p');sources.innerHTML='Pay tax uses the existing <a href="https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027" target="_blank" rel="noopener">2026–27 rules</a>, held constant. <a href="https://www.gov.uk/individual-savings-accounts" target="_blank" rel="noopener">ISA rules</a> and the <a href="https://www.bankofengland.co.uk/monetary-policy" target="_blank" rel="noopener">Bank of England inflation target</a> are context. <a href="https://www.gov.uk/new-state-pension/what-youll-get" target="_blank" rel="noopener">State Pension estimates</a>, <a href="https://www.gov.uk/personal-pensions-your-rights/how-you-can-take-pension" target="_blank" rel="noopener">pension tax</a> and <a href="https://www.gov.uk/capital-gains-tax/rates" target="_blank" rel="noopener">CGT rates</a> use current rules. <a href="https://www.gov.uk/apply-tax-free-interest-on-savings/how-much-is-tax-free" target="_blank" rel="noopener">Savings interest allowances</a> use current rules. Return defaults are illustration inputs, not forecasts.';method.append(sources);
     } catch(error) {$('plan-error').textContent=error.message;$('plan-error').hidden=false;}
+    document.dispatchEvent(new Event('picture-updated'));
   }
   root.addEventListener('click',event=>{const button=event.target.closest('[data-metric],[data-group],[data-style]');if(!button)return;if(button.dataset.metric)metric=button.dataset.metric;if(button.dataset.group)group=button.dataset.group;if(button.dataset.style)style=button.dataset.style;renderChart(getInputs().holdings);});
   root.addEventListener('click',event=>{const button=event.target.closest('[data-money]');if(button){real=button.dataset.money==='real';renderChart(getInputs().holdings);}});
@@ -313,7 +329,7 @@ export function mountPlanning(root,getInputs) {
     const reference=chartBaselineRows.find(item=>item.year===year);if(reference)list.append(el('dt','','Current plan'),el('dd','',currency(reference.total)),el('dt','','Difference'),el('dd','',currency(row.total-reference.total)));
     if(metric==='income')list.append(el('dt','','Spending'),el('dd','',currency(row.spending)));
     if(row.unfunded>0 && !chartKeys.includes('unfunded'))list.append(el('dt','','Unfunded'),el('dd','',currency(row.unfunded)));
-    tip.append(list);tip.hidden=false;
+    tip.append(el('p','',ageLabel(projection.months.filter(month=>month.month.startsWith(year)).at(-1).month,getInputs().holdings)),list);tip.hidden=false;
     const box=$('plan-chart').getBoundingClientRect();const x=event.clientX || box.left+box.width/2,y=event.clientY || box.top+20;
     tip.style.left=`${Math.max(10,Math.min(window.innerWidth-tip.offsetWidth-10,x+14))}px`;tip.style.top=`${Math.max(10,Math.min(window.innerHeight-tip.offsetHeight-10,y+16))}px`;
   }
@@ -322,6 +338,7 @@ export function mountPlanning(root,getInputs) {
   $('plan-chart').addEventListener('focusin',event=>{const year=event.target.closest('[data-year]')?.dataset.year;if(year)showChartTooltip(year,event);});
   $('plan-chart').addEventListener('focusout',()=>{$('plan-chart-tooltip').hidden=true;});
   $('plan-add-spending').addEventListener('click',()=>{const changes=scenario.spendingChanges ||= [];const year=changes.length ? Math.max(...changes.map(change=>change.year))+5 : Number(getInputs().flow.timelineStartMonth.slice(0,4))+5;changes.push({year,percent:changes.at(-1)?.percent ?? 100});renderSpendingChanges(getInputs().flow);refresh();});
+  $('plan-compare-year').addEventListener('change',event=>{selectedYear=event.target.value;renderChart(getInputs().holdings);document.dispatchEvent(new Event('picture-updated'));});
   $('plan-metric-select').addEventListener('change',event=>{metric=event.target.value;renderChart(getInputs().holdings);});
   $('plan-year').addEventListener('input',event=>{selectedYear=annualPlanView(projection)[Number(event.target.value)].year;renderChart(getInputs().holdings);});
   $('plan-chart').addEventListener('click',event=>{const year=event.target.closest('[data-year]')?.dataset.year;if(year){selectedYear=year;renderChart(getInputs().holdings);}});
@@ -333,7 +350,9 @@ export function mountPlanning(root,getInputs) {
   $('plan-withdrawal-order').addEventListener('change',event=>{scenario.withdrawalOrder=event.target.value;refresh();});
   $('plan-adjust').addEventListener('click',()=>{const open=root.classList.toggle('plan-controls-open');$('plan-adjust').setAttribute('aria-expanded',String(open));$('plan-adjust').textContent=open ? 'Show results' : 'Adjust scenario';if(open)$('plan-controls').scrollIntoView({block:'start'});else {renderChart(getInputs().holdings);$('plan-comparison').scrollIntoView({block:'start'});}});
   $('plan-undo').addEventListener('click',()=>{if(!history.length)return;scenario=JSON.parse(history.pop());lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;syncControls();refresh();});
-  $('plan-reset').addEventListener('click',()=>{editGroup++;scenario={years:scenario.years,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
+  $('plan-reset').addEventListener('click',()=>{editGroup++;scenario={years:scenario.years,planToAge:scenario.planToAge ?? 95,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(projection && !root.closest('[hidden]'))renderChart(getInputs().holdings);},100);});
-  return {refresh};
+  function snapshot(){return structuredClone({scenario,metric,group,style,real,selectedYear});}
+  function restore(value){restoredNeedsReview=Boolean(value);scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=null;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
+  return {refresh,snapshot,restore};
 }

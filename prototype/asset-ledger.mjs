@@ -96,6 +96,8 @@ export function validateDraft(draft) {
   )
     error("age", "Enter a whole age from 18 to 120.");
 
+  if (!isBlank(draft.partnerAge) && (!Number.isInteger(draft.partnerAge) || draft.partnerAge < 18 || draft.partnerAge > 120))
+    error("partnerAge", "Enter a partner age from 18 to 120.");
   const assets = Array.isArray(draft.assets) ? draft.assets : [];
   const debts = Array.isArray(draft.debts) ? draft.debts : [];
   if (!Array.isArray(draft.assets)) error("assets", "Include an asset list.");
