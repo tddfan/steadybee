@@ -15,6 +15,8 @@ test('deployment contains one active app, redirects old routes and versions nest
  assert.equal(JSON.parse(await read('manifest.webmanifest')).start_url,'/app.html');
  const version=JSON.parse(await read('version.json')).version;
  assert.ok((await read('app.html')).includes(`asset-canvas.mjs?v=${version}`));
+ assert.ok((await read('app.html')).includes(`finance-theme.css?v=${version}`));
+ assert.ok(files.includes('finance-theme.css'));
  assert.ok((await read('app.html')).includes('manifest.webmanifest'));
  assert.ok((await read('planning-view.mjs')).includes(`planning.mjs?v=${version}`));
  assert.ok((await read('planning.mjs')).includes(`withdrawals.mjs?v=${version}`));

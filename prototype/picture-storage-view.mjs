@@ -18,11 +18,18 @@ export function mountPictureStorage({button,getPicture,restorePicture,clearTab})
     <p class="field-help">Encryption protects stored data. An unlocked tab is visible to anyone using this browser. Browser storage can be cleared by the browser; keep an encrypted backup.</p>`;
   document.body.append(dialog);const $=id=>dialog.querySelector(`#${id}`);
   function raw(){try{return store?.getItem(PICTURE_STORAGE_KEY) || null;}catch{return null;}}
-  function status(){button.textContent=failed ? 'Save failed' : enabled ? (JSON.stringify(getPicture())===lastSaved ? 'Saved' : 'Saving…') : raw() ? 'Resume picture' : 'Save picture';button.title=enabled ? 'Encrypted device saving is on. Open saving, backup and deletion options.' : 'Optional encrypted device saving and backup';}
+  function status(){
+    const saved=enabled && JSON.stringify(getPicture())===lastSaved;
+    button.textContent=failed ? 'Save failed' : enabled ? (saved ? 'Saved' : 'Saving…') : raw() ? 'Resume picture' : 'Save picture';
+    button.title=enabled ? 'Encrypted device saving is on. Open saving, backup and deletion options.' : 'Optional encrypted device saving and backup';
+    const indicator=document.getElementById('picture-save-status');
+    const message=failed ? 'Latest changes not saved' : enabled ? (saved ? 'Saved in this browser' : 'Saving in this browser…') : `${getPicture().example ? 'Example · not saved' : 'Not saved · this tab only'}${raw() ? ' · saved copy available' : ''}`;
+    if(indicator && indicator.textContent!==message)indicator.textContent=message;
+  }
   function error(message){$('storage-error').textContent=message;$('storage-error').hidden=!message;}
   function showOptions(){const exists=Boolean(raw());$('storage-resume').hidden=!exists || enabled;$('storage-active').hidden=!protection;$('storage-new').hidden=enabled;$('storage-new').open=!exists && !enabled;$('storage-new-label').textContent=exists ? 'Save current tab instead' : 'Save this picture';$('storage-replace-label').hidden=!exists;$('storage-replace').required=exists;$('storage-replace').checked=false;$('storage-stored-backup').hidden=!exists || Boolean(protection);$('storage-delete').hidden=!exists && !enabled;}
   function pause(){epoch++;clearTimeout(timer);protection=null;enabled=false;lastSaved='';failed=false;staged=null;status();}
-  function schedule(){if(!enabled || !protection || JSON.stringify(getPicture())===lastSaved)return;button.textContent='Saving…';clearTimeout(timer);timer=setTimeout(saveNow,450);}
+  function schedule(){status();if(!enabled || !protection || JSON.stringify(getPicture())===lastSaved)return;clearTimeout(timer);timer=setTimeout(saveNow,450);}
   function saveNow(){const task=activeSave.then(performSave);activeSave=task.catch(()=>{});return task;}
   async function performSave(){
     if(!enabled || !protection)return;

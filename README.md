@@ -14,6 +14,10 @@ The three sections are:
 
 Planning supports current-plan savings routing or all future surplus to general accounts; cash-and-shares mortgage payoff preserves ISAs. Payoff figures show amounts taken, estimated tax, repayment and remaining debt. A funding gap does not hide inaccessible pension balances. Household spending changes do not change separately scheduled costs or debt service.
 
+The active app uses a clean white-and-blue finance theme. Planning leads with the retirement question, coverage under the entered assumptions, a dated accessible investment balance before withdrawal tax, and visible budget/inflation/pension-growth assumptions. Retirement controls accept approximate ages while preserving the recorded final-pay month. Personal pictures have a starting-figure review; phone scenario editing keeps the chart available with an immediate coverage summary. A first-retirement-month breakdown uses the existing monthly projection. Saving status stays visible in the header. See the [theme implementation and verification](docs/2026-10-16-finance-theme-plan.md).
+
+Assets & debt leads with totals and an always-visible breakdown. Select an owner or View items to open the flat list and edit an item. Definitions and additional account details open on request. Blank setup offers an optional partner before entry, and users can start with either an asset or a debt.
+
 ## Run locally
 
 No npm application dependencies or frontend framework are required.

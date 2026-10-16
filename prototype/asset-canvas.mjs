@@ -10,8 +10,8 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261016layout2";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountPictureStorage } from './picture-storage-view.mjs?v=20261016layout2';
-import { mountPlanning } from "./planning-view.mjs?v=20261016layout2";
+import { mountPictureStorage } from './picture-storage-view.mjs?v=20261016finance2';
+import { mountPlanning } from "./planning-view.mjs?v=20261016progressive9";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
 
@@ -34,8 +34,6 @@ let mode = "example";
 let dialogType = null;
 let editingId = null;
 let lastTrigger = null;
-let addOwner = "primary";
-let addTrigger = null;
 let returnToFlowAssetId = null;
 let editingFlowEntryId = null;
 let flowEntryTrigger = null;
@@ -43,12 +41,12 @@ let flowDatedRequireStart = false;
 let flowChartPath = [];
 let chartView = "owner";
 let chartSelection = null;
-const openOwners = new Set();
-const openCategories = new Set();
+let holdingsOwner = "all";
+let recordsOpen = false;
 
 function announce(message) { $("live-message").textContent = message; }
 function itemName(item, types) { return item.label?.trim() || types[item.kind].label; }
-function countLabel(count, noun) { return count ? `${count} ${noun}${count === 1 ? "" : "s"} entered` : "Nothing entered yet"; }
+function countLabel(count, noun) { return count ? `${count} ${noun}${count === 1 ? "" : "s"}` : "None entered"; }
 
 function setTotals() {
   const summary = summarizeDraft(draft);
@@ -63,7 +61,7 @@ function setTotals() {
   return summary;
 }
 
-const chartColours = ["#28745f", "#8064a4", "#bb893f", "#5d8191", "#ad674e", "#687a54", "#956f76", "#486c77"];
+const chartColours = ["#1967d2", "#7e57c2", "#78909c", "#188774", "#a17632", "#ad5682", "#607d8b", "#886455"];
 const chartViews = {
   owner: { title: "Assets by person", context: "Shared assets count once. Select a person to open their items below." },
   type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
@@ -239,116 +237,71 @@ function renderAccessReview() {
     list.append(button);
   }
 }
-function showAddChoices(owner, trigger, assetOnly = false) {
-  addOwner = owner;
-  addTrigger = trigger;
-  $("add-dialog-title").textContent = `Add for ${ownerName(owner)}`;
-  const choices = $("add-choices");
-  choices.replaceChildren();
-  for (const [type, types] of (assetOnly ? [["asset", ASSET_TYPES]] : [["asset", ASSET_TYPES], ["debt", DEBT_TYPES]])) {
-    choices.append(make("p", "add-choice-label", type === "asset" ? "Something you own" : "Something you owe"));
-    for (const [kind, info] of Object.entries(types)) {
-      const button = make("button", `add-choice add-choice-${type}`);
-      button.type = "button";
-      button.dataset.quickKind = kind;
-      button.dataset.quickType = type;
-      button.append(icon(kind), make("span", "", info.label));
-      choices.append(button);
-    }
-  }
-  $("add-dialog").showModal();
-  choices.querySelector("button").focus();
+function renderRecordsVisibility() {
+  const count = draft.assets.length + draft.debts.length;
+  $("asset-record-actions").hidden = !count;
+  $("asset-records").hidden = !count || !recordsOpen;
+  $("toggle-asset-records").setAttribute("aria-expanded", String(recordsOpen));
+  $("toggle-asset-records").textContent = recordsOpen ? "Hide items" : `View ${count} ${count === 1 ? "item" : "items"}`;
 }
 function renderOrbit(summary) {
-  const container = $("orbit-items");
-  container.replaceChildren();
-  for (const owner of ["primary", "partner", "shared"]) {
-    if (owner !== "primary" && !draft.partnerName?.trim()) continue;
-    const subtotal = summary.ownership[owner];
-    const assets = draft.assets.filter((asset) => (asset.owner || "primary") === owner);
-    const debts = draft.debts.filter((debt) => (debt.owner || "primary") === owner);
-    const group = make("section", `owner-cluster owner-cluster-${owner}`);
-    group.dataset.ownerGroup = owner;
-    group.setAttribute("aria-label", `${ownerName(owner)}: ${money(subtotal.assetTotal)} assets, ${money(subtotal.debtTotal)} debt, ${money(subtotal.netWorth)} net`);
-    const header = make("div", "owner-cluster-heading");
-    const avatar = make("span", "owner-avatar", owner === "shared" ? "∞" : ownerName(owner).trim().charAt(0).toUpperCase());
-    avatar.setAttribute("aria-hidden", "true");
-    header.append(avatar);
-    header.append(make("h2", "owner-cluster-title", ownerName(owner)));
-    header.append(make("span", "owner-cluster-detail", `${subtotal.assetCount} asset${subtotal.assetCount === 1 ? "" : "s"}${subtotal.debtCount ? ` · ${subtotal.debtCount} debt${subtotal.debtCount === 1 ? "" : "s"}` : ""}`));
-    const add = make("button", "owner-add", "＋ Add");
-    add.type = "button";
-    add.dataset.addOwner = owner;
-    add.setAttribute("aria-label", `Add an asset or debt for ${ownerName(owner)}`);
-    header.append(add);
-    const balance = make("div", "owner-balance");
-    for (const [label, value, className] of [["Assets", subtotal.assetTotal, "owner-assets"], ["Debt", subtotal.debtTotal, "owner-debt"], ["Net today", subtotal.netWorth, "owner-cluster-net"]]) {
-      const metric = make("div", "owner-metric");
-      metric.append(make("span", "", label), make("strong", className, money(value)));
-      balance.append(metric);
-    }
-    const cells = ["accessible", "pension", "illiquid", "debt", "review"].flatMap((bucket) => {
-      const cell = make("details", `bucket-cell bucket-${bucket}`);
-      cell.dataset.bucket = bucket;
-      cell.dataset.ownerBucket = `${owner}:${bucket}`;
-      cell.open = openCategories.has(cell.dataset.ownerBucket);
-      const members = bucket === "debt" ? debts.map((item) => ({ type: "debt", item })) : assets.filter((item) => accessBucket(item) === bucket).map((item) => ({ type: "asset", item }));
-      if (!members.length) return [];
-      const total = members.reduce((sum, { type, item }) => sum + (type === "debt" ? item.balance : item.value), 0);
-      const heading = make("summary", "bucket-heading");
-      heading.append(make("span", "bucket-mobile-label", { accessible: "Available now", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm", debt: "Borrowing" }[bucket]));
-      heading.append(make("strong", "bucket-total", `${bucket === "debt" ? "−" : ""}${compactMoney(total)}`));
-      cell.append(heading);
-      const nodes = make("div", "owner-nodes");
-      for (const { type, item } of members) {
-        const types = type === "asset" ? ASSET_TYPES : DEBT_TYPES;
-        const value = type === "asset" ? item.value : item.balance;
-        const context = type === "asset" ? assetContext(item) : debtContext(item);
-        const button = make("button", `orbit-card orbit-${type} orbit-owner-${owner}`);
-        button.type = "button";
-        button.dataset.orbitType = type;
-        button.dataset.orbitId = item.id;
-        button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${type === "debt" ? "debt " : "asset "}${money(value)}${context ? `, ${context}` : ""}, ${item.confidence || "estimate"}`);
-        const pictogram = make("span", "orbit-icon");
-        pictogram.append(icon(item.kind));
-        if (type === "asset" && needsAccessReview(item)) {
-          const cue = make("span", "access-cue");
-          cue.title = "Access details to confirm";
-          cue.setAttribute("aria-hidden", "true");
-          pictogram.append(cue);
-        }
-        const words = make("span", "orbit-words");
-        words.append(make("span", "orbit-name", itemName(item, types)));
-        if (item.confidence === "review") words.append(make("span", "orbit-confidence", "Needs review"));
-        if (type === "asset" && item.pensionAccessAge) words.append(make("span", "orbit-confidence", `Age ${item.pensionAccessAge}`));
-        button.append(pictogram, words, make("strong", "orbit-value", `${type === "debt" ? "−" : ""}${compactMoney(value)}`));
-        nodes.append(button);
-      }
-      cell.append(nodes);
-      return cell;
-    });
-    const details = make("details", "owner-details");
-    details.dataset.ownerDetails = owner;
-    details.open = openOwners.has(owner);
-    const itemCount = assets.length + debts.length;
-    const categoryGrid = make("div", "owner-category-grid");
-    categoryGrid.append(...cells);
-    details.append(make("summary", "", `View ${itemCount} item${itemCount === 1 ? "" : "s"}`), categoryGrid);
-    group.classList.toggle("owner-selected", chartView === "owner" && chartSelection === owner);
-    group.append(header, balance);
-    if (itemCount) group.append(details);
-    else group.append(make("p", "owner-empty", "No items yet. Use Add to get started."));
-    for (const asset of assets) {
-      const equity = summary.linkedEquity.find((row) => row.assetId === asset.id);
-      if (equity?.linkedDebtTotal) {
-        const pair = make("div", "linked-pair-note");
-        pair.append(make("span", "", `${itemName(asset, ASSET_TYPES)} ${compactMoney(asset.value)} − ${compactMoney(equity.linkedDebtTotal)} debt`), make("strong", "", `= ${compactMoney(equity.equity)} equity`));
-        cells.find((cell) => cell.dataset.bucket === "illiquid")?.append(pair);
-      }
-    }
-    container.append(group);
+  renderRecordsVisibility();
+  const owners = ["all", "primary", ...(draft.partnerName?.trim() ? ["partner", "shared"] : [])];
+  if (!owners.includes(holdingsOwner)) holdingsOwner = "all";
+  const filters = $("holdings-owner-filter");
+  filters.replaceChildren();
+  for (const owner of owners) {
+    const button = make("button", "holdings-owner-button", owner === "all" ? "All" : ownerName(owner));
+    button.type = "button"; button.dataset.holdingsOwner = owner;
+    button.setAttribute("aria-pressed", String(holdingsOwner === owner));
+    filters.append(button);
   }
-  container.classList.toggle("single-owner", !draft.partnerName?.trim());
+  $("people-title").textContent = holdingsOwner === "all" ? "All items" : holdingsOwner === "shared" ? "Shared items" : `${ownerName(holdingsOwner)}’s items`;
+  const selected = holdingsOwner === "all" ? summary : summary.ownership[holdingsOwner];
+  $("holdings-subtotal").textContent = holdingsOwner === "all" ? "" : `${ownerName(holdingsOwner)} · net worth ${money(selected.netWorth)}`;
+  const container = $("orbit-items"); container.replaceChildren();
+  let count = 0;
+  for (const [type, entries, types, title] of [["asset", draft.assets, ASSET_TYPES, "Assets"], ["debt", draft.debts, DEBT_TYPES, "Debt"]]) {
+    const items = entries.filter(item => holdingsOwner === "all" || (item.owner || "primary") === holdingsOwner)
+      .toSorted((a, b) => (type === "asset" ? b.value - a.value : b.balance - a.balance));
+    count += items.length;
+    if (!items.length) continue;
+    const section = make("section", "holdings-section");
+    const heading = make("div", "holdings-section-heading");
+    const label = make("h3", "", title); label.append(make("small", "", String(items.length)));
+    heading.append(label, make("strong", "", money(items.reduce((sum, item) => sum + (type === "asset" ? item.value : item.balance), 0))));
+    const table = make("table", "holdings-table"); table.setAttribute("aria-label", `${title}${holdingsOwner === "all" ? "" : ` · ${ownerName(holdingsOwner)}`}`);
+    const head = make("thead"), headers = make("tr");
+    for (const [text, cls] of [["Name", "holding-name-col"], ["Owner", "holding-owner-col"], [type === "asset" ? "Access" : "Linked to", "holding-access-col"], [type === "asset" ? "Value" : "Balance owed", "holding-value-col"]]) {
+      const cell = make("th", cls, text); cell.scope = "col"; headers.append(cell);
+    }
+    head.append(headers); table.append(head);
+    const body = make("tbody");
+    for (const item of items) {
+      const owner = item.owner || "primary", value = type === "asset" ? item.value : item.balance;
+      const kind = item.kind === "dc-pension" ? "Pension pot" : types[item.kind].label;
+      const linkedAsset = type === "debt" ? draft.assets.find(asset => asset.id === item.linkedAssetId) : null;
+      const access = type === "debt" ? (linkedAsset ? itemName(linkedAsset, ASSET_TYPES) : "—")
+        : item.kind === "dc-pension" ? (item.pensionAccessAge ? `From age ${item.pensionAccessAge}` : "Check age")
+        : ({accessible:"Generally accessible",pension:"Pension",illiquid:"Needs sale",review:"Check access"})[accessBucket(item)];
+      const review = type === "asset" && needsAccessReview(item);
+      const row = make("tr", "holding-row"); row.dataset.orbitType = type; row.dataset.orbitId = item.id;
+      const nameCell = make("th", "holding-name-col"); nameCell.scope = "row";
+      const button = make("button", "holding-name-button"); button.type = "button";
+      button.setAttribute("aria-label", `Edit ${ownerName(owner)} ${itemName(item, types)}, ${money(value)}${review ? `, ${access}` : ""}${item.confidence === "review" ? ", review value" : ""}`);
+      const pictogram = make("span", "holding-icon"); pictogram.append(icon(item.kind));
+      const words = make("span", "holding-labels");
+      words.append(make("span", "holding-name", itemName(item, types)), make("span", "holding-kind", kind), make("span", "holding-mobile-owner", `${kind} · ${ownerName(owner)}`));
+      if (review) words.append(make("span", "holding-review-mobile", access));
+      if (item.confidence === "review") words.append(make("span", "holding-review-value", "Review value"));
+      button.append(pictogram, words); nameCell.append(button);
+      row.append(nameCell, make("td", "holding-owner-col", ownerName(owner)), make("td", `holding-access-col${review ? " holding-review" : ""}`, access));
+      const amount = make("td", "holding-value-col"); amount.append(make("span", "", `${type === "debt" ? "−" : ""}${money(value)}`), make("span", "holding-chevron", "›")); row.append(amount);
+      body.append(row);
+    }
+    table.append(body); section.append(heading, table); container.append(section);
+  }
+  if (!count) container.append(make("p", "holdings-empty", "No items yet."));
 }
 
 function render() {
@@ -360,14 +313,11 @@ function render() {
   document.querySelector(".people-panel").hidden = !hasItems && mode !== "example";
   document.querySelector(".snapshot-caveat").hidden = !hasItems && mode !== "example";
   renderChart(summary);
-  $("person-heading").textContent = `${draft.name.trim() || "Your"}${draft.partnerName?.trim() ? ` & ${draft.partnerName.trim()}` : ""}’s`;
-  $("snapshot-description").textContent = !hasItems && mode !== "example"
-    ? `${draft.name}, age ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, age ${draft.partnerAge}` : ""}` : ""} · Your picture is ready for its first item.`
-    : `${draft.name}, ${draft.age}${draft.partnerName?.trim() ? ` · ${draft.partnerName.trim()}${draft.partnerAge ? `, ${draft.partnerAge}` : ""}` : ""} · ${mode === "example" ? "Editable example" : "Your entries"}`;
-  $("example-badge").textContent = mode === "example" ? "Fictional example · edit anything" : "Your money picture";
+  $("snapshot-description").textContent = [draft.name && `${draft.name}${draft.age ? `, ${draft.age}` : ""}`, draft.partnerName && `${draft.partnerName}${draft.partnerAge ? `, ${draft.partnerAge}` : ""}`].filter(Boolean).join(" · ");
+  $("example-badge").textContent = mode === "example" ? "Fictional example" : "Your household";
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
-  $("value-context").textContent = mode === "example" ? "Example values are illustrative estimates. Edit anything to make it yours." : "Start with what you know. Mark values as exact, estimated, or needing review in the editor.";
+  $("asset-breakdown").hidden = draft.assets.length === 0;
   renderAccessReview();
   renderOrbit(summary);
   renderFlow();
@@ -1113,7 +1063,7 @@ function populateKinds(type, selected = "") {
   prompt.disabled = true;
   select.add(prompt);
   for (const [kind, info] of Object.entries(type === "asset" ? ASSET_TYPES : DEBT_TYPES)) {
-    select.add(new Option(info.label, kind, false, kind === selected));
+    select.add(new Option(kind === "dc-pension" ? "Pension pot" : info.label, kind, false, kind === selected));
   }
 }
 
@@ -1127,7 +1077,7 @@ function populateOwners(type, selected = "primary") {
     select.add(new Option("Shared", "shared"));
   }
   select.value = selected || "primary";
-  $("item-owner-label").textContent = type === "asset" ? "Who owns it?" : "Who owes it?";
+  $("item-owner-label").textContent = type === "asset" ? "Owner" : "Owed by";
 }
 
 function populateLinks(selected = "") {
@@ -1141,6 +1091,8 @@ function populateLinks(selected = "") {
 }
 
 function updateDialogFields(selectedLink = "") {
+  const placeholders = {home:"Our home","other-property":"Rental property",cash:"Savings account",isa:"ISA account",shares:"Employer shares","dc-pension":"Workplace pension",car:"Family car",mortgage:"Home mortgage",loan:"Bank loan","credit-card":"Credit card"};
+  $("item-label").placeholder = placeholders[$("item-kind").value] || "Account or item name";
   const mortgage = dialogType === "debt" && $("item-kind").value === "mortgage";
   $("mortgage-fields").hidden = !mortgage;
   $("rent-field").hidden = dialogType !== "asset" || !["home", "other-property"].includes($("item-kind").value);
@@ -1149,23 +1101,31 @@ function updateDialogFields(selectedLink = "") {
   $("access-bucket-field").hidden = dialogType !== "asset" || !["shares", "other"].includes($("item-kind").value);
   $("share-tax-fields").hidden = dialogType !== "asset" || $("item-kind").value !== "shares";
   $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
-  $("item-amount-label").textContent = dialogType === "asset" ? "What is it worth today?" : "How much is still owed?";
-  $("item-amount-help").textContent = dialogType === "asset" ? "Use the current value, not what you originally paid." : "Enter the outstanding balance, not the original loan or monthly payment.";
+  $("item-amount-label").textContent = dialogType === "asset" ? "Current value" : "Balance owed";
+
   if (dialogType === "debt") populateLinks(selectedLink);
+  updateEquityPreview();
 }
+
+function updateEquityPreview() {
+  const debt = editingId && dialogType === "asset" ? draft.debts.filter(item => item.linkedAssetId === editingId).reduce((sum, item) => sum + item.balance, 0) : 0;
+  const note = $("item-equity"), value = Number($("item-amount").value);
+  note.hidden = !debt || !$("item-amount").value || !Number.isFinite(value);
+  note.textContent = note.hidden ? "" : `Linked debt ${money(debt)} · Equity ${money(value - debt)}`;
+}
+$("item-amount").addEventListener("input", updateEquityPreview);
 
 function showItemDialog(type, id = null, trigger = null, initialKind = "", initialOwner = "primary") {
   dialogType = type;
   editingId = id;
   lastTrigger = trigger;
   const item = id ? draft[type === "asset" ? "assets" : "debts"].find((entry) => entry.id === id) : null;
-  addOwner = item?.owner || initialOwner;
   $("item-form").reset();
   $("item-error").hidden = true;
   $("item-error").textContent = "";
-  $("item-dialog-kicker").textContent = item ? "Edit a piece" : "A new piece";
+  $("item-additional").open = false;
   $("item-dialog-title").textContent = `${item ? "Edit" : "Add"} ${type === "asset" ? "an asset" : "a debt"}`;
-  $("save-item-button").textContent = item ? "Save changes" : "Add to my picture";
+  $("save-item-button").textContent = item ? "Save changes" : type === "asset" ? "Add asset" : "Add debt";
   $("delete-item-button").hidden = !item;
   populateKinds(type, item?.kind || initialKind);
   populateOwners(type, item?.owner || initialOwner);
@@ -1218,15 +1178,20 @@ function itemFromForm() {
   return debt;
 }
 
-function restoreFocus() { if (lastTrigger?.isConnected) lastTrigger.focus(); else document.querySelector(`[data-add-owner="${addOwner}"]`)?.focus(); }
+function restoreFocus() {
+  const fallback = draft.assets.length + draft.debts.length ? $("asset-add") : $("first-piece-add");
+  const target = lastTrigger?.isConnected && lastTrigger.getClientRects().length ? lastTrigger : document.querySelector(`[data-orbit-id="${editingId}"] button`) || fallback;
+  target.focus();
+}
 
 $("welcome-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!event.currentTarget.reportValidity()) return;
-  const candidate = { ...draft, name: $("person-name").value.trim(), age: Number($("person-age").value) };
+  const partnerName = $("welcome-partner-name").value.trim();
+  const candidate = { ...draft, name: $("person-name").value.trim(), age: Number($("person-age").value), partnerName, partnerAge: partnerName && $("welcome-partner-age").value !== "" ? Number($("welcome-partner-age").value) : null };
   if (!candidate.name) { $("person-name").setCustomValidity("Enter a name or nickname."); $("person-name").reportValidity(); return; }
   const validation = validateDraft(candidate);
-  if (!validation.valid) { $("person-age").setCustomValidity(validation.errors[0].message); $("person-age").reportValidity(); return; }
+  if (!validation.valid) { const field = $(({name:"person-name",age:"person-age",partnerName:"welcome-partner-name",partnerAge:"welcome-partner-age"})[validation.errors[0].path] || "person-age");field.setCustomValidity(validation.errors[0].message);field.reportValidity();return; }
   draft = candidate;
   mode = "personal";
   $("welcome-screen").hidden = true;
@@ -1235,9 +1200,19 @@ $("welcome-form").addEventListener("submit", (event) => {
   $("canvas-title").focus?.();
   announce(`${draft.name}’s picture is ready. No assets or debts entered yet.`);
 });
-for (const id of ["person-name", "person-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
+for (const id of ["person-name", "person-age", "welcome-partner-name", "welcome-partner-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
-$("first-piece-add").addEventListener("click", (event) => showAddChoices("primary", event.currentTarget, true));
+$("toggle-asset-records").addEventListener("click", () => { recordsOpen = !recordsOpen; renderRecordsVisibility(); });
+$("first-piece-add").addEventListener("click", event => showItemDialog("asset", null, event.currentTarget));
+$("first-debt-add").addEventListener("click", event => showItemDialog("debt", null, event.currentTarget));
+for (const [id, type] of [["asset-add", "asset"], ["debt-add", "debt"]]) $(id).addEventListener("click", event => showItemDialog(type, null, event.currentTarget, "", holdingsOwner === "all" ? "primary" : holdingsOwner));
+$("holdings-owner-filter").addEventListener("click", event => {
+  const button = event.target.closest("[data-holdings-owner]"); if (!button) return;
+  holdingsOwner = button.dataset.holdingsOwner;
+  if (chartView === "owner") chartSelection = holdingsOwner === "all" ? null : holdingsOwner;
+  const summary = summarizeDraft(draft); renderChart(summary); renderOrbit(summary);
+  $("holdings-owner-filter").querySelector(`[data-holdings-owner="${holdingsOwner}"]`)?.focus();
+});
 $("first-piece").addEventListener("click", (event) => {
   const choice = event.target.closest("[data-first-kind]");
   if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
@@ -1291,12 +1266,12 @@ function setFlowView(view) {
   $("flow-view-donut").setAttribute("aria-pressed", String(donut));
   $("flow-view-table").setAttribute("aria-pressed", String(table));
   $("flow-view-help").textContent = table
-    ? "Monthly averages · use Edit to change an entry."
+    ? "Monthly amounts"
     : bridge ? "Follow the calculation, then open a spending group to see its entries. Saving is the amount left after spending."
     : sunburst ? "Each ring shows a deeper level. Select a ring to focus on its children."
       : treemap ? "Rectangle size shows each amount's share. Select a section to open its detail."
         : donut ? "Select a slice to open its next level. Use the breadcrumb or Back to return."
-          : "Monthly averages · select an income or spending flow to edit.";
+          : "Monthly amounts";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
@@ -1530,8 +1505,7 @@ $("flow-dated-delete").addEventListener("click", () => {
 function editLinkedAsset(id, trigger) {
   const asset = draft.assets.find((entry) => entry.id === id);
   if (!asset) return;
-  openOwners.add(asset.owner || "primary");
-  openCategories.add(`${asset.owner || "primary"}:illiquid`);
+  holdingsOwner = asset.owner || "primary";
   renderOrbit(summarizeDraft(draft));
   showScreen("assets");
   returnToFlowAssetId = id;
@@ -1564,38 +1538,13 @@ for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-m
   $(`flow-${side}-${key}`).focus();
   $("flow-editor").scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 });
-$("add-choices").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-quick-kind]");
-  if (button) {
-    $("add-dialog").close();
-    showItemDialog(button.dataset.quickType, null, addTrigger, button.dataset.quickKind, addOwner);
-  }
-});
-$("close-add-button").addEventListener("click", () => $("add-dialog").close());
-$("add-dialog").addEventListener("close", () => { if (!$("item-dialog").open && addTrigger?.isConnected) addTrigger.focus(); });
 $("access-review-items").addEventListener("click", (event) => {
   const button = event.target.closest("[data-review-id]");
   if (button) showItemDialog("asset", button.dataset.reviewId, button);
 });
-$("orbit-items").addEventListener("click", (event) => {
-  const categorySummary = event.target.closest(".bucket-cell > summary");
-  if (categorySummary) {
-    const category = categorySummary.parentElement;
-    if (category.open) openCategories.delete(category.dataset.ownerBucket);
-    else openCategories.add(category.dataset.ownerBucket);
-    return;
-  }
-  const summary = event.target.closest(".owner-details > summary");
-  if (summary) {
-    const details = summary.parentElement;
-    if (details.open) openOwners.delete(details.dataset.ownerDetails);
-    else openOwners.add(details.dataset.ownerDetails);
-    return;
-  }
-  const add = event.target.closest("[data-add-owner]");
-  if (add) { showAddChoices(add.dataset.addOwner, add); return; }
-  const button = event.target.closest("[data-orbit-id]");
-  if (button) showItemDialog(button.dataset.orbitType, button.dataset.orbitId, button);
+$("orbit-items").addEventListener("click", event => {
+  const row = event.target.closest("[data-orbit-id]");
+  if (row) showItemDialog(row.dataset.orbitType, row.dataset.orbitId, row.querySelector("button"));
 });
 document.querySelector(".explore-tabs").addEventListener("click", (event) => {
   const button = event.target.closest("[data-chart-view]");
@@ -1608,12 +1557,13 @@ document.querySelector(".explore-tabs").addEventListener("click", (event) => {
 });
 function chooseChartCategory(key) {
   chartSelection = chartSelection === key ? null : key;
-  if (chartView === "owner" && chartSelection) openOwners.add(chartSelection);
+  if (chartView === "owner") holdingsOwner = chartSelection || "all";
   renderChart(summarizeDraft(draft));
   const scrollBehaviour = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   if (chartView === "owner") {
+    recordsOpen = true;
     renderOrbit(summarizeDraft(draft));
-    if (chartSelection) document.querySelector(`[data-owner-group="${chartSelection}"]`)?.scrollIntoView({ block: "center", behavior: scrollBehaviour });
+    if (chartSelection) document.querySelector(".holdings-panel")?.scrollIntoView({ block: "start", behavior: scrollBehaviour });
   } else if (chartSelection) $("chart-drilldown").scrollIntoView({ block: "nearest", behavior: scrollBehaviour });
 }
 $("chart-categories").addEventListener("click", (event) => {
@@ -1661,6 +1611,7 @@ $("item-form").addEventListener("submit", (event) => {
     const check = validateDraft(next);
     if (!check.valid) throw new Error(check.errors[0].message);
     draft = next;
+    recordsOpen = true;
     $("item-dialog").close();
     render();
     announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} ${index >= 0 ? "updated" : "added"}. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1732,9 +1683,7 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
-$("start-own-button").addEventListener("click", () => {
-  $("clear-dialog").showModal();
-});
+$("start-own-button").addEventListener("click", startBlankPicture);
 $("reset-example-button").addEventListener("click", () => {
   storageController.pause();
   mode="example";
@@ -1743,13 +1692,13 @@ $("reset-example-button").addEventListener("click", () => {
   flowDraft = createExampleMonthlyFlow();
   syncFlowInputs();
   chartSelection = null;
-  openOwners.clear();
-  openCategories.clear();
+  holdingsOwner = "all";
+  recordsOpen = false;
   render();
   announce("Alex and Gemma’s fictional example has been reset.");
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
-$("confirm-clear-button").addEventListener("click", () => {
+function startBlankPicture() {
   storageController.pause();
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
@@ -1758,14 +1707,13 @@ $("confirm-clear-button").addEventListener("click", () => {
   mode = "personal";
   editingId = null;
   lastTrigger = null;
-  addTrigger = null;
   returnToFlowAssetId = null;
-  addOwner = "primary";
   chartSelection = null;
-  openOwners.clear();
-  openCategories.clear();
+  holdingsOwner = "all";
+  recordsOpen = false;
   $("clear-dialog").close();
   $("welcome-form").reset();
+  $("welcome-partner").open = false;
   $("profile-form").reset();
   $("item-form").reset();
   $("orbit-items").replaceChildren();
@@ -1777,8 +1725,6 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("access-review-count").textContent = "";
   $("access-review").open = false;
   $("access-review").hidden = true;
-  $("add-choices").replaceChildren();
-  $("add-dialog-title").textContent = "Add a piece";
   $("item-linked-asset").replaceChildren();
   $("item-kind").replaceChildren();
   $("item-owner").replaceChildren();
@@ -1786,9 +1732,8 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("debt-total").textContent = "£0";
   $("net-worth").textContent = "£0";
   $("accessible-total").textContent = "£0";
-  $("asset-count").textContent = "Nothing entered yet";
-  $("debt-count").textContent = "Nothing entered yet";
-  $("person-heading").textContent = "Your";
+  $("asset-count").textContent = "None entered";
+  $("debt-count").textContent = "None entered";
   $("example-badge").textContent = "Your money picture";
   $("snapshot-description").textContent = "A snapshot from what you’ve entered. Add or change a piece whenever you like.";
   $("canvas-screen").hidden = true;
@@ -1796,8 +1741,10 @@ $("confirm-clear-button").addEventListener("click", () => {
   $("planning-screen").hidden = true;
   $("welcome-screen").hidden = false;
   $("person-name").focus();
-  announce("Your name, age, assets and debts have been cleared from this tab.");
-});
+  announce("Ready for your household details.");
+  document.dispatchEvent(new Event("picture-updated"));
+}
+$("confirm-clear-button").addEventListener("click", startBlankPicture);
 
 function openFlowEditor(side, owner = null) {
   const dialog = $("flow-edit-dialog");
@@ -1991,12 +1938,12 @@ let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResiz
 
 function clearStoredTab() {
   for(const input of document.querySelectorAll('form input,form textarea')){if(input.type==='checkbox' || input.type==='radio')input.checked=false;else input.value='';}
-  draft=createAlexExample();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;openOwners.clear();openCategories.clear();
+  draft=createAlexExample();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;holdingsOwner="all";recordsOpen=false;
   planningController.restore(null);syncFlowInputs();render();showScreen('assets');
 }
 const storageController=mountPictureStorage({
   button:$('picture-storage-button'),
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;openOwners.clear();openCategories.clear();planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
+  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";recordsOpen=false;planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
   clearTab:clearStoredTab,
 });
