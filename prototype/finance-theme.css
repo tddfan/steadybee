@@ -416,11 +416,11 @@ input:focus,select:focus { border-color:#1967d2; box-shadow:0 0 0 2px #e8f0fe; }
   .welcome-partner-fields { grid-template-columns:1fr; }
 }
 
-/* Overview first; records and scenario detail appear when requested. */
+/* Keep the whole household picture on a single white canvas. */
 #canvas-screen .asset-breakdown { border-top:0; }
 #canvas-screen .asset-breakdown .explore-panel { margin:0; padding:8px 0 24px; }
 #canvas-screen .explore-heading h2 { font-size:22px; }
-.asset-record-actions { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px 0; border-top:1px solid var(--line); }
+
 #canvas-screen .holdings-panel { border-top:1px solid var(--line); }
 #canvas-screen .holdings-toolbar { padding-top:12px; }
 .plan-root { display:block; }
@@ -457,8 +457,6 @@ input:focus,select:focus { border-color:#1967d2; box-shadow:0 0 0 2px #e8f0fe; }
 .plan-method .plan-key-assumptions { margin:16px 0; }
 .plan-source > div { display:flex; gap:12px; }
 @media(max-width:780px) {
-  .asset-record-actions { flex-wrap:wrap; gap:8px; }
-  .asset-record-actions > button { padding-left:0; }
   .plan-result-toolbar { flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
   .plan-result-toolbar .plan-comparison { flex-basis:100%; }
   .plan-comparison-caption > strong { flex-basis:100%; font-size:24px; }
@@ -490,4 +488,25 @@ input:focus,select:focus { border-color:#1967d2; box-shadow:0 0 0 2px #e8f0fe; }
   .plan-result-toolbar .plan-adjust-row { position:static; margin-left:auto; }
   .plan-introduction { margin-bottom:12px; }
   .plan-chart-toolbar { margin-top:8px; }
+}
+
+/* The item list stays in view beneath the breakdown. */
+#canvas-screen,.canvas-screen,.constellation-centre,.explore-panel,#asset-records,
+#canvas-screen .access-review,#asset-value-notes,#canvas-screen .next-flow {
+  background:#fff;
+}
+#canvas-screen #asset-records { margin-top:8px; padding:0; border:0; border-top:1px solid var(--line); border-radius:0; box-shadow:none; }
+#canvas-screen .holdings-list-title { margin:18px 0 0; font:500 22px/1.35 var(--ui-font); letter-spacing:-.025em; color:var(--ink); }
+#canvas-screen .holdings-toolbar { margin:0 0 12px; border:0; padding:8px 0 12px; }
+#canvas-screen .holdings-section { margin:0 0 20px; }
+#canvas-screen .holdings-section-heading { min-height:44px; border-bottom:1px solid var(--line); }
+#canvas-screen .holdings-table tbody th,#canvas-screen .holdings-table tbody td { background:#fff; }
+#canvas-screen .holdings-table tbody tr:hover th,#canvas-screen .holdings-table tbody tr:hover td { background:#f8fafd; }
+#canvas-screen .holdings-owner-button { padding-left:12px; padding-right:12px; }
+@media(max-width:780px) {
+  #canvas-screen .holdings-toolbar { align-items:flex-start; }
+  #canvas-screen .holdings-owner-filter { width:auto; flex:1; }
+  #canvas-screen .holdings-add-actions { justify-content:flex-end; }
+  #canvas-screen .holdings-add-actions .button { padding:8px; font-size:15px; }
+  #canvas-screen .holdings-list-title { margin-top:14px; }
 }

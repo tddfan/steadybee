@@ -42,7 +42,6 @@ let flowChartPath = [];
 let chartView = "owner";
 let chartSelection = null;
 let holdingsOwner = "all";
-let recordsOpen = false;
 
 function announce(message) { $("live-message").textContent = message; }
 function itemName(item, types) { return item.label?.trim() || types[item.kind].label; }
@@ -237,15 +236,7 @@ function renderAccessReview() {
     list.append(button);
   }
 }
-function renderRecordsVisibility() {
-  const count = draft.assets.length + draft.debts.length;
-  $("asset-record-actions").hidden = !count;
-  $("asset-records").hidden = !count || !recordsOpen;
-  $("toggle-asset-records").setAttribute("aria-expanded", String(recordsOpen));
-  $("toggle-asset-records").textContent = recordsOpen ? "Hide items" : `View ${count} ${count === 1 ? "item" : "items"}`;
-}
 function renderOrbit(summary) {
-  renderRecordsVisibility();
   const owners = ["all", "primary", ...(draft.partnerName?.trim() ? ["partner", "shared"] : [])];
   if (!owners.includes(holdingsOwner)) holdingsOwner = "all";
   const filters = $("holdings-owner-filter");
@@ -318,6 +309,8 @@ function render() {
   $("start-own-button").hidden = mode !== "example";
   $("reset-example-button").hidden = mode !== "example";
   $("asset-breakdown").hidden = draft.assets.length === 0;
+  $("asset-records").hidden = !hasItems && mode !== "example";
+  $("asset-records").querySelector(".holdings-add-actions").hidden = !hasItems && mode !== "example";
   renderAccessReview();
   renderOrbit(summary);
   renderFlow();
@@ -1202,7 +1195,6 @@ $("welcome-form").addEventListener("submit", (event) => {
 });
 for (const id of ["person-name", "person-age", "welcome-partner-name", "welcome-partner-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
 
-$("toggle-asset-records").addEventListener("click", () => { recordsOpen = !recordsOpen; renderRecordsVisibility(); });
 $("first-piece-add").addEventListener("click", event => showItemDialog("asset", null, event.currentTarget));
 $("first-debt-add").addEventListener("click", event => showItemDialog("debt", null, event.currentTarget));
 for (const [id, type] of [["asset-add", "asset"], ["debt-add", "debt"]]) $(id).addEventListener("click", event => showItemDialog(type, null, event.currentTarget, "", holdingsOwner === "all" ? "primary" : holdingsOwner));
@@ -1561,7 +1553,6 @@ function chooseChartCategory(key) {
   renderChart(summarizeDraft(draft));
   const scrollBehaviour = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   if (chartView === "owner") {
-    recordsOpen = true;
     renderOrbit(summarizeDraft(draft));
     if (chartSelection) document.querySelector(".holdings-panel")?.scrollIntoView({ block: "start", behavior: scrollBehaviour });
   } else if (chartSelection) $("chart-drilldown").scrollIntoView({ block: "nearest", behavior: scrollBehaviour });
@@ -1611,7 +1602,6 @@ $("item-form").addEventListener("submit", (event) => {
     const check = validateDraft(next);
     if (!check.valid) throw new Error(check.errors[0].message);
     draft = next;
-    recordsOpen = true;
     $("item-dialog").close();
     render();
     announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} ${index >= 0 ? "updated" : "added"}. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1693,7 +1683,6 @@ $("reset-example-button").addEventListener("click", () => {
   syncFlowInputs();
   chartSelection = null;
   holdingsOwner = "all";
-  recordsOpen = false;
   render();
   announce("Alex and Gemma’s fictional example has been reset.");
 });
@@ -1710,7 +1699,6 @@ function startBlankPicture() {
   returnToFlowAssetId = null;
   chartSelection = null;
   holdingsOwner = "all";
-  recordsOpen = false;
   $("clear-dialog").close();
   $("welcome-form").reset();
   $("welcome-partner").open = false;
@@ -1938,12 +1926,12 @@ let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResiz
 
 function clearStoredTab() {
   for(const input of document.querySelectorAll('form input,form textarea')){if(input.type==='checkbox' || input.type==='radio')input.checked=false;else input.value='';}
-  draft=createAlexExample();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;holdingsOwner="all";recordsOpen=false;
+  draft=createAlexExample();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;holdingsOwner="all";
   planningController.restore(null);syncFlowInputs();render();showScreen('assets');
 }
 const storageController=mountPictureStorage({
   button:$('picture-storage-button'),
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";recordsOpen=false;planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
+  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
   clearTab:clearStoredTab,
 });

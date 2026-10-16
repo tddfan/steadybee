@@ -60,8 +60,7 @@ async function fits(p) {
 }
 test('overviews lead with the visible breakdown and progressively reveal details',async()=>{
  const p=await page();assert.equal(await p.locator('#asset-breakdown').evaluate(e=>e.tagName),'SECTION');
- assert.equal(await p.locator('#asset-donut').isVisible(),true);assert.equal(await p.locator('#asset-records').isVisible(),false);
- await p.locator('#toggle-asset-records').click();assert.equal(await p.locator('#asset-records').isVisible(),true);
+ assert.equal(await p.locator('#asset-donut').isVisible(),true);assert.equal(await p.locator('#asset-records').isVisible(),true);
  await p.locator('#assets-to-planning').click();assert.equal(await p.locator('#plan-controls').isVisible(),false);
  assert.equal(await p.locator('.plan-comparison-figures').isVisible(),false);
  assert.equal(await p.locator('#plan-chart').isVisible(),true);assert.equal(await p.locator('#plan-detail-values').isVisible(),false);
@@ -70,7 +69,7 @@ test('overviews lead with the visible breakdown and progressively reveal details
  await p.close();
 });
 test('owner filtering and direct editing preserve optional account details',async()=>{
- const p=await page(390);await p.locator('#toggle-asset-records').click();await p.locator('#holdings-owner-filter').getByRole('button',{name:'Gemma',exact:true}).click();
+ const p=await page(390);await p.locator('#holdings-owner-filter').getByRole('button',{name:'Gemma',exact:true}).click();
  assert.equal(await p.locator('.holding-row').count(),4);
  await p.getByRole('button',{name:'Edit Gemma Cash, £150,000',exact:true}).click();
  await p.getByText('Additional details',{exact:true}).click();await p.locator('#item-cash-rate').fill('3.4');await p.locator('#item-confidence').selectOption('exact');
@@ -92,7 +91,7 @@ test('blank setup captures a partner before shared debt entry',async()=>{
  assert.equal(await p.locator('#net-worth').innerText(),'-£5,000');assert.equal(await p.locator('#asset-total').innerText(),'£0');assert.equal(await p.locator('#debt-total').innerText(),'£5,000');await fits(p);await p.close();
 });
 test('linked equity stays in the item editor and a new debt inherits the owner filter',async()=>{
- const p=await page(320);await p.locator('#toggle-asset-records').click();await p.locator('#holdings-owner-filter').getByRole('button',{name:'Shared',exact:true}).click();
+ const p=await page(320);await p.locator('#holdings-owner-filter').getByRole('button',{name:'Shared',exact:true}).click();
  await p.getByRole('button',{name:'Edit Shared Main home, £780,000',exact:true}).click();
  assert.match(await p.locator('#item-equity').innerText(),/Equity £400,000/);
  await p.getByLabel('Current value',{exact:true}).fill('800000');assert.match(await p.locator('#item-equity').innerText(),/Equity £420,000/);
