@@ -4,6 +4,8 @@ Steadybee runs as a static site. Its existing protected-picture feature encrypts
 
 The selected account service is Supabase. The intended first account flow is email sign-in, verified through a link, followed by an explicit **Save picture** action. A signed-in user can then reopen their latest saved household picture from another browser or device. Saved content includes household inputs and named scenarios; calculated charts and simulation samples are regenerated when opened.
 
+Returning signed-in users automatically reopen their saved picture when the initial public example is untouched, preserving the selected app section. Changes made before sign-in finishes or while the saved picture loads require an explicit choice in Account before replacing the tab. Token refreshes do not repeatedly reload the picture, and stale responses from a previous account are ignored. Loading a picture does not write it back to the database.
+
 ## Database boundary
 
 `supabase/migrations/20261017152028_create_user_pictures.sql` creates one record per Supabase user. Row-level security permits an authenticated user to read, create, update, and delete only the row whose `user_id` matches their authenticated ID. Deleting an account cascades to that row.
@@ -20,4 +22,4 @@ The migration stores the picture JSON in the database. Row-level security protec
 4. Supabase Auth URL Configuration is set: Site URL `https://steadybee.netlify.app`; allowed redirects `https://steadybee.netlify.app/app.html` and `http://127.0.0.1:8766/app.html`.
 5. Verify email confirmation, sign-in, saving, reopening from another browser, and deleting the cloud picture with test accounts and fictional data.
 
-The Supabase Auth URL configuration is complete. The first live email-link sign-in and cross-device round trip still need a user mailbox, so no test email has been sent. A self-service account deletion function remains a public-release requirement.
+The Supabase Auth URL configuration is complete. Live email-link sign-in, saved-picture reopening, and automatic restoration after reloading Planning have been verified in the signed-in browser. Independent cross-device testing and a self-service account deletion function remain public-release requirements.

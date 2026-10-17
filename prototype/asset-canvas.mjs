@@ -11,7 +11,7 @@ import {
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017save3';
-import { mountAccountStorage } from './account-storage.mjs?v=20261017account1';
+import { mountAccountStorage } from './account-storage.mjs?v=20261017restore1';
 import { mountPlanning } from "./planning-view.mjs?v=20261017save3";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
@@ -1972,7 +1972,13 @@ const storageController=mountPictureStorage({
 mountAccountStorage({
   button:$('account-button'),
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Saved account picture restored. Review your starting figures before planning.');},
+  restorePicture:picture=>{
+    const section=location.hash.slice(1);
+    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";
+    planningController.restore(picture.planning);syncFlowInputs();render();showScreen(['assets','flow','planning'].includes(section)?section:'assets');
+    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('welcome-screen').hidden=false;}
+    announce('Saved account picture restored. Review your starting figures before planning.');
+  },
 });
 
 if(new URLSearchParams(location.search).get('start')==='own'){startBlankPicture();const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);}

@@ -3,6 +3,27 @@ import {validatePicture} from './picture-storage.mjs?v=20261017account1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
+/** Restore once per account, only while the opening example remains untouched. */
+export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture,onAvailable,onError}) {
+  const opening=getPicture(),openingSerial=JSON.stringify(opening);
+  let activeUserId=null,generation=0,pending=null;
+  return {setUser(userId){
+    if(userId!==activeUserId){activeUserId=userId;generation++;pending=null;}
+    if(!userId)return Promise.resolve();
+    if(pending)return pending;
+    const requestGeneration=generation;
+    pending=Promise.resolve().then(()=>fetchPicture(userId)).then(saved=>{
+      if(requestGeneration!==generation)return;
+      if(saved && opening.example && JSON.stringify(getPicture())===openingSerial)applyPicture(saved);
+      else onAvailable(saved);
+    }).catch(e=>{
+      if(requestGeneration!==generation)return;
+      pending=null;onError(e);
+    });
+    return pending;
+  }};
+}
+
 /** Signed-in cloud storage for one validated household picture per account. */
 export function mountAccountStorage({button,getPicture,restorePicture}) {
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',lastSaved='',timer=null,saving=Promise.resolve(),errorMessage='';
@@ -24,16 +45,48 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
   function message(text){$('account-message').textContent=text;}
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
   function setStatus(text){if(status)status.textContent=text;}
+  function renderCloudSummary(data){
+    if(!cloudEnabled)cloudUpdatedAt=data?.updated_at||'';
+    $('account-open-picture').hidden=!data;$('account-delete-picture').hidden=!data;
+    $('account-cloud-summary').textContent=data?`Saved picture · ${new Date(data.updated_at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}`:'No picture saved to this account yet.';
+    $('account-save-picture').textContent=data&&!cloudEnabled?'Replace saved picture with this tab':'Save this picture to my account';
+  }
+  const pictureLoader=createAccountPictureLoader({
+    getPicture,
+    fetchPicture:async userId=>{
+      const {data,error:dbError}=await client.from('user_pictures').select('picture,updated_at').eq('user_id',userId).maybeSingle();
+      if(dbError)throw dbError;
+      if(user?.id!==userId)return null;
+      renderCloudSummary(data);
+      return data?{picture:validatePicture(data.picture),updatedAt:data.updated_at}:null;
+    },
+    applyPicture:saved=>{
+      clearTimeout(timer);cloudEnabled=false;
+      restorePicture(saved.picture);
+      cloudUpdatedAt=saved.updatedAt;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
+      setStatus('Saved to your account');message('Your saved picture is open. Changes save automatically.');
+      if(dialog.open)dialog.close();
+    },
+    onAvailable:saved=>{
+      if(!cloudEnabled)setStatus(saved?'Saved picture available · open Account':'Signed in · no saved picture');
+    },
+    onError:e=>{error(`Could not open your saved picture. ${e.message}`);setStatus('Saved picture could not load · open Account');},
+  });
+  function setUser(nextUser){
+    const changed=user?.id!==nextUser?.id;
+    if(changed){clearTimeout(timer);cloudEnabled=false;cloudUpdatedAt='';lastSaved='';}
+    user=nextUser;renderSession();
+    if(!user){pictureLoader.setUser(null);setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);return;}
+    if(changed)setStatus('Opening your saved picture…');
+    // Defer database requests until Supabase has released its auth callback lock.
+    const userId=user.id;setTimeout(()=>{if(user?.id===userId)pictureLoader.setUser(userId);},0);
+  }
   async function getClient(){
     if(!clientPromise)clientPromise=import(sdkUrl).then(({createClient})=>{
       if(!SUPABASE_URL||!SUPABASE_PUBLISHABLE_KEY)throw new Error('Account saving is not configured yet.');
       client=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
       client.auth.onAuthStateChange((event,session)=>{
-        user=session?.user||null;
-        if(!user){cloudEnabled=false;cloudUpdatedAt='';lastSaved='';}
-        renderSession();
-        if(user){setTimeout(()=>refreshPicture(),0);if(event==='SIGNED_IN' && !dialog.open){message('You’re signed in. Open your account to continue.');button.textContent='Account';setStatus(`Signed in · ${user.email||'account'}`);}}
-        else{button.textContent='Sign in';setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);}
+        setUser(session?.user||null);
       });
       return client;
     });
@@ -47,14 +100,12 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
   }
   async function refreshPicture(){
     if(!client||!user)return;
+    const userId=user.id;
     try{
-      const {data,error:dbError}=await client.from('user_pictures').select('updated_at').eq('user_id',user.id).maybeSingle();
+      const {data,error:dbError}=await client.from('user_pictures').select('updated_at').eq('user_id',userId).maybeSingle();
       if(dbError)throw dbError;
-      cloudUpdatedAt=data?.updated_at||'';
-      $('account-open-picture').hidden=!data;$('account-delete-picture').hidden=!data;
-      $('account-cloud-summary').textContent=data?`Saved picture · ${new Date(data.updated_at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}`:'No picture saved to this account yet.';
-      if(data && !cloudEnabled) $('account-save-picture').textContent='Replace saved picture with this tab';
-      else $('account-save-picture').textContent='Save this picture to my account';
+      if(user?.id!==userId)return;
+      renderCloudSummary(data);
     }catch(e){error(`Could not check your saved picture. ${e.message}`);}
   }
   async function openAccount(){
@@ -137,7 +188,7 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
     }catch(e){cloudEnabled=false;setStatus('Cloud save needs attention');if(dialog.open)error(`Latest changes were not saved to your account. ${e.message}`);}
   }
   document.addEventListener('picture-updated',scheduleCloudSave);
-  getClient().then(async()=>{const {data}=await client.auth.getSession();user=data.session?.user||null;renderSession();if(user){await refreshPicture();setStatus('Signed in · open account');}}).catch(()=>{});
+  getClient().then(async()=>{const {data}=await client.auth.getSession();setUser(data.session?.user||null);}).catch(()=>{});
   renderSession();
   return {open:openAccount};
 }
