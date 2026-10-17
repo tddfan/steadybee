@@ -52,7 +52,7 @@ export function mountPlanning(root,getInputs) {
         <details class="plan-control-card plan-mortgage"><summary>Mortgage & debt</summary><div id="plan-mortgage-controls"></div><div id="plan-other-debt-controls" class="plan-other-debts"></div></details><details class="plan-control-card"><summary>Future one-off cost</summary><p class="plan-control-help">This scenario only. Recorded costs already carry through from Income & spending; add a cost here only if it is extra.</p><div class="plan-one-off"><label for="plan-cost">Extra cost (£, today’s pounds)</label><input id="plan-cost" type="number" min="0" max="10000000" step="100" placeholder="0" /><label for="plan-cost-month">When</label><input id="plan-cost-month" type="month" /></div></details>
       </aside>
     </div>
-    <details class="plan-method"><summary>Assumptions, starting figures & calculation details</summary><p class="plan-facts-note">Recorded inputs stay unchanged. Adjustments apply only to your scenario.</p><div id="plan-method-body"></div></details>
+    <div class="plan-method"><button type="button" id="plan-method-open" class="plan-info-button" aria-label="How calculations work and export" title="Calculation details and export"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg></button><dialog id="plan-method-dialog" class="plan-method-dialog" aria-labelledby="plan-method-title"><div class="plan-dialog-heading"><div><h2 id="plan-method-title">How this plan is calculated</h2><p>See the method or export the current scenario for Excel.</p></div><button type="button" class="plan-dialog-close" aria-label="Close calculation details">×</button></div><div class="plan-method-content"><p class="plan-facts-note">Recorded inputs stay unchanged. Adjustments apply only to your scenario.</p><div class="plan-method-context"></div><div id="plan-method-body"></div></div><div class="plan-dialog-actions"><button type="button" id="plan-export-calculations" class="button button-secondary" disabled>Download spreadsheet for Excel (.csv)</button><span id="plan-export-status" role="status" aria-live="polite"></span></div></dialog></div>
     <p class="plan-disclaimer">Illustration, not advice. Current rules, subject to change.</p>`;
   const $=id=>root.querySelector(`#${id}`);
   function revealControl(section) {
@@ -70,9 +70,56 @@ export function mountPlanning(root,getInputs) {
   const resultToolbar=el('div','plan-result-toolbar');
   $('plan-comparison').before(resultToolbar);resultToolbar.append($('plan-comparison'),root.querySelector('.plan-adjust-row'));
   const method=root.querySelector('.plan-method');
-  method.append(root.querySelector('.plan-introduction'));
-  method.querySelector('summary').textContent='Assumptions & calculation details';
-  method.querySelector('summary').after($('plan-source-text'),$('plan-key-assumptions'),root.querySelector('.plan-timing-note'),$('plan-changes'));
+  method.querySelector('.plan-method-context').append(root.querySelector('.plan-introduction'),$('plan-source-text'),$('plan-key-assumptions'),root.querySelector('.plan-timing-note'),$('plan-changes'));
+  const methodDialog=$('plan-method-dialog');
+  $('plan-method-open').addEventListener('click',()=>methodDialog.showModal());
+  method.querySelector('.plan-dialog-close').addEventListener('click',()=>methodDialog.close());
+  methodDialog.addEventListener('click',event=>{if(event.target===methodDialog)methodDialog.close();});
+  $('plan-export-calculations').addEventListener('click',exportCalculations);
+  function exportCalculations(){
+    if(!projection)return;
+    const records=[];
+    const add=(section,year,item,value,units='£',notes='')=>records.push([section,year,item,value,units,notes]);
+    add('Scenario','','Starting month',projection.startMonth,'month');
+    add('Scenario','','End month',projection.endMonth,'month');
+    add('Scenario','','Value basis',real ? 'Today’s money' : 'Future value','');
+    add('Scenario','','Inflation',projection.assumptions.inflation,'%');
+    add('Scenario','','Pay and rent growth',projection.assumptions.incomeGrowth,'%');
+    for(const [key,value] of Object.entries(projection.assumptions.growth || {}))add('Scenario','',`${key} growth`,value,'%');
+    add('Scenario','','Withdrawal order',scenario.withdrawalOrder || 'generalFirst','');
+    add('Scenario','','Saving destination',scenario.savingsDestination || 'existing','');
+    add('Starting picture','','Assets',projection.opening.assetsTotal);
+    add('Starting picture','','Debt',projection.opening.debtsTotal);
+    const rows=annualPlanView(projection,'income','type',real);
+    for(const row of rows){
+      const months=projection.months.filter(item=>item.month.startsWith(row.year));
+      const last=months.at(-1),deflator=real ? last.deflator : 1;
+      const year=String(row.year), period=`${row.months} months`;
+      add('Annual results',year,'Income',row.income,'£',period);
+      add('Annual results',year,'Spending and debt costs',row.spending,'£',period);
+      add('Annual results',year,'Net asset withdrawals',row.withdrawn,'£',period);
+      add('Annual results',year,'Estimated withdrawal tax',row.withdrawalTax,'£',period);
+      add('Annual results',year,'Cash interest earned',row.cashInterestGross,'£',period);
+      add('Annual results',year,'Estimated tax on cash interest',row.cashInterestTax,'£',period);
+      add('Annual results',year,'Unfunded spending',row.unfunded,'£',period);
+      add('Year-end balances',year,'Assets',last.assetsTotal/deflator,'£',`${last.month} closing balance`);
+      add('Year-end balances',year,'Debt',last.debtsTotal/deflator,'£',`${last.month} closing balance`);
+      add('Year-end balances',year,'Net worth',(last.assetsTotal-last.debtsTotal)/deflator,'£',`${last.month} closing balance`);
+      for(const item of row.withdrawals){
+        const label=`${item.owner} · ${item.bucket}`;
+        add('Withdrawals by account',year,`${label} gross`,item.gross,'£',period);
+        add('Withdrawals by account',year,`${label} net`,item.net,'£',period);
+        add('Withdrawals by account',year,`${label} estimated tax`,item.tax,'£',period);
+      }
+    }
+    add('Method','','Calculation notes','Illustration based on recorded inputs and selected scenario; not a tax-year reconciliation or forecast.','','See the app’s calculation details for full assumptions and exclusions.');
+    add('Method','','Tax year','2026–27 rates held fixed for future years.','','Tax estimates are simplified; actual tax may differ.');
+    const escape=value=>`"${String(value ?? '').replaceAll('"','""')}"`;
+    const csv='\uFEFF'+[['Section','Year','Calculation','Value','Units','Notes'],...records].map(row=>row.map(escape).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=el('a');
+    link.href=url;link.download=`steadybee-planning-${new Date().toISOString().slice(0,10)}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $('plan-export-status').textContent='Downloaded. Open the CSV file in Excel.';
+  }
   const yearDetails=el('details','plan-detail-panel');yearDetails.append(el('summary','','Year details'));
   root.querySelector('.plan-year-control').after(yearDetails);
   for(const selector of ['#plan-events','#plan-retirement-snapshot','.plan-year-detail','#plan-withdrawal-detail','#plan-gap','#plan-compare','.plan-figure-notes'])yearDetails.append(root.querySelector(selector));
@@ -87,6 +134,7 @@ export function mountPlanning(root,getInputs) {
   const fundingComparison=el('section','plan-funding-comparison');fundingComparison.setAttribute('aria-label','Compare withdrawal orders');mainColumn.append(fundingComparison);fundingComparison.append($('plan-compare'));
   const outcomes=mountOutcomes(mainColumn,inspector,()=>{const {flow,holdings}=getInputs();return {flow,holdings,options:scenario};});
   const savedExperiments=mountExperiments(root,{getState:workingState,loadState:state=>restore({...state,experiments},{review:false}),getEntries:()=>experiments,setEntries:entries=>{experiments=entries;},getInputs});
+  root.querySelector('.plan-adjust-row').append(method);
   const sheetBackdrop=el('div','plan-sheet-backdrop');sheetBackdrop.setAttribute('aria-hidden','true');root.append(sheetBackdrop);
   const sheet=$('plan-controls'),handle=root.querySelector('.plan-sheet-handle');
   function syncSheetSemantics(){const modal=matchMedia('(max-width:767px)').matches && root.classList.contains('plan-controls-open');if(modal){sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','Your scenario');sheet.setAttribute('aria-modal','true');}else{sheet.removeAttribute('role');sheet.removeAttribute('aria-modal');}}
@@ -408,6 +456,7 @@ export function mountPlanning(root,getInputs) {
     $('plan-context').textContent=mode==='example' ? `Fictional example · ${holdings.name}${holdings.partnerName ? ` & ${holdings.partnerName}` : ''}` : 'Your household · illustration';
     if(needsConfirmation){renderReadiness(flow,holdings);document.getElementById('planning-title').textContent='Your retirement picture';$('plan-question-detail').textContent='A few checks now make the illustration more useful.';}
     $('plan-confirm-button').onclick=()=>{confirmedKey=reviewKey;rememberReviewKey(reviewKey);restoredNeedsReview=false;refresh();document.dispatchEvent(new Event('picture-updated'));};
+    $('plan-export-calculations').disabled=needsConfirmation || !projection;
     if(needsConfirmation){outcomes.update(false);return;}
     for(const [id,key] of rateControls) {
       const input=document.getElementById(id),value=key==='inflation' ? scenario.inflation ?? flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation : key==='incomeGrowth' ? scenario.incomeGrowth ?? flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth : scenario.growth?.[key] ?? flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key];
@@ -417,7 +466,7 @@ export function mountPlanning(root,getInputs) {
       if(sourceKey!==baselineKey){baselineKey=sourceKey;baselineOptions={inflation:flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation,incomeGrowth:flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth,growth:Object.fromEntries(Object.keys(PLANNING_DEFAULTS.growth).map(key=>[key,flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key]]))};history=[];lastSnapshot=null;}
       scenario.years=planHorizon(holdings,scenario).years;
       baseline=projectPlan(flow,holdings,{...baselineOptions,years:scenario.years});
-      projection=projectPlan(flow,holdings,scenario);outcomes.update(true);
+      projection=projectPlan(flow,holdings,scenario);$('plan-export-calculations').disabled=false;outcomes.update(true);
       const snapshot=JSON.stringify(scenario);
       if(lastSnapshot && snapshot!==lastSnapshot){if(lastHistoryGroup!==editGroup){history.push(lastSnapshot);if(history.length>40)history.shift();lastHistoryGroup=editGroup;}}
       lastSnapshot=snapshot;$('plan-undo').disabled=!history.length;$('plan-undo').hidden=!history.length;$('plan-error').hidden=true;
