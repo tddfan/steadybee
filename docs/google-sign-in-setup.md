@@ -1,6 +1,6 @@
 # Google sign-in setup
 
-The app offers Google sign-in only when Supabase's public Auth settings report that Google is enabled. Until then, the email-link fallback remains available. Google's sign-in window leaves unsaved household edits open in the original tab.
+The app offers Google sign-in only when Supabase's public Auth settings report that Google is enabled. The Google sign-in window leaves unsaved household edits open in the original tab. Email-link sign-in has been removed from the account dialog.
 
 Use a dedicated Steadybee Google Cloud project. Configure the OAuth consent screen for Steadybee and create a Web application OAuth client with this authorized redirect URI:
 

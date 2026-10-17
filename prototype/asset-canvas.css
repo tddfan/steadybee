@@ -1614,9 +1614,6 @@ h2 { font-size:26px; }
 .account-dialog [hidden] { display:none!important; }
 .account-dialog .account-intro,.account-dialog .account-privacy { color:var(--muted); }
 .account-dialog .account-privacy { border-top:1px solid var(--line); margin-top:18px; padding-top:14px; font-size:13px; }
-.account-dialog #account-email-form { display:grid; gap:10px; margin:16px 0; }
-.account-dialog #account-email-form label { font-weight:600; }
-.account-dialog #account-email-form input { min-width:0; }
 .account-dialog .account-email-label { font-weight:600; }
 .account-dialog .account-cloud-summary { padding:12px 14px; margin:12px 0; border-radius:12px; background:var(--bg-canvas); }
 .account-dialog .account-actions,.account-dialog .account-restore-confirm { display:grid; gap:8px; margin:12px 0; }

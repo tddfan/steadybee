@@ -1,5 +1,7 @@
 # Account storage setup
 
+> Historical setup notes: email-link sign-in was replaced by Google sign-in. See [Google sign-in setup](google-sign-in-setup.md) for the current provider configuration.
+
 Steadybee runs as a static site. Its existing protected-picture feature encrypts data in the browser and saves it to that browser or to an encrypted backup file. Account saving uses Supabase Auth and its Postgres Data API.
 
 The selected account service is Supabase. The intended first account flow is email sign-in, verified through a link, followed by an explicit **Save picture** action. A signed-in user can then reopen their latest saved household picture from another browser or device. Saved content includes household inputs and named scenarios; calculated charts and simulation samples are regenerated when opened.
