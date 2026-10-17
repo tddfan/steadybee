@@ -1,4 +1,5 @@
 import {PICTURE_STORAGE_KEY,createProtection,encryptPicture,decryptPicture} from './picture-storage.mjs?v=20261017save3';
+import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 
 /** Optional local persistence; callers supply facts and scenario inputs, never results. */
 export function mountPictureStorage({button,getPicture,restorePicture,clearTab}) {
@@ -24,7 +25,7 @@ export function mountPictureStorage({button,getPicture,restorePicture,clearTab})
     button.title=enabled ? 'Encrypted device saving is on. Open saving, backup and deletion options.' : 'Optional encrypted device saving and backup';
     const indicator=document.getElementById('picture-save-status');
     const message=failed ? 'Latest changes not saved' : enabled ? (saved ? 'Saved in this browser' : 'Saving in this browser…') : `${getPicture().example ? 'Example · not saved' : 'Not saved · this tab only'}${raw() ? ' · saved copy available' : ''}`;
-    if(indicator && indicator.textContent!==message)indicator.textContent=message;
+    updateSaveStatus(indicator,'device',message);
   }
   function error(message){$('storage-error').textContent=message;$('storage-error').hidden=!message;}
   function showOptions(){const exists=Boolean(raw());$('storage-resume').hidden=!exists || enabled;$('storage-active').hidden=!protection;$('storage-new').hidden=enabled;$('storage-new').open=!exists && !enabled;$('storage-new-label').textContent=exists ? 'Save current tab instead' : 'Save this picture';$('storage-replace-label').hidden=!exists;$('storage-replace').required=exists;$('storage-replace').checked=false;$('storage-stored-backup').hidden=!exists || Boolean(protection);$('storage-delete').hidden=!exists && !enabled;}

@@ -553,7 +553,7 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
 
 /* People management, actionable records and direct chart inspection. */
 .holdings-people-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
-.people-edit { width:44px; min-width:44px; padding:6px; font-size:23px; }
+.people-edit { width:auto; min-width:44px; padding:6px 12px; gap:6px; font-size:14px; }
 .pension-record-shell { border-bottom:1px solid var(--border-hairline); padding:4px 0 10px; }
 .pension-record-shell:last-child { border:0; }
 .pension-record-shell .flow-state-record { border:0; }

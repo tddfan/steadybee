@@ -10,8 +10,9 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017save3';
-import { mountAccountStorage } from './account-storage.mjs?v=20261017restore1';
+import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017profile1';
+import { mountAccountStorage } from './account-storage.mjs?v=20261017profile1';
+import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
 import { mountPlanning } from "./planning-view.mjs?v=20261017save3";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
@@ -1644,14 +1645,28 @@ $("edit-profile-button").addEventListener("click", () => {
   $("profile-age").value = draft.age;
   $("profile-partner").value = draft.partnerName || "";
   $("profile-partner-age").value = draft.partnerAge ?? "";
+  $("profile-partner-fields").hidden=!draft.partnerName;$("profile-add-partner").hidden=Boolean(draft.partnerName);
+  $("profile-remove-partner").hidden=!draft.partnerName;$("profile-error").hidden=true;$("profile-removal-note").hidden=true;
   $("profile-dialog").showModal();
   $("profile-name").focus();
 });
 $("close-profile-button").addEventListener("click", () => $("profile-dialog").close());
+$("profile-add-partner").addEventListener("click",()=>{$("profile-partner-fields").hidden=false;$("profile-add-partner").hidden=true;$("profile-partner").focus();});
+$("profile-remove-partner").addEventListener("click",()=>{
+  try{removePartnerFromPicture(draft,flowDraft,planningController.snapshot());}
+  catch(e){$("profile-error").textContent=e.message;$("profile-error").hidden=false;return;}
+  $("profile-partner").value='';$("profile-partner-age").value='';$("profile-partner-fields").hidden=true;$("profile-remove-partner").hidden=true;$("profile-add-partner").hidden=false;$("profile-removal-note").hidden=false;$("profile-error").hidden=true;
+});
 $("profile-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!event.currentTarget.reportValidity()) return;
   const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value), partnerName: $("profile-partner").value.trim(), partnerAge: $("profile-partner").value.trim() && $("profile-partner-age").value!=="" ? Number($("profile-partner-age").value) : null };
+  let removed=null;
+  if(draft.partnerName && !candidate.partnerName){
+    try{removed=removePartnerFromPicture(draft,flowDraft,planningController.snapshot());}
+    catch(e){$("profile-error").textContent=e.message;$("profile-error").hidden=false;return;}
+    if($("profile-removal-note").hidden && !window.confirm('Remove this partner and their pay, State Pension and partner-specific scenario settings? Assets and debts are kept.'))return;
+  }
   if (!candidate.name) {
     $("profile-name").setCustomValidity("Enter a name or nickname.");
     $("profile-name").reportValidity();
@@ -1665,6 +1680,8 @@ $("profile-form").addEventListener("submit", (event) => {
     return;
   }
   draft = candidate;
+  if(removed){flowDraft=removed.flow;planningController.restore(removed.planning);}
+  syncFlowInputs();
   $("profile-dialog").close();
   render();
   announce("People in the picture updated.");
@@ -1971,10 +1988,11 @@ const storageController=mountPictureStorage({
 });
 mountAccountStorage({
   button:$('account-button'),
+  editPeople:()=>$('edit-profile-button').click(),
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
   restorePicture:picture=>{
     const section=location.hash.slice(1);
-    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";
+    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode='personal';chartSelection=null;holdingsOwner="all";
     planningController.restore(picture.planning);syncFlowInputs();render();showScreen(['assets','flow','planning'].includes(section)?section:'assets');
     if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');

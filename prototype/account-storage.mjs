@@ -1,5 +1,6 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
 import {validatePicture} from './picture-storage.mjs?v=20261017account1';
+import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -25,7 +26,7 @@ export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture
 }
 
 /** Signed-in cloud storage for one validated household picture per account. */
-export function mountAccountStorage({button,getPicture,restorePicture}) {
+export function mountAccountStorage({button,getPicture,restorePicture,editPeople}) {
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',lastSaved='',timer=null,saving=Promise.resolve(),errorMessage='';
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
@@ -44,7 +45,8 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
   const status=document.getElementById('picture-save-status');
   function message(text){$('account-message').textContent=text;}
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
-  function setStatus(text){if(status)status.textContent=text;}
+  function setStatus(text){updateSaveStatus(status,'account',user?text:null);}
+  const peopleButton=document.createElement('button');peopleButton.type='button';peopleButton.className='button button-secondary';peopleButton.textContent='Manage people';peopleButton.addEventListener('click',()=>{dialog.close();editPeople?.();});$('account-session').prepend(peopleButton);
   function renderCloudSummary(data){
     if(!cloudEnabled)cloudUpdatedAt=data?.updated_at||'';
     $('account-open-picture').hidden=!data;$('account-delete-picture').hidden=!data;
@@ -133,10 +135,10 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
       await getClient();const {data}=await client.auth.getSession();user=data.session?.user;
       if(!user)throw new Error('Sign in before saving.');
       if(cloudUpdatedAt && !window.confirm('Replace the picture already saved to this account with the picture in this tab?')){message('Saved account picture was left unchanged.');return;}
-      const picture=validatePicture(getPicture()),now=new Date().toISOString();
+      const picture={...validatePicture(getPicture()),example:false},now=new Date().toISOString();
       const {error:dbError}=await client.from('user_pictures').upsert({user_id:user.id,picture,updated_at:now},{onConflict:'user_id'});
       if(dbError)throw dbError;
-      cloudEnabled=true;cloudUpdatedAt=now;lastSaved=JSON.stringify(picture);message('Saved to your account. Changes in this tab will now save automatically.');
+      cloudEnabled=false;restorePicture(picture);cloudEnabled=true;cloudUpdatedAt=now;lastSaved=JSON.stringify(getPicture());message('Saved to your account. Changes in this tab will now save automatically.');
       $('account-cloud-summary').textContent=`Saved just now · ${new Date(now).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}`;
       $('account-open-picture').hidden=false;$('account-delete-picture').hidden=false;$('account-save-picture').textContent='Save this picture again';
       setStatus('Saved to your account');
@@ -156,7 +158,7 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
   });
   $('account-confirm-open').addEventListener('click',()=>{
     let picture;try{picture=validatePicture(JSON.parse(dialog.dataset.cloudPicture||'null'));}catch(e){error(`Saved picture could not be opened. ${e.message}`);return;}
-    cloudUpdatedAt=dialog.dataset.cloudUpdatedAt||'';lastSaved=JSON.stringify(picture);cloudEnabled=true;restorePicture(picture);setStatus('Saved to your account');dialog.close();
+    cloudEnabled=false;restorePicture(picture);cloudUpdatedAt=dialog.dataset.cloudUpdatedAt||'';lastSaved=JSON.stringify(getPicture());cloudEnabled=true;setStatus('Saved to your account');dialog.close();
   });
   $('account-cancel-open').addEventListener('click',()=>{$('account-restore-confirm').hidden=true;});
   $('account-delete-picture').addEventListener('click',async()=>{
@@ -170,7 +172,9 @@ export function mountAccountStorage({button,getPicture,restorePicture}) {
     catch(e){error(`Could not sign out. ${e.message}`);}
   });
   function scheduleCloudSave(){
-    if(!cloudEnabled||!user)return;clearTimeout(timer);timer=setTimeout(()=>{const task=saving.then(autoSave);saving=task.catch(()=>{});},650);
+    if(!cloudEnabled||!user)return;
+    if(JSON.stringify(getPicture())===lastSaved){setStatus('Saved to your account');return;}
+    setStatus('Saving to your account…');clearTimeout(timer);timer=setTimeout(()=>{const task=saving.then(autoSave);saving=task.catch(()=>{});},650);
   }
   async function autoSave(){
     if(!cloudEnabled||!user)return;

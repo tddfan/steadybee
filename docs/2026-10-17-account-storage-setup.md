@@ -6,6 +6,8 @@ The selected account service is Supabase. The intended first account flow is ema
 
 Returning signed-in users automatically reopen their saved picture when the initial public example is untouched, preserving the selected app section. Changes made before sign-in finishes or while the saved picture loads require an explicit choice in Account before replacing the tab. Token refreshes do not repeatedly reload the picture, and stale responses from a previous account are ignored. Loading a picture does not write it back to the database.
 
+Account pictures open as personal households, including older saves carrying an example flag. The header gives account-save status priority over optional device-save status. Account → Manage people and the visible People action open the household editor. It supports one primary person and one optional partner; either can be renamed. Removing a partner requires reassigning or removing partner/shared assets and debts first. Saving the removal clears their pay, State Pension, ISA subscription input and partner-specific scenario overrides while keeping household costs and the remaining balances.
+
 ## Database boundary
 
 `supabase/migrations/20261017152028_create_user_pictures.sql` creates one record per Supabase user. Row-level security permits an authenticated user to read, create, update, and delete only the row whose `user_id` matches their authenticated ID. Deleting an account cascades to that row.

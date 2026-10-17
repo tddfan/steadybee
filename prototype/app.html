@@ -10,9 +10,9 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=4" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=4" />
     <link rel="manifest" href="./manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./asset-canvas.css?v=20261017account1" />
-    <link rel="stylesheet" href="./finance-theme.css?v=20261017account1" />
-    <script type="module" src="./asset-canvas.mjs?v=20261017restore2"></script>
+    <link rel="stylesheet" href="./asset-canvas.css?v=20261017profile1" />
+    <link rel="stylesheet" href="./finance-theme.css?v=20261017profile1" />
+    <script type="module" src="./asset-canvas.mjs?v=20261017profile1"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -93,7 +93,7 @@
             <div id="access-review-items" class="access-review-items"></div>
           </details>
           <section id="asset-records" class="picture-panel people-panel holdings-panel" aria-labelledby="people-title">
-            <h2 id="people-title" class="visually-hidden">Items</h2><div class="holdings-toolbar"><div class="holdings-people-controls"><div id="holdings-owner-filter" class="holdings-owner-filter" role="group" aria-label="Filter items by owner"></div><button id="edit-profile-button" class="heading-action heading-action-secondary people-edit" type="button" aria-label="Edit people" title="Edit people"><span aria-hidden="true">⚙</span><span class="visually-hidden">Edit people</span></button></div><div class="holdings-add-actions"><button id="asset-add" class="button button-primary" type="button">+ Add asset</button><button id="debt-add" class="button button-secondary" type="button">+ Add debt</button></div></div>
+            <h2 id="people-title" class="visually-hidden">Items</h2><div class="holdings-toolbar"><div class="holdings-people-controls"><div id="holdings-owner-filter" class="holdings-owner-filter" role="group" aria-label="Filter items by owner"></div><button id="edit-profile-button" class="heading-action heading-action-secondary people-edit" type="button" aria-label="Edit people" title="Edit people"><span aria-hidden="true">⚙</span><span>People</span></button></div><div class="holdings-add-actions"><button id="asset-add" class="button button-primary" type="button">+ Add asset</button><button id="debt-add" class="button button-secondary" type="button">+ Add debt</button></div></div>
             <p id="holdings-subtotal" class="holdings-subtotal"></p>
             <div id="constellation"><div id="orbit-items" class="holdings-list"></div></div>
           </section>
@@ -296,10 +296,10 @@
     <dialog id="profile-dialog" class="form-dialog small-dialog" aria-labelledby="profile-dialog-title">
       <form id="profile-form">
         <div class="dialog-heading"><h2 id="profile-dialog-title">People in this picture</h2><button id="close-profile-button" class="icon-button" type="button" aria-label="Close without saving">×</button></div>
-        <div class="form-field"><label for="profile-name">What should we call you?</label><input id="profile-name" type="text" maxlength="60" required /></div>
-        <div class="form-field"><label for="profile-age">How old are you?</label><input id="profile-age" type="number" min="18" max="120" step="1" required /></div>
-        <div class="form-field"><label for="profile-partner">Partner’s name <span class="optional">Optional</span></label><input id="profile-partner" type="text" maxlength="60" placeholder="e.g. Priya" /></div><div class="form-field"><label for="profile-partner-age">Partner’s current age <span class="optional">Optional</span></label><input id="profile-partner-age" type="number" min="18" max="120" step="1" /><p class="field-help">Used for the plan horizon and pension access. Leave blank if unknown.</p></div>
-        <div class="dialog-actions"><button class="button button-primary" type="submit">Save details</button></div>
+        <div class="form-field"><label for="profile-name">Your name</label><input id="profile-name" type="text" maxlength="60" required /></div>
+        <div class="form-field"><label for="profile-age">Your age</label><input id="profile-age" type="number" min="18" max="120" step="1" required /></div>
+        <button id="profile-add-partner" class="button button-secondary" type="button">+ Add partner</button><div id="profile-partner-fields"><div class="form-field"><label for="profile-partner">Partner’s name <span class="optional">Optional</span></label><input id="profile-partner" type="text" maxlength="60" placeholder="e.g. Priya" /></div><div class="form-field"><label for="profile-partner-age">Partner’s current age <span class="optional">Optional</span></label><input id="profile-partner-age" type="number" min="18" max="120" step="1" /><p class="field-help">Used for the plan horizon and pension access. Leave blank if unknown.</p></div>
+        </div><button id="profile-remove-partner" class="text-button text-button-danger" type="button">Remove partner</button><p id="profile-removal-note" class="field-help" hidden>Saving removes this person’s pay, State Pension and partner-specific scenario settings. Household costs stay.</p><p id="profile-error" class="form-error" role="alert" hidden></p><p class="field-help">One person or a couple. Rename either person here.</p><div class="dialog-actions"><button class="button button-primary" type="submit">Save details</button></div>
       </form>
     </dialog>
 
