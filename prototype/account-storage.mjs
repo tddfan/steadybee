@@ -2,6 +2,7 @@ import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=202610
 import {validatePicture} from './picture-storage.mjs?v=20261017review1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 import {createEmailLinkRequest} from './email-link-request.mjs?v=20261017signin1';
+import {startGoogleSignIn,googleProviderEnabled} from './google-sign-in.mjs?v=20261017google1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -31,9 +32,10 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',lastSaved='',timer=null,saving=Promise.resolve(),errorMessage='';
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
-    <p class="account-intro">Sign in with your email. We’ll send a one-time link so you don’t need another password.</p>
+    <p class="account-intro">Sign in to save your household and return on another device.</p>
     <p id="account-error" class="form-error" role="alert" hidden></p><p id="account-message" role="status" aria-live="polite"></p>
-    <form id="account-email-form"><label for="account-email">Email address</label><input id="account-email" type="email" autocomplete="email" required maxlength="254" /><button class="button button-primary" type="submit">Email me a sign-in link</button></form>
+    <div id="account-google-option" hidden><button id="account-google-sign-in" class="button button-primary" type="button">Continue with Google</button><p class="field-help">Use the same Google email as your existing Steadybee account.</p></div>
+    <details id="account-email-option" open><summary hidden>Use an email link instead</summary><form id="account-email-form"><label for="account-email">Email address</label><input id="account-email" type="email" autocomplete="email" required maxlength="254" /><button class="button button-primary" type="submit">Email me a sign-in link</button></form></details>
     <section id="account-session" hidden><p id="account-email-label" class="account-email-label"></p>
       <div id="account-cloud-summary" class="account-cloud-summary"></div>
       <div class="account-actions"><button id="account-open-picture" class="button button-primary" type="button" hidden>Open saved picture</button><button id="account-save-picture" class="button button-secondary" type="button">Save this picture to my account</button></div>
@@ -47,6 +49,13 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   function message(text){$('account-message').textContent=text;}
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
   function setStatus(text){updateSaveStatus(status,'account',user?text:null);}
+  let googleEnabled=false,providerRequest=null,googlePopup=null;
+  function refreshProviders(){
+    if(!providerRequest)providerRequest=googleProviderEnabled({url:SUPABASE_URL,key:SUPABASE_PUBLISHABLE_KEY}).then(enabled=>{
+      googleEnabled=enabled;$('account-email-option').querySelector('summary').hidden=!enabled;$('account-email-option').open=!enabled;renderSession();
+    }).catch(()=>{providerRequest=null;});
+    return providerRequest;
+  }
   let emailStorage=null,emailTimer=null,emailFeedback=false;try{emailStorage=window.localStorage;}catch{}
   const emailRequest=createEmailLinkRequest({storage:emailStorage,getUser:async()=>{await getClient();const {data,error}=await client.auth.getSession();if(error)throw error;return data.session?.user||null;},sendLink:options=>client.auth.signInWithOtp(options)});
   function updateEmailButton(){
@@ -87,8 +96,9 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     const changed=user?.id!==nextUser?.id;
     if(changed){clearTimeout(timer);cloudEnabled=false;cloudUpdatedAt='';lastSaved='';}
     user=nextUser;renderSession();
+    if(user && googlePopup){googlePopup.close();googlePopup=null;}
     if(user && emailFeedback){error('');message('');emailFeedback=false;}
-    if(!user){pictureLoader.setUser(null);setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);return;}
+    if(!user){pictureLoader.setUser(null);setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);refreshProviders();return;}
     if(changed)setStatus('Opening your saved picture…');
     // Defer database requests until Supabase has released its auth callback lock.
     const userId=user.id;setTimeout(()=>{if(user?.id===userId)pictureLoader.setUser(userId);},0);
@@ -106,6 +116,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   }
   function renderSession(){
     dialog.querySelector('.account-intro').hidden=Boolean(user);
+    $('account-google-option').hidden=Boolean(user)||!googleEnabled;$('account-email-option').hidden=Boolean(user);
     $('account-email-form').hidden=Boolean(user);$('account-session').hidden=!user;
     $('account-email-label').textContent=user?.email||'';
     button.textContent=user?'Account':'Sign in';button.title=user?'Signed in. Open account options and cloud save.':'Sign in to save a picture to your account.';
@@ -129,6 +140,18 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   }
   button.addEventListener('click',openAccount);
   $('account-close').addEventListener('click',()=>dialog.close());
+  $('account-google-sign-in').addEventListener('click',async()=>{
+    if(googlePopup && !googlePopup.closed){googlePopup.focus();return;}
+    const signIn=$('account-google-sign-in');if(signIn.disabled)return;
+    error('');message('Opening Google sign-in…');signIn.disabled=true;emailFeedback=true;
+    try{
+      // The SDK has already initialized before this enabled provider is offered.
+      const result=await startGoogleSignIn({client,redirectTo:new URL('app.html',location.href).toString(),openWindow:()=>window.open('about:blank','steadybee-google-sign-in','popup,width=520,height=720')});
+      if(result.user){setUser(result.user);message('You’re already signed in.');}
+      else{googlePopup=result.popup;if(user){googlePopup.close();googlePopup=null;}message('Complete sign-in in the Google window. Your picture stays open here.');}
+    }catch(e){error(`Could not start Google sign-in. ${e.message}`);message('');}
+    finally{signIn.disabled=false;}
+  });
   dialog.addEventListener('close',()=>clearTimeout(emailTimer));
   $('account-email-form').addEventListener('submit',async event=>{
     event.preventDefault();if(emailRequest.isSending())return;error('');message('Sending sign-in link…');emailFeedback=true;
