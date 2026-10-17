@@ -1617,6 +1617,12 @@ h2 { font-size:26px; }
 .account-dialog .account-email-label { font-weight:600; }
 .account-dialog .account-cloud-summary { padding:12px 14px; margin:12px 0; border-radius:12px; background:var(--bg-canvas); }
 .account-dialog .account-actions,.account-dialog .account-restore-confirm { display:grid; gap:8px; margin:12px 0; }
+.account-dialog .account-picture-choice,.account-dialog .account-picture-name-form>label { display:grid; gap:7px; margin:12px 0; font-size:14px; font-weight:600; }
+.account-dialog .account-picture-choice select,.account-dialog .account-picture-name-form input:not([type=checkbox]) { min-width:0; width:100%; padding:10px 12px; border:1px solid var(--border-hairline); border-radius:10px; background:var(--bg-card); color:var(--text-primary); font:inherit; }
+.account-dialog .account-picture-name-form>div { display:grid; gap:10px; }
+.account-dialog .account-main-choice { display:flex; align-items:center; gap:9px; color:var(--text-secondary); font-size:14px; }
+.account-dialog .account-main-choice input { width:18px; min-height:18px; }
+.account-dialog .account-picture-manage { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 .account-dialog .account-restore-confirm { border:1px solid var(--border-card); border-radius:12px; padding:12px; }
 .account-dialog .text-button { min-height:40px; }
 .storage-actions { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; }

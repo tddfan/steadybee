@@ -4,14 +4,14 @@ import {createAccountPictureLoader} from '../prototype/account-storage.mjs';
 
 function fixture(fetchPicture,example=true){
   let picture={example,holdings:{name:'Demo',assets:[]},planning:{}};
-  const restored=[],available=[],errors=[],requests=[];
+  const restored=[],available=[],errors=[],requests=[],empties=[];
   const loader=createAccountPictureLoader({
     getPicture:()=>structuredClone(picture),
     fetchPicture:async userId=>{requests.push(userId);return fetchPicture(userId);},
     applyPicture:saved=>{restored.push(saved);picture=structuredClone(saved.picture);},
-    onAvailable:saved=>available.push(saved),onError:error=>errors.push(error),
+    onAvailable:saved=>available.push(saved),onEmpty:()=>{empties.push(true);picture={...picture,example:false};},onError:error=>errors.push(error),
   });
-  return {loader,restored,available,errors,requests,edit:()=>{picture.holdings.assets.push({value:123});}};
+  return {loader,restored,available,errors,requests,empties,edit:()=>{picture.holdings.assets.push({value:123});}};
 }
 const saved=id=>({picture:{example:false,holdings:{name:`Account ${id}`,assets:[]},planning:{}},updatedAt:'2026-01-01T00:00:00Z'});
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
@@ -48,9 +48,14 @@ test('a response for a signed-out or different account cannot restore its privat
   assert.deepEqual(f.restored,[saved('two')]);
 });
 
-test('missing cloud picture leaves the demo available and performs no restore',async()=>{
+test('missing cloud picture clears an untouched demo and performs no restore',async()=>{
   const f=fixture(()=>null);await f.loader.setUser('one');
-  assert.deepEqual(f.restored,[]);assert.deepEqual(f.available,[null]);assert.deepEqual(f.errors,[]);
+  assert.deepEqual(f.restored,[]);assert.deepEqual(f.available,[null]);assert.deepEqual(f.empties,[true]);assert.deepEqual(f.errors,[]);
+});
+
+test('missing cloud picture does not clear a demo that the user has edited',async()=>{
+  const f=fixture(()=>null);f.edit();await f.loader.setUser('one');
+  assert.deepEqual(f.restored,[]);assert.deepEqual(f.available,[null]);assert.deepEqual(f.empties,[]);assert.deepEqual(f.errors,[]);
 });
 
 test('an existing personal picture always requires an explicit choice to replace',async()=>{

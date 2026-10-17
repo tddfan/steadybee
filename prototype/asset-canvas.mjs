@@ -11,7 +11,7 @@ import {
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017review1';
-import { mountAccountStorage } from './account-storage.mjs?v=20261017account2';
+import { mountAccountStorage } from './account-storage.mjs?v=20261017account3';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
 import { mountPlanning } from "./planning-view.mjs?v=20261017review1";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
@@ -1723,6 +1723,10 @@ $("reset-example-button").addEventListener("click", () => {
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 function startBlankPicture() {
   storageController.pause();
+  showBlankPicture();
+  document.dispatchEvent(new Event("picture-updated"));
+}
+function showBlankPicture() {
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
@@ -1764,7 +1768,6 @@ function startBlankPicture() {
   $("welcome-screen").hidden = false;
   $("person-name").focus();
   announce("Ready for your household details.");
-  document.dispatchEvent(new Event("picture-updated"));
 }
 $("confirm-clear-button").addEventListener("click", startBlankPicture);
 
@@ -1997,6 +2000,7 @@ mountAccountStorage({
     if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');
   },
+  onEmpty:()=>{if(mode==='example')showBlankPicture();},
 });
 
 if(new URLSearchParams(location.search).get('start')==='own'){startBlankPicture();const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);}

@@ -21,7 +21,7 @@ export function mountPictureStorage({button,getPicture,restorePicture,clearTab})
   function raw(){try{return store?.getItem(PICTURE_STORAGE_KEY) || null;}catch{return null;}}
   function status(){
     const saved=enabled && JSON.stringify(getPicture())===lastSaved;
-    button.textContent=failed ? 'Backup failed' : enabled ? (saved ? 'Backed up' : 'Backing up…') : raw() ? 'Resume backup' : 'Device backup';
+    button.textContent=failed ? 'Backup failed' : enabled ? (saved ? 'Backed up' : 'Backing up…') : raw() ? 'Resume backup' : 'Encrypted backup';
     button.title=enabled ? 'Encrypted device saving is on. Open saving, backup and deletion options.' : 'Optional encrypted device saving and backup';
     const indicator=document.getElementById('picture-save-status');
     const message=failed ? 'Latest changes not saved' : enabled ? (saved ? 'Saved in this browser' : 'Saving in this browser…') : `${getPicture().example ? 'Example · not saved' : 'Not saved · this tab only'}${raw() ? ' · saved copy available' : ''}`;
