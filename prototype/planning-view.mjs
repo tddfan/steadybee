@@ -17,6 +17,9 @@ export function mountPlanning(root,getInputs) {
   let metric='income',group='person',style='bars',real=true,selectedYear=null,projection=null,confirmedKey=null;
   let scenario={years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0};
   let restoredNeedsReview=false,showBaseline=false,experiments=[],comparisonCacheKey='',comparisonCache=new Map();
+  const reviewedKeyStorage='steadybee.planning.reviewed-inputs.v1';
+  function cachedReviewKey(){try{return window.localStorage.getItem(reviewedKeyStorage);}catch{return null;}}
+  function rememberReviewKey(key){try{window.localStorage.setItem(reviewedKeyStorage,key);}catch{}}
   let chartRows=[],chartKeys=[],chartBaselineRows=[],baseline=null,baselineKey='',baselineOptions={},history=[],lastSnapshot=null,editGroup=0,lastHistoryGroup=-1;
   root.addEventListener('focusin',event=>{if(event.target.matches('input,select'))editGroup++;});
   root.addEventListener('pointerdown',event=>{if(event.target.matches('input[type=range]'))editGroup++;});
@@ -395,6 +398,7 @@ export function mountPlanning(root,getInputs) {
     const {flow,holdings,mode}=getInputs();buildControls(flow,holdings);
     const sourceKey=JSON.stringify([holdings,flow.pay,flow.income,flow.spending,flow.customSpending,flow.datedEntries,flow.statePensions,flow.includeLinkedRent,flow.includeLinkedMortgage]);
     const reviewKey=startingPictureKey(holdings,flow);
+    if(!confirmedKey && cachedReviewKey()===reviewKey)confirmedKey=reviewKey;
     $('plan-source-text').textContent=`From ${new Date(`${flow.timelineStartMonth || flow.asOfMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
     $('plan-comparison').hidden=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
     const needsConfirmation=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
@@ -403,7 +407,7 @@ export function mountPlanning(root,getInputs) {
     root.querySelector('.plan-timing-note').hidden=needsConfirmation;
     $('plan-context').textContent=mode==='example' ? `Fictional example · ${holdings.name}${holdings.partnerName ? ` & ${holdings.partnerName}` : ''}` : 'Your household · illustration';
     if(needsConfirmation){renderReadiness(flow,holdings);document.getElementById('planning-title').textContent='Your retirement picture';$('plan-question-detail').textContent='A few checks now make the illustration more useful.';}
-    $('plan-confirm-button').onclick=()=>{confirmedKey=reviewKey;restoredNeedsReview=false;refresh();document.dispatchEvent(new Event('picture-updated'));};
+    $('plan-confirm-button').onclick=()=>{confirmedKey=reviewKey;rememberReviewKey(reviewKey);restoredNeedsReview=false;refresh();document.dispatchEvent(new Event('picture-updated'));};
     if(needsConfirmation){outcomes.update(false);return;}
     for(const [id,key] of rateControls) {
       const input=document.getElementById(id),value=key==='inflation' ? scenario.inflation ?? flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation : key==='incomeGrowth' ? scenario.incomeGrowth ?? flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth : scenario.growth?.[key] ?? flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key];
