@@ -31,7 +31,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',lastSaved='',timer=null,saving=Promise.resolve(),errorMessage='';
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
-    <p class="account-intro">Sign in to save your household and return on another device.</p>
+    <p class="account-intro">Sign in to save your household and named scenarios. No passphrase needed; changes sync to your account.</p>
     <p id="account-error" class="form-error" role="alert" hidden></p><p id="account-message" role="status" aria-live="polite"></p>
     <div id="account-google-option" hidden><button id="account-google-sign-in" class="button button-primary" type="button">Continue with Google</button><p class="field-help">Use the same Google email as your existing Steadybee account.</p></div>
     <p id="account-sign-in-unavailable" class="field-help" hidden>Google sign-in is temporarily unavailable. Please try again later.</p>
