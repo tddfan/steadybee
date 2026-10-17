@@ -24,6 +24,7 @@ export function validatePicture(input) {
   const validation=validateDraft(input.holdings);if(!validation.valid)throw new Error(validation.errors[0].message);
   if(input.holdings.partnerAge!=null && (!Number.isInteger(input.holdings.partnerAge)||input.holdings.partnerAge<18||input.holdings.partnerAge>120))throw new Error('Enter a partner age from 18 to 120.');
   const p=input.planning,s=p.scenario;
+  if(p.reviewedInputs!=null && (typeof p.reviewedInputs!=='string'||! /^[a-f0-9]{16}$/.test(p.reviewedInputs)))throw new Error('The starting-picture review marker is invalid.');
   if(!record(s)||!['netWorth','income','saving','assets','debts'].includes(p.metric)||!['person','type'].includes(p.group)||!['bars','lines'].includes(p.style)||typeof p.real!=='boolean'||(p.selectedYear!=null && !/^\d{4}$/.test(p.selectedYear)))throw new Error('This picture has unsupported chart settings.');
   if(p.outcomes!=null && (!record(p.outcomes)||![100,200,500].includes(p.outcomes.paths)||(p.outcomes.volatility!==null && (!Number.isFinite(p.outcomes.volatility)||p.outcomes.volatility<0||p.outcomes.volatility>40))))throw new Error('The simulation settings are invalid.');
   if(p.experiments!=null){

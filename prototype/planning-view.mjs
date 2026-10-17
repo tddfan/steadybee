@@ -1,4 +1,5 @@
 import { mountExperiments } from './experiments-view.mjs?v=20261017save3';
+import {startingPictureKey} from './planning-review.mjs?v=20261017review1';
 import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261017save3';
 import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261017save3';
 import { planHorizon, summarizeCoverage, agesAt } from './coverage.mjs?v=20261016layout2';
@@ -296,10 +297,10 @@ export function mountPlanning(root,getInputs) {
     const budget=Object.values(flow.spending).reduce((sum,value)=>sum+value,0)+(flow.customSpending || []).reduce((sum,item)=>sum+item.amount,0);
     const checks=[
       ['People',owners.map(owner=>`${name(owner,holdings)}${Number.isFinite(owner==='primary' ? holdings.age : holdings.partnerAge) ? `, ${owner==='primary' ? holdings.age : holdings.partnerAge}` : ' · age missing'}`).join(' / ')],
-      ['Assets & debt',`${holdings.assets.length} assets · ${holdings.debts.length} debts. Check balances, ownership and repayments.`],
+      ['Assets & debt',`${holdings.assets.length} assets · ${holdings.debts.length} debt${holdings.debts.length===1?'':'s'}. Check balances, ownership and repayments.`],
       ['Regular budget',budget>0 ? `${currency(budget)}/month, before separate debt payments and scheduled costs.` : 'No regular budget entered. Check whether this is intentional.'],
       ['Pay & pension income','Check amounts, start/end dates and whether each figure is before or after tax.'],
-      ['Pension access',`${holdings.assets.filter(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge).length} pension pots without a recorded access age. Check forecasts and access rules.`]
+      ['Pension access',holdings.assets.some(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge)?`${holdings.assets.filter(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge).length} pension pots without a recorded access age.`:holdings.assets.some(asset=>asset.kind==='dc-pension')?'Access ages recorded for all pension pots.':'No pension pots entered.']
     ];
     $('plan-readiness').replaceChildren(...checks.map(([title,text])=>{const item=el('li');item.append(el('strong','',title),el('span','',text));return item;}));
   }
@@ -393,15 +394,16 @@ export function mountPlanning(root,getInputs) {
   function refresh() {
     const {flow,holdings,mode}=getInputs();buildControls(flow,holdings);
     const sourceKey=JSON.stringify([holdings,flow.pay,flow.income,flow.spending,flow.customSpending,flow.datedEntries,flow.statePensions,flow.includeLinkedRent,flow.includeLinkedMortgage]);
+    const reviewKey=startingPictureKey(holdings,flow);
     $('plan-source-text').textContent=`From ${new Date(`${flow.timelineStartMonth || flow.asOfMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
-    $('plan-comparison').hidden=(mode!=='example' || restoredNeedsReview) && confirmedKey!==sourceKey;
-    const needsConfirmation=(mode!=='example' || restoredNeedsReview) && confirmedKey!==sourceKey;
+    $('plan-comparison').hidden=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
+    const needsConfirmation=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
     $('plan-confirm').hidden=!needsConfirmation;$('plan-workspace').hidden=needsConfirmation;root.querySelector('.plan-adjust-row').hidden=needsConfirmation;
     $('plan-key-assumptions').hidden=needsConfirmation;
     root.querySelector('.plan-timing-note').hidden=needsConfirmation;
     $('plan-context').textContent=mode==='example' ? `Fictional example · ${holdings.name}${holdings.partnerName ? ` & ${holdings.partnerName}` : ''}` : 'Your household · illustration';
     if(needsConfirmation){renderReadiness(flow,holdings);document.getElementById('planning-title').textContent='Your retirement picture';$('plan-question-detail').textContent='A few checks now make the illustration more useful.';}
-    $('plan-confirm-button').onclick=()=>{confirmedKey=sourceKey;restoredNeedsReview=false;refresh();};
+    $('plan-confirm-button').onclick=()=>{confirmedKey=reviewKey;restoredNeedsReview=false;refresh();document.dispatchEvent(new Event('picture-updated'));};
     if(needsConfirmation){outcomes.update(false);return;}
     for(const [id,key] of rateControls) {
       const input=document.getElementById(id),value=key==='inflation' ? scenario.inflation ?? flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation : key==='incomeGrowth' ? scenario.incomeGrowth ?? flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth : scenario.growth?.[key] ?? flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key];
@@ -491,8 +493,8 @@ export function mountPlanning(root,getInputs) {
   $('plan-undo').addEventListener('click',()=>{if(!history.length)return;scenario=JSON.parse(history.pop());lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;syncControls();refresh();});
   $('plan-reset').addEventListener('click',()=>{editGroup++;scenario={years:scenario.years,planToAge:scenario.planToAge ?? 95,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(projection && !root.closest('[hidden]'))renderChart(getInputs().holdings);},100);});
-  function workingState(){return structuredClone({scenario,metric,group,style,real,selectedYear,outcomes:outcomes.snapshot()});}
+  function workingState(){return structuredClone({scenario,metric,group,style,real,selectedYear,reviewedInputs:confirmedKey,outcomes:outcomes.snapshot()});}
   function snapshot(){return {...workingState(),experiments:structuredClone(experiments)};}
-  function restore(value,{review=true}={}){experiments=structuredClone(value?.experiments || []);outcomes.restore(value?.outcomes);savedExperiments.refresh();showBaseline=false;$('plan-show-baseline').checked=false;root.classList.remove('plan-controls-open');syncSheetSemantics();$('plan-adjust').setAttribute('aria-expanded','false');$('plan-adjust').textContent='Adjust scenario';restoredNeedsReview=Boolean(value)&&review;scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=review?null:confirmedKey;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
+  function restore(value,{review=true}={}){experiments=structuredClone(value?.experiments || []);outcomes.restore(value?.outcomes);savedExperiments.refresh();showBaseline=false;$('plan-show-baseline').checked=false;root.classList.remove('plan-controls-open');syncSheetSemantics();$('plan-adjust').setAttribute('aria-expanded','false');$('plan-adjust').textContent='Adjust scenario';restoredNeedsReview=Boolean(value)&&review;scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=review?(value?.reviewedInputs||null):confirmedKey;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
   return {refresh,snapshot,restore};
 }

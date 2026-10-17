@@ -8,6 +8,10 @@ Returning signed-in users automatically reopen their saved picture when the init
 
 Account pictures open as personal households, including older saves carrying an example flag. The header gives account-save status priority over optional device-save status. Account → Manage people and the visible People action open the household editor. It supports one primary person and one optional partner; either can be renamed. Removing a partner requires reassigning or removing partner/shared assets and debts first. Saving the removal clears their pay, State Pension, ISA subscription input and partner-specific scenario overrides while keeping household costs and the remaining balances.
 
+Starting-picture confirmation is saved as a compact marker of the recorded household and flow. Reloads and scenario changes retain it; changed starting figures require a fresh review. Browsing another month does not invalidate it. Older saves without a marker require one confirmation.
+
+Email-link requests first check for an existing session, block simultaneous sends, and share a resend delay across tabs. A provider rate-limit response gives a five-minute local backoff and guidance to use the most recent email; this does not reset the provider's quota. Signed-in sessions clear obsolete sign-in errors. Supabase's built-in mailer is limited to project-team recipients and two emails per hour; custom SMTP is required for a pilot with external users (https://supabase.com/docs/guides/auth/auth-smtp).
+
 ## Database boundary
 
 `supabase/migrations/20261017152028_create_user_pictures.sql` creates one record per Supabase user. Row-level security permits an authenticated user to read, create, update, and delete only the row whose `user_id` matches their authenticated ID. Deleting an account cascades to that row.

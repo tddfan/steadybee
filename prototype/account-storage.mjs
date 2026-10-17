@@ -1,6 +1,7 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
-import {validatePicture} from './picture-storage.mjs?v=20261017account1';
+import {validatePicture} from './picture-storage.mjs?v=20261017review1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
+import {createEmailLinkRequest} from './email-link-request.mjs?v=20261017signin1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -46,6 +47,14 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   function message(text){$('account-message').textContent=text;}
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
   function setStatus(text){updateSaveStatus(status,'account',user?text:null);}
+  let emailStorage=null,emailTimer=null,emailFeedback=false;try{emailStorage=window.localStorage;}catch{}
+  const emailRequest=createEmailLinkRequest({storage:emailStorage,getUser:async()=>{await getClient();const {data,error}=await client.auth.getSession();if(error)throw error;return data.session?.user||null;},sendLink:options=>client.auth.signInWithOtp(options)});
+  function updateEmailButton(){
+    const send=$('account-email-form').querySelector('button[type=submit]'),seconds=emailRequest.secondsRemaining();
+    send.disabled=emailRequest.isSending()||seconds>0;
+    send.textContent=emailRequest.isSending()?'Sending…':seconds>0?`Try again in ${Math.ceil(seconds/60)} min`:'Email me a sign-in link';
+    clearTimeout(emailTimer);if(seconds>0 && dialog.open)emailTimer=setTimeout(updateEmailButton,1000);
+  }
   const peopleButton=document.createElement('button');peopleButton.type='button';peopleButton.className='button button-secondary';peopleButton.textContent='Manage people';peopleButton.addEventListener('click',()=>{dialog.close();editPeople?.();});$('account-session').prepend(peopleButton);
   function renderCloudSummary(data){
     if(!cloudEnabled)cloudUpdatedAt=data?.updated_at||'';
@@ -78,6 +87,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     const changed=user?.id!==nextUser?.id;
     if(changed){clearTimeout(timer);cloudEnabled=false;cloudUpdatedAt='';lastSaved='';}
     user=nextUser;renderSession();
+    if(user && emailFeedback){error('');message('');emailFeedback=false;}
     if(!user){pictureLoader.setUser(null);setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);return;}
     if(changed)setStatus('Opening your saved picture…');
     // Defer database requests until Supabase has released its auth callback lock.
@@ -95,6 +105,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     return clientPromise;
   }
   function renderSession(){
+    dialog.querySelector('.account-intro').hidden=Boolean(user);
     $('account-email-form').hidden=Boolean(user);$('account-session').hidden=!user;
     $('account-email-label').textContent=user?.email||'';
     button.textContent=user?'Account':'Sign in';button.title=user?'Signed in. Open account options and cloud save.':'Sign in to save a picture to your account.';
@@ -112,22 +123,26 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   }
   async function openAccount(){
     error('');message('');$('account-restore-confirm').hidden=true;
-    try{await getClient();const {data}=await client.auth.getSession();user=data.session?.user||null;renderSession();if(user)await refreshPicture();}
+    try{await getClient();const {data}=await client.auth.getSession();setUser(data.session?.user||null);if(user)await refreshPicture();}
     catch(e){error(`Account sign-in is unavailable. ${e.message}`);}
-    dialog.showModal();
+    dialog.showModal();updateEmailButton();
   }
   button.addEventListener('click',openAccount);
   $('account-close').addEventListener('click',()=>dialog.close());
+  dialog.addEventListener('close',()=>clearTimeout(emailTimer));
   $('account-email-form').addEventListener('submit',async event=>{
-    event.preventDefault();error('');message('Sending sign-in link…');
+    event.preventDefault();if(emailRequest.isSending())return;error('');message('Sending sign-in link…');emailFeedback=true;
     try{
-      await getClient();
       const email=$('account-email').value.trim();
       const emailRedirectTo=new URL('app.html',location.href).toString();
-      const {error:authError}=await client.auth.signInWithOtp({email,options:{emailRedirectTo,shouldCreateUser:true}});
-      if(authError)throw authError;
-      message('Check your email for a one-time sign-in link. Return to this tab after opening it.');
-    }catch(e){error(`Could not send a sign-in link. ${e.message}`);message('');}
+      const request=emailRequest.send(email,emailRedirectTo);updateEmailButton();const result=await request;
+      if(result.kind==='signed-in'){setUser(result.user);message('You’re already signed in.');return;}
+      if(user){error('');message('');return;}
+      if(result.kind==='rate-limited'){error('Sign-in emails are temporarily limited. Use the most recent sign-in email you received, or try again later.');message('');return;}
+      if(result.kind==='cooldown'){message('Please wait before requesting another link. Your most recent sign-in email may still work.');return;}
+      if(result.kind==='sent')message('Check your email for a one-time sign-in link. Return to this tab after opening it.');
+    }catch(e){if(!user){error(`Could not send a sign-in link. ${e.message}`);message('');}}
+    finally{updateEmailButton();}
   });
   $('account-save-picture').addEventListener('click',async()=>{
     error('');message('Saving your picture…');

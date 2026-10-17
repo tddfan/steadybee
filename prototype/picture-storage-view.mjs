@@ -1,4 +1,4 @@
-import {PICTURE_STORAGE_KEY,createProtection,encryptPicture,decryptPicture} from './picture-storage.mjs?v=20261017save3';
+import {PICTURE_STORAGE_KEY,createProtection,encryptPicture,decryptPicture} from './picture-storage.mjs?v=20261017review1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 
 /** Optional local persistence; callers supply facts and scenario inputs, never results. */
