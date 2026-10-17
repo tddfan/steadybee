@@ -61,6 +61,7 @@ test("the public fictional household reconciles shared items once", () => {
   assert.equal(result.netWorth, 269_500);
   assert.deepEqual(result.accessTotals, { accessible: 45_500, pension: 83_000, illiquid: 376_000, review: 0 });
   assert.equal(example.assets.length, 11);
+  assert.deepEqual(example.assets.filter((asset) => asset.kind === "dc-pension").map((asset) => asset.pensionAccessAge), [57, 57]);
   assert.equal(example.assets.find((asset) => asset.id === "demo-home").owner, "shared");
   assert.equal(example.debts[0].owner, "shared");
   assert.deepEqual(example.assets.filter((asset) => asset.owner === "partner").map((asset) => asset.value), [35_000, 8_500, 10_000, 5_000]);
