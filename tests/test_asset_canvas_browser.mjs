@@ -81,7 +81,7 @@ test('owner filtering and direct editing preserve optional account details',asyn
  assert.equal(await p.locator('#item-cash-rate').inputValue(),'3.4');assert.equal(await p.locator('#item-confidence').inputValue(),'exact');await p.close();
 });
 test('blank setup captures a partner before shared debt entry',async()=>{
- const p=await page(320);await p.locator('#start-own-button').click();
+ const p=await page(320);await p.locator('.heading-utilities > summary').click();await p.locator('#start-own-button').click();
  assert.equal(await p.locator('#welcome-screen').isVisible(),true);
  await p.getByLabel('Name or nickname',{exact:true}).fill('Sam');await p.getByLabel('Age',{exact:true}).fill('47');
  await p.getByText('Add a partner',{exact:true}).click();await p.getByLabel('Partner’s name',{exact:true}).fill('Jo');await p.getByLabel('Partner’s age Optional',{exact:true}).fill('45');
@@ -104,10 +104,10 @@ test('phone sections, portrait Sankey, table and experimental charts remain reac
   await fits(p);await p.locator('#step-to-flow').click();await fits(p);
   assert.equal(await p.locator('#flow-sankey-mobile').isVisible(),true);
   assert.equal(await p.locator('#flow-sankey').isVisible(),false);
-  await p.locator('#flow-view-table').click();assert.equal(await p.locator('#flow-table-view').isVisible(),true);await fits(p);
+  await p.locator('#flow-view-table').click();assert.equal(await p.locator('#flow-table-view').isVisible(),true);assert.equal(await p.locator('#flow-payroll-note').count(),1);await fits(p);
   await p.locator('.flow-experimental summary').click();await p.locator('#flow-view-sunburst').click();
   assert.equal(await p.locator('#flow-sunburst-view').isVisible(),true);
-  await p.locator('#flow-view-diagram').click();await p.locator('#flow-to-planning').click();await fits(p);
+  await p.locator('#flow-view-diagram').click();await p.locator('#flow-to-planning').click();assert.ok(await p.locator('#plan-chart > *').count()>0);await fits(p);
   assert.equal(await p.locator('#plan-adjust').isVisible(),true);await p.locator('#plan-adjust').click();
   assert.equal(await p.locator('#plan-controls').isVisible(),true);await fits(p);await p.close();
 });
@@ -138,12 +138,12 @@ test('retirement ages map to dates, preserve the current plan and undo together'
 });
 test('retirement age accounts for a final pay month before the opening-month anniversary',async()=>{
  const p=await page();await p.locator('#step-to-flow').click();
- await p.getByRole('button',{name:/^Alex's estimated take-home pay/}).click();
+ await p.getByRole('button',{name:/^Edit Alex's estimated take-home pay/}).click();
  await p.locator('#flow-pay-primary-endDate').fill('2045-05');await p.getByRole('button',{name:'Done',exact:true}).click();
  await p.locator('#flow-to-planning').click();await p.locator('#plan-adjust').click();await p.getByLabel('Alex retirement age: exact value',{exact:true}).fill('60');
  assert.match(await p.locator('#planning-title').innerText(),/retires at 60/);
  assert.equal(await p.locator('#plan-retirement-date-primary').innerText(),'Final pay: May 2044');
- await p.locator('#planning-to-flow').click();await p.getByRole('button',{name:/^Alex's estimated take-home pay/}).click();
+ await p.locator('#planning-to-flow').click();await p.getByRole('button',{name:/^Edit Alex's estimated take-home pay/}).click();
  assert.equal(await p.locator('#flow-pay-primary-endDate').inputValue(),'2045-05');await p.close();
 });
 test('cash and SAYE payoff preserves ISA and exposes sale tax',async()=>{

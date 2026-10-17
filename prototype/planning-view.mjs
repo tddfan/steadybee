@@ -31,7 +31,7 @@ export function mountPlanning(root,getInputs) {
         <div class="plan-chart-controls"><details class="plan-display-options"><summary>Chart options</summary><div class="plan-display-options-body"><div data-chart-group role="group" aria-label="Group the chart"><button type="button" data-group="person" aria-pressed="true">Person</button><button type="button" data-group="type" aria-pressed="false">Type</button></div><div data-chart-group role="group" aria-label="Chart style"><button type="button" data-style="bars" aria-pressed="true">Bars</button><button type="button" data-style="lines" aria-pressed="false">Lines</button></div></div></details></div>
         <div id="plan-legend" class="plan-legend"></div>
         <div class="plan-chart-wrap"><svg id="plan-chart" viewBox="0 0 1000 500" role="group" aria-label="Annual projection chart"></svg><div id="plan-chart-tooltip" class="plan-chart-tooltip" role="tooltip" hidden></div></div>
-        <details class="plan-figure-notes"><summary>How to read these figures</summary><p id="plan-pension-note" class="plan-pension-note"></p><p id="plan-chart-note"></p><p id="plan-money-explainer" class="plan-money-explainer"></p></details><div class="plan-year-control"><label for="plan-compare-year" class="visually-hidden">Explore a year</label><select id="plan-compare-year" aria-label="Explore a year"></select><input aria-label="Year on chart" id="plan-year" type="range" min="0" max="30" step="1" value="1" /></div>
+        <details class="plan-figure-notes"><summary>How to read these figures</summary><p id="plan-pension-note" class="plan-pension-note"></p><p id="plan-chart-note"></p><p id="plan-money-explainer" class="plan-money-explainer"></p></details><div class="plan-year-control"><label for="plan-compare-year" class="visually-hidden">Explore a year</label><select id="plan-compare-year" aria-label="Explore a year"></select><output id="plan-selected-year" hidden></output><input aria-label="Year on chart" id="plan-year" type="range" min="0" max="30" step="1" value="1" hidden /><button id="plan-year-mode" class="date-mode-button" type="button" aria-expanded="false" aria-controls="plan-year">Timeline</button></div>
         <div id="plan-events" class="plan-events" aria-label="Changes on your timeline"></div>
         <section id="plan-retirement-snapshot" class="plan-retirement-snapshot" aria-label="First retirement month funding"></section>
         <div class="plan-year-detail"><div><p id="plan-detail-label"></p><strong id="plan-detail-total"></strong><span id="plan-detail-period"></span></div><dl id="plan-detail-values"></dl></div>
@@ -64,6 +64,7 @@ export function mountPlanning(root,getInputs) {
   const resultToolbar=el('div','plan-result-toolbar');
   $('plan-comparison').before(resultToolbar);resultToolbar.append($('plan-comparison'),root.querySelector('.plan-adjust-row'));
   const method=root.querySelector('.plan-method');
+  method.append(root.querySelector('.plan-introduction'));
   method.querySelector('summary').textContent='Assumptions & calculation details';
   method.querySelector('summary').after($('plan-source-text'),$('plan-key-assumptions'),root.querySelector('.plan-timing-note'),$('plan-changes'));
   const yearDetails=el('details','plan-detail-panel');yearDetails.append(el('summary','','Year details'));
@@ -219,7 +220,7 @@ export function mountPlanning(root,getInputs) {
       if(index===0 || index===rows.length-1 || (Number(rows[index].year)%(W<600 ? 10 : 5)===0 && index>(W<600 ? 5 : 1) && index<rows.length-(W<600 ? Math.ceil(60/step) : 2)))svg.append(svgNode('text',{x:index===rows.length-1 ? W-right : x(index),y:H-10,'text-anchor':index===rows.length-1 ? 'end' : 'middle',class:'plan-axis'},rows[index].year));
       const hit=svgNode('rect',{x:left+index*step,y:top,width:step,height:plotHeight,fill:'transparent','data-year':rows[index].year,role:'button',tabindex:index===selected ? '0' : '-1','aria-label':`Explore ${rows[index].year}`});svg.append(hit);
     }
-    $('plan-year').max=rows.length-1;$('plan-year').value=selected;const yearPicker=$('plan-compare-year');yearPicker.replaceChildren();for(const item of rows){const last=projection.months.filter(month=>month.month.startsWith(item.year)).at(-1);const option=el('option','',`${item.year} · ${ageLabel(last.month,holdings)}`);option.value=item.year;yearPicker.append(option);}yearPicker.value=selectedYear;
+    $('plan-year').max=rows.length-1;$('plan-year').value=selected;const yearPicker=$('plan-compare-year');yearPicker.replaceChildren();for(const item of rows){const last=projection.months.filter(month=>month.month.startsWith(item.year)).at(-1);const option=el('option','',`${item.year} · ${ageLabel(last.month,holdings)}`);option.value=item.year;yearPicker.append(option);}yearPicker.value=selectedYear;$('plan-selected-year').textContent=yearPicker.selectedOptions[0]?.textContent || selectedYear;
     const row=rows[selected];
     $('plan-detail-label').textContent=`${meta.title} · ${row.year}`;
     $('plan-detail-total').textContent=row.valid ? currency(row.total) : 'Unfunded';
@@ -282,7 +283,7 @@ export function mountPlanning(root,getInputs) {
     const current=summarizeCoverage(baseline,{real}),value=summarizeCoverage(projection,{real});
     const output=$('plan-comparison'),wasOpen=$('plan-baseline-comparison')?.open;output.replaceChildren();
     const caption=el('div','plan-comparison-caption');
-    caption.append(el('strong',value.covered ? '' : 'coverage-gap',value.covered ? 'Spending covered' : `Gap from ${monthLabel(value.firstGap.month)}`),el('small','',value.covered ? `Under assumptions · to ${monthLabel(value.endMonth)}` : `${currency(value.firstGap.amount)} unmet spending · under assumptions`));output.append(caption);
+    caption.append(el('strong',value.covered ? '' : 'coverage-gap',value.covered ? 'Spending covered' : `Gap from ${monthLabel(value.firstGap.month)}`),el('small','',value.covered ? `to ${monthLabel(value.endMonth)}` : `${currency(value.firstGap.amount)} unmet spending · under assumptions`));output.append(caption);
     const comparison=el('details','plan-baseline-comparison');comparison.id='plan-baseline-comparison';comparison.open=Boolean(wasOpen);comparison.append(el('summary','','Compare plan'));output.append(comparison);
     const figures=el('div','plan-comparison-figures');
     for(const [label,result] of [['Current plan',current],['Your scenario',value]]) {
@@ -410,6 +411,7 @@ export function mountPlanning(root,getInputs) {
   $('plan-chart').addEventListener('focusin',event=>{const year=event.target.closest('[data-year]')?.dataset.year;if(year)showChartTooltip(year,event);});
   $('plan-chart').addEventListener('focusout',()=>{$('plan-chart-tooltip').hidden=true;});
   $('plan-add-spending').addEventListener('click',()=>{const changes=scenario.spendingChanges ||= [];const year=changes.length ? Math.max(...changes.map(change=>change.year))+5 : Number(getInputs().flow.timelineStartMonth.slice(0,4))+5;changes.push({year,percent:changes.at(-1)?.percent ?? 100});renderSpendingChanges(getInputs().flow);refresh();});
+  $('plan-year-mode').addEventListener('click',()=>{const timeline=$('plan-year-mode').getAttribute('aria-expanded')!=='true';$('plan-year-mode').setAttribute('aria-expanded',String(timeline));$('plan-year-mode').textContent=timeline ? 'Year picker' : 'Timeline';$('plan-compare-year').hidden=timeline;$('plan-selected-year').hidden=!timeline;$('plan-year').hidden=!timeline;root.querySelector('.plan-year-control').classList.toggle('is-timeline',timeline);});
   $('plan-compare-year').addEventListener('change',event=>{selectedYear=event.target.value;renderChart(getInputs().holdings);document.dispatchEvent(new Event('picture-updated'));});
   $('plan-metric-select').addEventListener('change',event=>{metric=event.target.value;renderChart(getInputs().holdings);});
   $('plan-year').addEventListener('input',event=>{selectedYear=annualPlanView(projection)[Number(event.target.value)].year;renderChart(getInputs().holdings);});
