@@ -8,7 +8,7 @@
 
 ### Persona and method
 
-The hypothetical reader is a 45-year-old male Tesco employee, comfortable using a smartphone and unfamiliar with pension terminology. Pension familiarity is an explicit test assumption, unrelated to occupation or ability. No Tesco salary, scheme terms, eligibility or personal financial figures were inferred. The reader explored Alex's clearly named fictional age-52 example, then tested a separate draft using only synthetic age 45 and a synthetic alternative retirement age of 58.
+The hypothetical reader is a 45-year-old male Tesco employee, comfortable using a smartphone and unfamiliar with pension terminology. Pension familiarity is an explicit test assumption, unrelated to occupation or ability. No Tesco salary, scheme terms, eligibility or personal financial figures were inferred. The reader explored Sam's clearly named fictional age-52 example, then tested a separate draft using only synthetic age 45 and a synthetic alternative retirement age of 58.
 
 The initial persona agent used a fresh 375×812 anonymous browser, read only rendered UI, and did not see source code, the PRD or previous reviews. Aarav independently checked actual phone layout and the own-draft boundary. After revision, a separate UI-only agent repeated six bounded checks at 375×812. The build owner independently checked 320/375/1440, calculations shown in the interface, immediate choice feedback, and the public hosting badge. No customer was contacted, no personal data was used and no purchase occurred.
 
@@ -16,7 +16,7 @@ The initial persona agent used a fresh 375×812 anonymous browser, read only ren
 
 | Task | Initial visible evidence and comprehension risk | Delivered revision / repeat evidence |
 |---|---|---|
-| Identify whose figures these are | Fictional badge and “Alex, 52” clearly separate the example from a reader aged45 | Fictional identity remains prominent; the independent repeat identified Alex's figures correctly |
+| Identify whose figures these are | Fictional badge and “Sam, 52” clearly separate the example from a reader aged45 | Fictional identity remains prominent; the independent repeat identified Sam's figures correctly |
 | Understand annual spending | £3,000/month alongside £/year required a conversion; stripes appeared within “What covers spending” as though they were funding | “Yearly spending and gaps”; “Spending not covered”; visible £3,000/month = £36,000/year and “Stripes show spending with no funding” |
 | Explain the £106,777 early number | “Before pension access” did not identify whether this was available money or a spending gap | “Spending gap before 60”; “Total across 3 years”, ages 57–59/2031–2033; aggregate gaps explicitly distinguished from a top-up required today |
 | Tap retire-at58 | Choice changed while results were well below the phone viewport | Immediate paragraph below buttons: stop work at58, no early spending gap, later gap starts at 83; detailed results remain consistent |
@@ -25,7 +25,7 @@ The initial persona agent used a fresh 375×812 anonymous browser, read only ren
 | Choose the early range and endpoint | “Bridge” did not predict its effect; endpoint explanation was far below its selector | Literal “Ages52–62” control, including two years after assumed pot access; planning-age assumption explained next to selector. All-years/90/95/100 behaviour retained |
 | Inspect year 67 | The ledger reconciled, but “Income” did not identify its source | Explicit assumed regular pension income £12,000/year + £24,000/year pot withdrawal = £36,000 spending; £297,556 remains available to draw |
 | Read the graph on a phone | Public “Powered by Netlify” iframe covered the actual chart; elementFromPoint confirmed interception | Public badge remains functional in page flow after the footer. Charts and controls are unobscured; keyboard opening and hosting link preserved. Owner/private toolbar untouched |
-| Try own age 45 plan | Own draft correctly used unknown fields instead of importing Alex's numbers | Age45 is retained; “Personal retirement outcomes have not been calculated”. A alternative retirement age of 58 compares entered information only. This capability limit is unchanged |
+| Try own age 45 plan | Own draft correctly used unknown fields instead of importing Sam's numbers | Age45 is retained; “Personal retirement outcomes have not been calculated”. A alternative retirement age of 58 compares entered information only. This capability limit is unchanged |
 
 The early total remains £106,777.19 across three years. The first uncovered year is age 57/2031, £34,777.19, while £473,848.56 remains in pension money assumed locked until 60. Annual spending becomes covered at 60, without resolving the earlier gaps. The later baseline gap starts at 81. Retiring at58 and part-time earnings close the early gap while leaving later gaps at 83 and82. These calculations were not changed to make the example look more reassuring.
 

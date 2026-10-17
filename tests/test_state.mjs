@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { exampleInsights } from "../prototype/example-insights.mjs";
+import { exampleInsights } from "../archive/retired-workspace/prototype/example-insights.mjs";
 import {
   SCHEMA_VERSION,
   createDraft,
@@ -13,8 +13,8 @@ import {
   summariseDraft,
   updateBaseline,
   validateDraft,
-} from "../prototype/state.mjs";
-import { evaluateExample, examples } from "../prototype/fixtures.mjs";
+} from "../archive/retired-workspace/prototype/state.mjs";
+import { evaluateExample, examples } from "../archive/retired-workspace/prototype/fixtures.mjs";
 
 function filled(route = "dc", scope = "individual") {
   const draft = createDraft(route, scope);
@@ -139,7 +139,7 @@ test("extending the horizon appends years without changing the existing annual l
   }
 });
 
-test("extra Alex years expose additional unpaid spending without changing earlier shortfalls", () => {
+test("extra Sam years expose additional unpaid spending without changing earlier shortfalls", () => {
   const baseline = evaluateExample("early-dc");
   for (const horizonAge of [95, 100]) {
     const extended = evaluateExample("early-dc", { horizonAge });

@@ -4,7 +4,7 @@
 
 ## Meaning of the numbers
 
-Alex starts at 52 in 2026, retires at 55 in 2029 and first has uncovered spending at 57 in 2031: five years after the example starts, two years after retirement. That first year has £34,777.19 of spending not covered while £473,848.56 remains in a pension assumed inaccessible until 60. £106,777.19 sums unpaid annual spending across 2031–2033; it is not extra capital required today.
+Sam starts at 52 in 2026, retires at 55 in 2029 and first has uncovered spending at 57 in 2031: five years after the example starts, two years after retirement. That first year has £34,777.19 of spending not covered while £473,848.56 remains in a pension assumed inaccessible until 60. £106,777.19 sums unpaid annual spending across 2031–2033; it is not extra capital required today.
 
 Annual spending becomes covered in 2034, but the earlier gaps remain unpaid. A separate shortfall starts in 2055, age 81. Retiring at 58 removes the pre-access shortfall but leaves a shortfall at 83; £24,000/year part-time income at ages 55–59 removes the pre-access shortfall but leaves one at 82. The arithmetic is unchanged, fictional and simplified, with no UK eligibility or personal affordability conclusion.
 
@@ -39,7 +39,7 @@ Intake tab switches now stage edits until confirmation, protecting the baseline 
 
 49 automated checks: 24 state/fixture, 9 installed-app update and 16 Chromium interaction tests. New checks cover access/later gaps, positive final assets with earlier unpaid spending, usable pensions after non-pension savings reach zero, pension splits, out-of-horizon costs, authored choices, baseline staging and coherent inspector restoration. Existing intake, ownership, import/save/delete, scenario, CSV, keyboard and print checks remain covered.
 
-All three example overviews are checked at 320, 375, 768 and 1440 pixels. Mobile charts remain readable after desktop-to-phone resizing; the Alex baseline with two alternatives and household brief with two alternatives fit one A4 page, with a separate optional appendix. Screenshots and rendered briefs are visually inspected. These checks do not certify financial-model accuracy, broad accessibility or real-user comprehension.
+All three example overviews are checked at 320, 375, 768 and 1440 pixels. Mobile charts remain readable after desktop-to-phone resizing; the Sam baseline with two alternatives and household brief with two alternatives fit one A4 page, with a separate optional appendix. Screenshots and rendered briefs are visually inspected. These checks do not certify financial-model accuracy, broad accessibility or real-user comprehension.
 
 The unpublished runtime reset during preparation for publication. The reviewed changes were restored from the retained review record, checkpointed and verified again before release.
 

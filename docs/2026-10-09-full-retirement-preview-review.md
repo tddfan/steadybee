@@ -26,7 +26,7 @@ The planning endpoint is an assumption, not a prediction of death. Production sc
 
 ### Implemented preview and consistent handoff
 
-The hero now says “Your whole retirement picture” and opens with annual spending coverage from Alex age 52 to 95. A separate view shows savings outside pensions and invested pension balances, with shortfall years shaded. A chosen year exposes income used, savings withdrawals, pension withdrawals, annual shortfall, available/locked pension balances and cumulative unpaid spending.
+The hero now says “Your whole retirement picture” and opens with annual spending coverage from Sam age 52 to 95. A separate view shows savings outside pensions and invested pension balances, with shortfall years shaded. A chosen year exposes income used, savings withdrawals, pension withdrawals, annual shortfall, available/locked pension balances and cumulative unpaid spending.
 
 Milestones show stepping back, assumed pension access, later income and the chosen endpoint with age and year. The before-access amount and later shortfall start/period are separate. Retire-at-58 and part-time choices still expose later shortfalls. Household and already-retired examples are linked from the hero area; each receives the selected endpoint.
 
@@ -34,7 +34,7 @@ The fixture engine extends the existing ledger without changing any earlier row.
 
 ### Fictional full-period results
 
-| Alex choice | Early access shortfall | First later shortfall | Unpaid spending through 90 | Through 95 | Through 100 |
+| Sam choice | Early access shortfall | First later shortfall | Unpaid spending through 90 | Through 95 | Through 100 |
 |---|---|---|---:|---:|---:|
 | Retire at 55 | Ages 57–59: £106,777.19 | Age 81 / 2055 | £335,863.92 | £455,863.92 | £575,863.92 |
 | Retire at 58 | £0 | Age 83 / 2057 | £187,743.14 | £307,743.14 | £427,743.14 |

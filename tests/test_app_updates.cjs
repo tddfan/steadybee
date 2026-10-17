@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
-const source = fs.readFileSync(path.join(__dirname, '../prototype/app-updates.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../archive/retired-workspace/prototype/app-updates.js'), 'utf8');
 const oldVersion = 'a'.repeat(40), newVersion = 'b'.repeat(40);
 const stateKey = 'steadybee:update-state:/app.html';
 const guardKey = 'steadybee:update-attempt:/app.html';

@@ -55,9 +55,9 @@ The next build is the independently specified and verified personal Python engin
 
 ## Landing-page revision from founder feedback
 
-Sanjay found the original landing page unappealing and asked for graphs, useful numbers and visible product hooks. The revision leads with “Could you retire sooner?” and an interactive Alex example. The accessible-savings line chart switches between retiring at 55, retiring at 58 and part-time income from 55 to 59. It shows the before-access gap and keeps later shortfalls visible. Each selected choice opens the matching fictional alternative in the workspace.
+Sanjay found the original landing page unappealing and asked for graphs, useful numbers and visible product hooks. The revision leads with “Could you retire sooner?” and an interactive Sam example. The accessible-savings line chart switches between retiring at 55, retiring at 58 and part-time income from 55 to 59. It shows the before-access gap and keeps later shortfalls visible. Each selected choice opens the matching fictional alternative in the workspace.
 
-Three further previews show the accessible/pension asset split, the effect of £300 lower monthly spending on Alex's bridge, and both retirement dates in the mixed household. A readable brief preview connects the numbers to a household conversation. All financial figures come from the existing fictional fixtures; no population statistics, customer testimonials, personal forecasts or conversion claims were added.
+Three further previews show the accessible/pension asset split, the effect of £300 lower monthly spending on Sam's bridge, and both retirement dates in the mixed household. A readable brief preview connects the numbers to a household conversation. All financial figures come from the existing fictional fixtures; no population statistics, customer testimonials, personal forecasts or conversion claims were added.
 
 The 38 existing checks pass. Separate browser verification checked the displayed figures, keyboard scenario selection, both alternative handoffs, and no horizontal overflow at 320px, 375px, 768px and desktop. Desktop/mobile screenshots were inspected; a mobile overflow was corrected. This is implementation/visual QA, not observed visitor engagement or a conversion experiment.
 

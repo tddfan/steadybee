@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="application-name" content="Steadybee" />
+    <meta name="steadybee-version" content="development" />
+    <meta name="theme-color" content="#14665f" />
+    <meta name="apple-mobile-web-app-title" content="Steadybee" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="manifest.webmanifest?v=2" />
+    <link rel="stylesheet" href="workspace.css" />
+    <title>Steadybee — your retirement workspace</title>
+    <script>
+      window.__steadybeeRestore = null;
+      window.restoreSteadybeePlan = function (s) {
+        window.__steadybeeRestore = s;
+      };
+    </script>
+    <script type="module" src="app.mjs"></script>
+    <script defer src="app-updates.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="index.html"
+          ><img src="favicon.svg" alt="" />steadybee<span
+            aria-hidden="true"
+            style="color: #b3934d"
+            >.</span
+          ></a
+        >
+        <div class="top-actions">
+          <span class="tag">Retirement workspace</span
+          ><a class="btn quiet" href="#review">Keep my work</a>
+        </div>
+      </header>
+      <div class="layout">
+        <nav
+          class="sidebar"
+          aria-label="Planning workspace"
+          id="navigation"
+        ></nav>
+        <main id="main" tabindex="-1">
+          <div class="loading">Opening your workspace…</div>
+        </main>
+      </div>
+      <footer class="footer">
+        A calm place to explore retirement choices. This prototype organises
+        your information and demonstrates fictional examples. Personal forecasts
+        and payments are not available.
+      </footer>
+    </div>
+    <div id="message" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

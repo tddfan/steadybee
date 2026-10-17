@@ -1,54 +1,66 @@
-# 🐝 Steadybee
+# Steadybee
 
-A retirement decision workspace for people considering retirement, reduced work or a change in spending.
+An educational retirement planning prototype connecting today's holdings with future income, spending and balances.
 
-**Current status:** working research prototype. It organises information entered by a person or household. Three separately labelled fictional examples demonstrate scenario comparisons and a decision brief. Personal retirement forecasts, accounts and payments are not connected.
+## Main version
 
-## What you can try
+**The workspace is [Your money picture](prototype/app.html).** The [public landing page](prototype/index.html) explains the product and includes a four-part capability tour using computed fictional-example figures. Older app routes and the installed-app manifest continue to open the same workspace. Start my picture on the landing page opens blank household setup directly.
 
-- An interactive full-retirement landing preview: annual spending coverage, separate savings/pension balances, early and later shortfalls, and planning endpoints of 90/95/100. Selected fictional choices and endpoint carry into the workspace, brief and CSV.
-- A short DC or income-led start, with unknown, estimated and zero values kept distinct.
-- Progressive details: partner, dated income, pension access, savings, contributions, housing/costs and manual accounts.
-- Owner-aware summaries and calendar timelines. Account details reconcile against entered totals without being added twice.
-- Baseline plus two named alternatives, combining timing, spending, part-time income and major costs. Personal choices record changes without calculated outcomes; fictional examples have inspectable annual workings.
-- A compact printable household example brief, optional workings appendix and CSV export. A personal brief preserves entered facts and missing information.
-- Optional local save, resume, validated JSON backup/import and deletion. Saving is limited to this browser profile, unencrypted and not shared across devices.
-- A feedback download for research notes. It does not submit anything to a server or take payment.
+The three sections are:
 
-Fictional calculations are deterministic demonstrations using authored assumptions, not a UK tax or pension engine. They do not establish the correctness of personal planning. See the [build plan and agent findings](docs/2026-10-09-prototype-loop-plan.md) and [build review](docs/2026-10-09-prototype-build-review.md).
+1. **Assets & debt:** editable fictional Sam and Priya example or a blank household. Ownership, linked mortgage, cash, ISAs and workplace pensions are recorded separately. All public example figures are synthetic.
+2. **Income & spending:** annual gross or actual take-home pay, pension contributions, regular categories, future recurring entries and one-off events. A calendar month control switches to a timeline on request. Scheduled changes are available in timeline mode; neither view applies growth or inflation. Sankey **Flow** and exact **Table** are primary; Bridge, Sunburst, Treemap and Donut remain under **More views · Experimental**. Linked mortgage/rent entries edit their source records. A portrait Sankey is used on phones.
+3. **Planning:** deterministic monthly illustrations with inflation, growth, retirement timing, spending phases, pension access and debt repayment. Compare **Current plan** and **Your scenario** for spending coverage, first shortfall and accessible closing investments before withdrawal tax. The default horizon reaches age 95 for the younger person with a known age. Net worth remains a chart; the year picker shows both people’s approximate ages. Undo/reset and precise inputs supplement sliders. Phone controls open through **Adjust scenario**. Scenario adjustments do not overwrite recorded inputs. Hover or drag the chart to inspect a year. An optional 20% investment shock applies once at the first recorded retirement month; its scope and timing are disclosed.
 
-The latest [full-retirement preview review](docs/2026-10-09-full-retirement-preview-review.md) records the founder’s complete-picture feedback, real endpoint recalculation and simulated review. The earlier [example validation loop](docs/2026-10-09-example-validation-loop.md) records the two-year-shortfall explanation. Customer willingness to pay remains unverified.
+Planning includes **Saved scenarios**: keep up to 12 named sets of scenario, chart and simulation settings; reopen, rename, delete/undo, or compare up to three against current household inputs. They are temporary until included in an encrypted saved picture or backup. Calculated simulation samples are not saved. Withdrawal-order comparison is visible in its own card; Income & spending exposes saving settings directly, with longer explanations behind info controls.
 
-## Run and verify
+Planning also has an optional **Outcome ranges** simulation: enter annual return variability, choose 100/200/500 paths, then run. It reuses the monthly engine and shows simulated spending-coverage frequency and 10th/50th/90th accessible-investment ranges in today’s money. It uses an illustrative, perfectly correlated investment proxy, not a calibrated personal success probability. Results are temporary and clear when scenario inputs change. The simulation runs in a cancellable worker; the fixed seed and full assumptions are disclosed. Calculation notes use closed topic cards and withdrawal-order comparisons use responsive cards. See [method and verification](docs/2026-10-17-planning-outcome-ranges.md).
+
+Planning supports current-plan savings routing or all future surplus to general accounts; cash-and-shares mortgage payoff preserves ISAs. Payoff figures show amounts taken, estimated tax, repayment and remaining debt. A funding gap does not hide inaccessible pension balances. Household spending changes do not change separately scheduled costs or debt service.
+
+The active app uses an Apple-inspired Bento system: a system-gray canvas, elevated white cards, tabular figures, segmented view controls and coordinated teal, iris, amber and coral chart colours. Assets lead with four live KPI cards, a visible breakdown and grouped whole-row editors. Income and spending starts with the monthly arithmetic and separates entries, State Pension and scheduled changes into cards.
+
+Planning combines the question and qualified coverage result, with milestone shortcuts and exact figures in a Year inspector. Adjust scenario opens a 340px desktop inspector or a draggable, keyboard-resizable mobile bottom sheet that keeps the chart visible above it. Retirement controls preserve recorded final-pay dates; scenario adjustments remain separate from inputs. Personal pictures retain starting-figure review. Email-link accounts can save one current household picture to Supabase and reopen it on another device. Cloud rows are protected by per-user RLS; cloud storage is not end-to-end encrypted. The separate local picture flow and downloaded backups remain passphrase-encrypted. See the [Bento implementation and verification](docs/2026-10-17-apple-bento-design-system.md).
+
+Starting a blank household is under More. Edit People sits beside the owner filters. Official pension forecast links open GOV.UK, and pay-only Personal Allowance notices link to HMRC. Owner filters hide redundant owner pills, while linked property rows show mortgage and net equity. Additional account and calculation details open on request. Savings routes show Cash → ISA → General for one period at a time.
+
+## Run locally
 
 No npm application dependencies or frontend framework are required.
 
 ```sh
 node scripts/build-prototype.mjs
-node --test tests/test_state.mjs tests/test_app_updates.cjs
-python3 -m http.server 8000 --directory dist
+python3 -m http.server 8765 --directory dist
 ```
 
-Open `http://localhost:8000/`. Browser interaction checks require Playwright and a Chromium executable:
+Open `http://127.0.0.1:8765/`. During source editing, serve `prototype/` instead of `dist/`.
+
+The existing GitHub → Netlify pipeline builds with `node scripts/build-prototype.mjs` and publishes only `dist/`. This consolidation does not deploy automatically from the local checkout; no push/deployment is implied by editing it.
+
+## Verification
+
+Run the deterministic engine/state tests (the archived state/update tests still protect useful migration code):
 
 ```sh
-PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
-CHROME_EXECUTABLE_PATH=/absolute/path/to/chrome-headless-shell \
-node --test tests/test_browser.mjs
+node --test tests/test_asset_ledger.mjs tests/test_monthly_flow.mjs tests/test_uk_pay_estimate.mjs tests/test_mortgage_payment.mjs tests/test_state_pension.mjs tests/test_planning.mjs tests/test_withdrawals.mjs tests/test_investment_tax.mjs tests/test_state.mjs tests/test_app_updates.cjs tests/test_main_build.mjs tests/test_coverage.mjs tests/test_picture_storage.mjs
 ```
 
-The browser suite runs its own local HTTP server. It checks intake, household dates, mode separation, compound scenarios, save/import/delete, deployment restoration, keyboard focus, mobile reflow and printable output. Generated screenshots/PDFs stay in ignored `test-artifacts/`.
+`tests/test_asset_canvas_browser.mjs` is an optional Playwright suite for the active app. It needs `PLAYWRIGHT_MODULE` and `CHROME_EXECUTABLE_PATH` configured. In-session browser verification uses the available browser tooling to inspect phone and desktop layouts, comparison/undo, chart alternatives, entry forms and route navigation. Screenshots and temporary artifacts are not committed.
 
-## Deployment and installed app
+## Remaining limits before a public release
 
-The existing GitHub → Netlify pipeline builds with `node scripts/build-prototype.mjs` and publishes `dist/`. Each build stamps its version into all HTML pages and `version.json`.
+- **Accounts and protected saving:** Email-link accounts can save one current household picture per user to Supabase and reopen it across devices. Row-level security restricts each picture row to its owner, but cloud data is not end-to-end encrypted and can be read by project administrators. The separate Save picture flow encrypts device data and downloaded JSON backups with a passphrase using PBKDF2 and AES-GCM. Keep that passphrase safe; it cannot be recovered. Browser storage can be cleared, so keep a backup. Email redirects need the deployed site domain configured in Supabase Auth. Printable reports and CSV export remain in the archive.
+- **Tax illustration:** 2026–27 England/Wales/NI rates and thresholds are held constant in future years. Cash interest and pension marginal tax are annualised monthly estimates, not complete tax-year reconciliation. CGT uses recorded/assumed cost and annual gains allowances. Dividend tax, rental-income tax, capital losses, pension protections/annual contribution limits and lender charges are excluded. General-account growth represents capital appreciation.
+- **Pensions:** simplified State Pension uses NI years/35 with a ten-year minimum, scenario age 67, optional future qualifying years and an inflation-uprating assumption. Pre-2016 records can differ; an official forecast is preferable. Personal pension access defaults to 57 or a later recorded scheme age. These are scenario assumptions, not verified eligibility dates. Full DB scheme-specific escalation/survivor modelling is not implemented.
+- **Projection:** deterministic return assumptions, not stochastic outcomes, probability estimates or promises. No automatic sale of property or unspecified-access shares. User-selected cash-and-shares payoff assumes needs-sale shares are saleable at the opening date. Unmet household costs are reported separately; unpaid debt instalments remain outstanding.
+- **Accessibility:** responsive and keyboard-accessible controls are exercised in browser checks; a full assistive-technology audit and observed testing with target users remain required.
 
-The installed web app checks on reopen, focus, reconnection and once a minute while visible. A new deployment refreshes after a short idle period. A one-use snapshot preserves the current workspace and unfinished form edits in the same tab; it is removed after restoration. This is separate from optional persistent local saving. The manifest and existing bee icons support Home Screen installation. There is no offline service worker.
+## Retired prototypes
 
-## Product direction
+[Archived workspace](archive/retired-workspace/README.md) preserves useful backup/restore, reporting, DB-input and research functionality without publishing another UI. Old routes redirect to the main version. Historical design documents remain as research history.
 
-A future paid release must answer a real personal decision with verified accessible-money cash flow, declared tax/pension support, explainable assumptions and reproducible outputs. Price, access cadence, purchase and return behavior still require real-user evidence. Simulated persona reviews are critique, not interviews or observed demand; not everyone has a paid need.
+See the [UX consolidation plan](docs/2026-10-15-main-version-ux-plan.md) and [planning assumptions](docs/2026-10-15-planning-prototype-plan.md).
 
-The static prototype is an experience experiment. The agreed production direction remains Python/FastAPI with server-rendered templates, as recorded in [project rules](CLAUDE.md). Older [vision](docs/VISION.md), [strategy](docs/STRATEGY.md), [functionality](docs/FUNCTIONALITY.md) and [journey](docs/USER_JOURNEY.md) documents describe aspirations; current build limits above take precedence for prototype claims.
+Steadybee is decision-support and educational software, not regulated financial or tax advice. Every projection states: **Illustration, not advice. Current rules, subject to change.** The intended production stack remains Python/FastAPI and server-rendered templates; this buildless JavaScript app is the interactive prototype.
 
-Steadybee is decision-support and educational software. It does not recommend securities, allocations or pension transfers.
+See [protected saving and coverage plan](docs/2026-10-15-save-coverage-plan.md) for this iteration. A full accessibility audit, DB pension capture and further tax validation remain outstanding.

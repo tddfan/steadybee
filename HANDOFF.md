@@ -1,3 +1,5 @@
+> **Current implementation (15 October 2026):** The single active app is `prototype/asset-canvas.html`. Root and old routes redirect to it. The workspace described below is historical reference, preserved under `archive/retired-workspace/`. See README.md and docs/2026-10-15-main-version-ux-plan.md for the current feature set and remaining gaps.
+
 # Steadybee — Session Handoff
 
 _Last updated: 2026-06-28. Read this first when resuming._
