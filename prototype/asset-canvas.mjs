@@ -11,7 +11,7 @@ import {
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountPictureStorage } from './picture-storage-view.mjs?v=20261018main1';
-import { mountAccountStorage } from './account-storage.mjs?v=20261018account2';
+import { mountAccountStorage } from './account-storage.mjs?v=20261018account3';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
 import { mountPlanning } from "./planning-view.mjs?v=20261017review1";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
@@ -1992,6 +1992,7 @@ const storageController=mountPictureStorage({
 mountAccountStorage({
   button:$('account-button'),
   editPeople:()=>$('edit-profile-button').click(),
+  restoreOnLogin:()=>new URLSearchParams(location.search).get('example')!=='1',
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
   restorePicture:picture=>{
     const section=location.hash.slice(1);

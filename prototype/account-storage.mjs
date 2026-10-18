@@ -6,7 +6,7 @@ import {startGoogleSignIn,googleProviderEnabled} from './google-sign-in.mjs?v=20
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
 /** Restore each account's default household; never leave a public demo as its default. */
-export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture,onEmpty,onAvailable,onError}) {
+export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture,onEmpty,onAvailable,onError,restoreOnLogin=()=>true}) {
   let activeUserId=null,lastAccountId=null,generation=0,pending=null;
   return {setUser(userId){
     if(userId!==activeUserId){activeUserId=userId;generation++;pending=null;}
@@ -17,6 +17,9 @@ export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture
     const requestGeneration=generation;
     pending=Promise.resolve().then(()=>fetchPicture(userId)).then(saved=>{
       if(requestGeneration!==generation)return;
+      // Explicit example/setup routes are intentional choices and must not be
+      // replaced by the signed-in account's default during initialization.
+      if(!restoreOnLogin()){onAvailable(saved);return;}
       // An account's saved default takes precedence over the public example (and
       // any local edits to it). This is the reliable sign-in path on every device.
       if(saved)applyPicture(saved);
@@ -37,7 +40,7 @@ export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture
 }
 
 /** Signed-in cloud storage for named household pictures per account. */
-export function mountAccountStorage({button,getPicture,restorePicture,editPeople,onEmpty}) {
+export function mountAccountStorage({button,getPicture,restorePicture,editPeople,onEmpty,restoreOnLogin=()=>true}) {
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='';
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
@@ -104,6 +107,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   }
   const pictureLoader=createAccountPictureLoader({
     getPicture,
+    restoreOnLogin,
     fetchPicture:async userId=>{
       const {data,error:dbError}=await client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',userId).eq('is_main',true).maybeSingle();
       if(dbError)throw dbError;
