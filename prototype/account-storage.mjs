@@ -31,23 +31,23 @@ export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture
 
 /** Signed-in cloud storage for named household pictures per account. */
 export function mountAccountStorage({button,getPicture,restorePicture,editPeople,onEmpty}) {
-  let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),errorMessage='';
+  let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='';
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
-    <p class="account-intro">Your main picture opens automatically when you sign in. Save other households by name and choose one whenever you want. Account pictures sync without a passphrase; encrypted device backups are optional.</p>
+    <p class="account-intro">Your Main household opens automatically and saves changes as you make them. Save a named copy when you want to keep an experiment. Account saving needs no passphrase; encrypted device backups are optional.</p>
     <p id="account-error" class="form-error" role="alert" hidden></p><p id="account-message" role="status" aria-live="polite"></p>
     <div id="account-google-option" hidden><button id="account-google-sign-in" class="button button-primary" type="button">Continue with Google</button><p class="field-help">Use the same Google email as your existing Steadybee account.</p></div>
     <p id="account-sign-in-unavailable" class="field-help" hidden>Google sign-in is temporarily unavailable. Please try again later.</p>
     <section id="account-session" hidden><p id="account-email-label" class="account-email-label"></p>
       <div id="account-cloud-summary" class="account-cloud-summary"></div>
       <label class="account-picture-choice" for="account-picture-select">Saved pictures<select id="account-picture-select" aria-label="Choose a saved picture"></select></label>
-      <div class="account-actions"><button id="account-open-picture" class="button button-primary" type="button" hidden>Open selected picture</button><button id="account-save-picture" class="button button-secondary" type="button">Save current picture as…</button></div>
-      <form id="account-picture-name-form" class="account-picture-name-form" hidden><label for="account-picture-name">Picture name</label><div><input id="account-picture-name" maxlength="60" required placeholder="e.g. Our household" /><label class="account-main-choice"><input id="account-picture-make-main" type="checkbox" /> Make this my main picture</label><button type="submit" class="button button-primary">Save picture</button></div></form>
+      <div class="account-actions"><button id="account-open-picture" class="button button-primary" type="button" hidden>Open selected picture</button><button id="account-save-picture" class="button button-secondary" type="button">Save a copy…</button></div>
+      <form id="account-picture-name-form" class="account-picture-name-form" hidden><label for="account-picture-name">Name this copy</label><div><input id="account-picture-name" maxlength="60" required placeholder="e.g. Retire at 60" /><label class="account-main-choice"><input id="account-picture-make-main" type="checkbox" /> Make this the Main household</label><button type="submit" class="button button-primary">Save copy</button></div></form>
       <div class="account-picture-manage"><button id="account-set-main" class="text-button" type="button" hidden>Make selected picture the main one</button><button id="account-rename-picture" class="text-button" type="button" hidden>Rename selected</button><button id="account-delete-picture" class="text-button text-button-danger" type="button" hidden>Delete selected picture</button></div>
       <div id="account-restore-confirm" class="account-restore-confirm" hidden><p id="account-restore-copy">This will replace the picture open in this tab.</p><button id="account-confirm-open" class="button button-primary" type="button">Open selected picture</button><button id="account-cancel-open" class="button button-secondary" type="button">Keep this tab</button></div>
       <button id="account-sign-out" class="text-button" type="button">Sign out</button>
     </section>
-    <p class="account-privacy">Your account picture is stored in Supabase cloud storage. App access rules restrict it to your signed-in account, but this is not end-to-end encryption: project administrators can access the record. For a passphrase-encrypted copy, use <strong>Save picture</strong> and download a device backup.</p>`;
+    <p class="account-privacy">Your account pictures sync through Supabase and are available only to your signed-in account. They are not end-to-end encrypted. For a separate encrypted file, open <strong>Encrypted backup</strong>.</p>`;
   document.body.append(dialog);const $=id=>dialog.querySelector(`#${id}`);
   const status=document.getElementById('picture-save-status');
   function message(text){$('account-message').textContent=text;}
@@ -63,7 +63,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   const peopleButton=document.createElement('button');peopleButton.type='button';peopleButton.className='button button-secondary';peopleButton.textContent='Manage people';peopleButton.addEventListener('click',()=>{dialog.close();editPeople?.();});$('account-session').prepend(peopleButton);
   function selectedPicture(){return cloudPictures.find(item=>item.id===$('account-picture-select').value)||null;}
   function renderPictureList(){
-    const select=$('account-picture-select'),chosen=activePictureId||select.value;
+    const select=$('account-picture-select'),chosen=select.value||activePictureId;
     select.replaceChildren(...cloudPictures.map(item=>new Option(`${item.name}${item.is_main?' · Main':''}`,item.id)));
     if(chosen && cloudPictures.some(item=>item.id===chosen))select.value=chosen;
     else if(cloudPictures.length)select.value=(cloudPictures.find(item=>item.is_main)||cloudPictures[0]).id;
@@ -72,10 +72,28 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     $('account-set-main').hidden=!selected||selected.is_main;
     $('account-rename-picture').hidden=!selected;
     $('account-delete-picture').hidden=!selected||selected.is_main;
-    $('account-cloud-summary').textContent=cloudPictures.length?`${cloudPictures.length} saved ${cloudPictures.length===1?'picture':'pictures'} · main picture opens automatically`:'No saved account pictures yet. Save this picture with a name.';
+    const main=cloudPictures.find(item=>item.is_main);
+    $('account-cloud-summary').textContent=main?`${main.name} is Main · changes to it save automatically`:cloudPictures.length?`${cloudPictures.length} saved ${cloudPictures.length===1?'picture':'pictures'} · choose one to make Main`:'No Main household yet · finish setup to save it automatically';
   }
   function renderCloudSummary(data){
     cloudPictures=data||[];renderPictureList();
+  }
+  function hasHouseholdProfile(){
+    const picture=getPicture(),holdings=picture?.holdings;
+    return Boolean(user&&!picture?.example&&holdings?.name?.trim()&&Number.isInteger(holdings.age));
+  }
+  async function createMainFromCurrent(){
+    if(mainCreation)return mainCreation;
+    if(!hasHouseholdProfile()||cloudEnabled||cloudPictures.some(item=>item.is_main))return;
+    const userId=user.id,picture={...validatePicture(getPicture()),example:false},id=crypto.randomUUID(),now=new Date().toISOString();
+    mainCreation=(async()=>{
+      const {error:insertError}=await client.from('user_pictures').insert({id,user_id:userId,name:'Main household',is_main:true,picture,updated_at:now});
+      if(insertError){await refreshPicture();if(!cloudPictures.some(item=>item.is_main))throw insertError;return;}
+      if(user?.id!==userId)return;
+      activePictureId=id;activePictureName='Main household';cloudUpdatedAt=now;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
+      await refreshPicture();setStatus('Main household · saved');message('Your Main household is saved. Future changes save automatically.');
+    })().catch(e=>{setStatus('Main household could not save');if(dialog.open)error(`Your Main household could not be saved. ${e.message}`);}).finally(()=>{mainCreation=null;});
+    return mainCreation;
   }
   const pictureLoader=createAccountPictureLoader({
     getPicture,
@@ -97,7 +115,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       if(dialog.open)dialog.close();
     },
     onAvailable:saved=>{
-      if(!cloudEnabled){activePictureId=null;activePictureName='';cloudUpdatedAt='';renderPictureList();setStatus(saved?'Main picture available · open Account':'Signed in · no main picture saved');}
+      if(!cloudEnabled){activePictureId=null;activePictureName='';cloudUpdatedAt='';renderPictureList();setStatus(saved?'Main picture available · open Account':'Signed in · no main picture saved');if(!saved)createMainFromCurrent();}
     },
     onEmpty:()=>{onEmpty?.();},
     onError:e=>{error(`Could not open your saved picture. ${e.message}`);setStatus('Saved picture could not load · open Account');},
@@ -231,7 +249,11 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     catch(e){error(`Could not sign out. ${e.message}`);}
   });
   function scheduleCloudSave(){
-    if(!cloudEnabled||!user)return;
+    if(!user)return;
+    const current=getPicture();
+    if(current?.example){setStatus('Public example · not saved');return;}
+    if(!current?.holdings?.name?.trim()||!Number.isInteger(current.holdings.age)){setStatus('Finish your household details to save');return;}
+    if(!cloudEnabled){createMainFromCurrent();return;}
     if(JSON.stringify(getPicture())===lastSaved){setStatus(`Picture · ${activePictureName}`);return;}
     setStatus('Saving to your account…');clearTimeout(timer);timer=setTimeout(()=>{const task=saving.then(autoSave);saving=task.catch(()=>{});},650);
   }

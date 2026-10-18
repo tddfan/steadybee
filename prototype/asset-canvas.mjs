@@ -10,8 +10,8 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017review1';
-import { mountAccountStorage } from './account-storage.mjs?v=20261017account3';
+import { mountPictureStorage } from './picture-storage-view.mjs?v=20261018main1';
+import { mountAccountStorage } from './account-storage.mjs?v=20261018main1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
 import { mountPlanning } from "./planning-view.mjs?v=20261017review1";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
@@ -2000,7 +2000,11 @@ mountAccountStorage({
     if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');
   },
-  onEmpty:()=>{if(mode==='example')showBlankPicture();},
+  onEmpty:()=>{
+    const untouchedPublicExample=JSON.stringify(draft)===JSON.stringify(createPublicDemoHousehold())&&JSON.stringify(flowDraft)===JSON.stringify(createExampleMonthlyFlow());
+    if(mode==='example'&&untouchedPublicExample)showBlankPicture();
+    else if(mode==='example'){mode='personal';render();}
+  },
 });
 
 if(new URLSearchParams(location.search).get('start')==='own'){startBlankPicture();const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);}

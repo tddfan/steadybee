@@ -196,10 +196,13 @@ h2 { margin: 6px 0 0; font-family: Georgia, "Times New Roman", serif; font-size:
   .site-footer { flex-direction: column; gap: 5px; }
 }
 @media (max-width: 430px) {
-  h1 { font-size: 3.25rem; }
+  h1 { font-size: clamp(1.6rem, 8vw, 2.75rem); line-height: 1.05; letter-spacing: -.045em; }
   .intro { font-size: 1rem; }
   .welcome-form { grid-template-columns: 1fr; }
   .welcome-form .button { grid-column: auto; }
+  .welcome-screen, .welcome-copy, .welcome-form, .welcome-form .form-field { min-width: 0; }
+  .welcome-copy { width: 100%; }
+  .welcome-form label { overflow-wrap: anywhere; }
   .welcome-art { min-height: 215px; }
   .art-grid { width: min(100% - 80px, 300px); }
   .section-top { align-items: flex-start; }
