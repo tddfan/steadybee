@@ -2,6 +2,14 @@ import {createPublicDemoHousehold,summarizeDraft} from './asset-ledger.mjs?v=202
 import {createPublicDemoMonthlyFlow,buildMonthlyFlowDiagram} from './monthly-flow.mjs?v=20261017demo6';
 import {projectPlan,annualPlanView} from './planning.mjs?v=20261017demo6';
 import {summarizeCoverage} from './coverage.mjs?v=20261017demo6';
+import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
+import {isGoogleOAuthPopup,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261018google2';
+if(isGoogleOAuthPopup(window)){
+  import('https://esm.sh/@supabase/supabase-js@2.118.0?bundle').then(({createClient})=>{
+    const client=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    completeGoogleOAuthPopup({client,windowRef:window});
+  }).catch(()=>{});
+}
 const $=id=>document.getElementById(id),money=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value),make=(tag,cls,text)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(text!=null)x.textContent=text;return x;};
 const holdings=createPublicDemoHousehold(),flow=createPublicDemoMonthlyFlow(),summary=summarizeDraft(holdings),diagram=buildMonthlyFlowDiagram(flow,holdings,{primary:holdings.name,partner:holdings.partnerName}),colours=['#1F7A68','#7C5CBF','#C58B3B'];
 $('welcome-worth').textContent=money(summary.netWorth);$('welcome-assets').textContent=money(summary.assetTotal);

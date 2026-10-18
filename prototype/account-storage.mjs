@@ -1,7 +1,7 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
 import {validatePicture} from './picture-storage.mjs?v=20261017review1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
-import {startGoogleSignIn,googleProviderEnabled} from './google-sign-in.mjs?v=20261017google1';
+import {startGoogleSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261018google2';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -64,6 +64,10 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
   function setStatus(text){updateSaveStatus(status,'account',user?text:null);}
   let googleEnabled=false,providerRequest=null,googlePopup=null;
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.source!==googlePopup||event.data?.type!=='steadybee-google-sign-in-complete')return;
+    googlePopup?.close();googlePopup=null;message('Signed in. Opening your default household…');
+  });
   function refreshProviders(){
     if(!providerRequest)providerRequest=googleProviderEnabled({url:SUPABASE_URL,key:SUPABASE_PUBLISHABLE_KEY}).then(enabled=>{
       googleEnabled=enabled;renderSession();
@@ -147,6 +151,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       if(!SUPABASE_URL||!SUPABASE_PUBLISHABLE_KEY)throw new Error('Account saving is not configured yet.');
       client=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
       client.auth.onAuthStateChange((event,session)=>{
+        completeGoogleOAuthPopup({client,windowRef:window});
         setUser(session?.user||null);
       });
       return client;

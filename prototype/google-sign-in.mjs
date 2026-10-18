@@ -2,17 +2,42 @@
 export async function startGoogleSignIn({client,redirectTo,openWindow}){
   const popup=openWindow();
   if(!popup)throw new Error('Allow a sign-in window for Steadybee, then try again.');
-  popup.opener=null;
   try{
+    const requestedRedirect=new URL(redirectTo);
+    if(!['http:','https:'].includes(requestedRedirect.protocol))throw new Error('The sign-in return address is invalid.');
     const {data:session,error:sessionError}=await client.auth.getSession();
     if(sessionError)throw sessionError;
     if(session.session?.user){popup.close();return {user:session.session.user};}
     const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}});
     if(error)throw error;
     if(!data?.url || new URL(data.url).protocol!=='https:')throw new Error('Google sign-in could not be opened.');
+    const actualRedirect=new URL(data.url).searchParams.get('redirect_to');
+    if(actualRedirect && actualRedirect!==requestedRedirect.href)throw new Error('Supabase returned a different sign-in address. Check the allowed return URLs in Supabase Auth settings.');
     popup.location.replace(data.url);
     return {popup};
   }catch(error){popup.close();throw error;}
+}
+
+/** Complete OAuth in a named popup and return the user to the still-open app. */
+export function isGoogleOAuthPopup(windowRef=window){
+  // window.name may be cleared by modern browsers on cross-site OAuth hops;
+  // the OAuth response fragment plus the still-open opener identifies this flow.
+  return Boolean(windowRef.opener)&&(/access_token=/.test(windowRef.location.hash)||new URLSearchParams(windowRef.location.search).has('code'));
+}
+
+export function completeGoogleOAuthPopup({client,windowRef=window,onComplete=()=>{}}){
+  if(!isGoogleOAuthPopup(windowRef))return false;
+  let subscription;
+  const finish=(session)=>{
+    if(!session?.user)return;
+    try{windowRef.opener.postMessage({type:'steadybee-google-sign-in-complete'},windowRef.location.origin);}catch{}
+    subscription?.unsubscribe();
+    onComplete(session.user);
+    windowRef.close();
+  };
+  const result=client.auth.onAuthStateChange((_event,session)=>finish(session));
+  subscription=result?.data?.subscription;
+  return true;
 }
 
 export async function googleProviderEnabled({url,key,fetcher=fetch}){
