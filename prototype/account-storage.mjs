@@ -39,12 +39,22 @@ export function createAccountPictureLoader({getPicture,fetchPicture,applyPicture
   }};
 }
 
+/** Retry an expired access token once; never loop or replay other errors. */
+export async function queryWithSessionRefresh(run,refreshSession){
+  const result=await run();
+  if(!/jwt.*expired/i.test(result.error?.message||''))return result;
+  const {data,error}=await refreshSession();
+  if(error?.name==='AuthRetryableFetchError')return {data:null,error:new Error('Could not reconnect to account saving. Check your connection and try again.')};
+  if(error||!data?.session)return {data:null,error:Object.assign(new Error('Your sign-in expired. Continue with Google to reconnect.'),{code:'STEADYBEE_REAUTH_REQUIRED'})};
+  return run();
+}
+
 /** Signed-in cloud storage for named household pictures per account. */
-export function mountAccountStorage({button,getPicture,restorePicture,editPeople,onEmpty,restoreOnLogin=()=>true}) {
-  let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='';
+export function mountAccountStorage({button,getPicture,restorePicture,editPeople,startHousehold,onEmpty,restoreOnLogin=()=>true}) {
+  let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='',householdGeneration=0;
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
-    <p class="account-intro">Your default household opens automatically and saves changes as you make them. Save a named version to explore alternatives. Account saving needs no passphrase; encrypted device backups are optional.</p>
+    <p class="account-intro">Your default household opens automatically and saves changes as you make them. Save a named version to explore alternatives.</p>
     <p id="account-error" class="form-error" role="alert" hidden></p><p id="account-message" role="status" aria-live="polite"></p>
     <div id="account-google-option" hidden><button id="account-google-sign-in" class="button button-primary" type="button">Continue with Google</button><p class="field-help">Use the same Google email as your existing Steadybee account.</p></div>
     <p id="account-sign-in-unavailable" class="field-help" hidden>Google sign-in is temporarily unavailable. Please try again later.</p>
@@ -57,12 +67,23 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       <div id="account-restore-confirm" class="account-restore-confirm" hidden><p id="account-restore-copy">This will replace the household open in this tab.</p><button id="account-confirm-open" class="button button-primary" type="button">Open selected version</button><button id="account-cancel-open" class="button button-secondary" type="button">Keep this tab</button></div>
       <button id="account-sign-out" class="text-button" type="button">Sign out</button>
     </section>
-    <p class="account-privacy">Your household data syncs through Supabase and is available only to your signed-in account. It is not end-to-end encrypted. For a separate encrypted file, open <strong>Encrypted backup</strong>.</p>`;
+    <p class="account-privacy">Your household data syncs through Supabase and is available only to your signed-in account. It is not end-to-end encrypted.</p>`;
   document.body.append(dialog);const $=id=>dialog.querySelector(`#${id}`);
   const status=document.getElementById('picture-save-status');
+  const exampleNotice=document.createElement('aside');exampleNotice.className='account-example-notice';exampleNotice.hidden=true;exampleNotice.setAttribute('aria-label','Sample household');
+  exampleNotice.innerHTML='<span>You’re exploring a sample household.</span><button type="button" class="button button-primary"></button><span class="form-error" role="status" hidden></span>';
+  document.querySelector('main').prepend(exampleNotice);
+  function renderExampleNotice(){exampleNotice.hidden=!user||!getPicture().example;exampleNotice.querySelector('button').textContent=cloudPictures.some(item=>item.is_main)?'Open my household':'Set up my household';}
+  exampleNotice.querySelector('button').addEventListener('click',async()=>{
+    if(!cloudPictures.some(item=>item.is_main)){startHousehold?.();renderExampleNotice();return;}
+    const action=exampleNotice.querySelector('button'),noticeError=exampleNotice.querySelector('[role=status]');action.disabled=true;noticeError.hidden=true;const userId=user.id;
+    try{const {data,error:loadError}=await accountQuery(()=>client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',userId).eq('is_main',true).single());if(loadError)throw loadError;if(user?.id===userId)applySavedHousehold(data);}
+    catch(e){noticeError.textContent=`Could not open your household. ${e.message}`;noticeError.hidden=false;}
+    finally{action.disabled=false;}
+  });
   function message(text){$('account-message').textContent=text;}
   function error(text){errorMessage=text;$('account-error').textContent=text;$('account-error').hidden=!text;}
-  function setStatus(text){updateSaveStatus(status,'account',user?text:null);}
+  function setStatus(text){updateSaveStatus(status,'account',user?text:(getPicture().example?'Example · not saved':'Not saved · sign in to save'));renderExampleNotice();}
   let googleEnabled=false,providerRequest=null,googlePopup=null;
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin||event.source!==googlePopup||event.data?.type!=='steadybee-google-sign-in-complete')return;
@@ -81,16 +102,17 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     select.replaceChildren(...cloudPictures.map(item=>new Option(`${item.name}${item.is_main?' · Default':''}`,item.id)));
     if(chosen && cloudPictures.some(item=>item.id===chosen))select.value=chosen;
     else if(cloudPictures.length)select.value=(cloudPictures.find(item=>item.is_main)||cloudPictures[0]).id;
+    select.closest('label').hidden=!cloudPictures.length;
     const selected=selectedPicture();
     $('account-open-picture').hidden=!selected;
     $('account-set-main').hidden=!selected||selected.is_main;
     $('account-rename-picture').hidden=!selected;
     $('account-delete-picture').hidden=!selected||selected.is_main;
     const main=cloudPictures.find(item=>item.is_main);
-    $('account-cloud-summary').textContent=main?`${main.name} · default household · changes save automatically`:cloudPictures.length?`${cloudPictures.length} saved versions · choose one as your default`:'No default household yet · finish setup to save it automatically';
+    $('account-cloud-summary').textContent=cloudEnabled&&activePictureId?`${activePictureName}${cloudPictures.find(item=>item.id===activePictureId)?.is_main?' · default household':''} · changes save automatically`:main?`${main.name} · default household available`:cloudPictures.length?`${cloudPictures.length} saved versions · choose one as your default`:'No default household yet · finish setup to save it automatically';
   }
   function renderCloudSummary(data){
-    cloudPictures=data||[];renderPictureList();
+    cloudPictures=data||[];renderPictureList();renderExampleNotice();
   }
   function hasHouseholdProfile(){
     const picture=getPicture(),holdings=picture?.holdings;
@@ -99,59 +121,76 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   async function createMainFromCurrent(){
     if(mainCreation)return mainCreation;
     if(!hasHouseholdProfile()||cloudEnabled||cloudPictures.some(item=>item.is_main))return;
-    const userId=user.id,picture={...validatePicture(getPicture()),example:false},id=crypto.randomUUID(),now=new Date().toISOString();
+    const userId=user.id,picture={...validatePicture(getPicture()),example:false},id=crypto.randomUUID(),now=new Date().toISOString(),requestGeneration=householdGeneration;
     mainCreation=(async()=>{
-      const {error:insertError}=await client.from('user_pictures').insert({id,user_id:userId,name:'My household',is_main:true,picture,updated_at:now});
+      const {error:insertError}=await accountQuery(()=>client.from('user_pictures').insert({id,user_id:userId,name:'My household',is_main:true,picture,updated_at:now}));
       if(insertError){await refreshPicture();if(!cloudPictures.some(item=>item.is_main))throw insertError;return;}
-      if(user?.id!==userId)return;
-      activePictureId=id;activePictureName='My household';cloudUpdatedAt=now;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
+      if(user?.id!==userId||requestGeneration!==householdGeneration)return;
+      activePictureId=id;activePictureName='My household';cloudUpdatedAt=now;lastSaved=JSON.stringify(picture);cloudEnabled=true;
       await refreshPicture();setStatus('Default household · saved');message('Your default household is saved. Future changes save automatically.');
+      if(JSON.stringify(validatePicture(getPicture()))!==lastSaved)scheduleCloudSave();
     })().catch(e=>{setStatus('Default household could not save');if(dialog.open)error(`Your default household could not be saved. ${e.message}`);}).finally(()=>{mainCreation=null;});
     return mainCreation;
+  }
+  function applySavedHousehold(saved){
+    const picture=validatePicture(saved.picture);
+    householdGeneration++;clearTimeout(timer);cloudEnabled=false;
+    restorePicture(picture);
+    activePictureId=saved.id;activePictureName=saved.name;cloudUpdatedAt=saved.updatedAt||saved.updated_at;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
+    const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('example');cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);
+    $('account-picture-select').value=saved.id;renderPictureList();setStatus(`${saved.is_main?'Default household':'Household'} · ${saved.name}`);message(`“${saved.name}” is open. Changes save automatically.`);
+    if(dialog.open)dialog.close();
   }
   const pictureLoader=createAccountPictureLoader({
     getPicture,
     restoreOnLogin,
     fetchPicture:async userId=>{
-      const {data,error:dbError}=await client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',userId).eq('is_main',true).maybeSingle();
+      const {data,error:dbError}=await accountQuery(()=>client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',userId).eq('is_main',true).maybeSingle());
       if(dbError)throw dbError;
       if(user?.id!==userId)return null;
-      const {data:list,error:listError}=await client.from('user_pictures').select('id,name,is_main,updated_at').eq('user_id',userId).order('is_main',{ascending:false}).order('name');
+      const {data:list,error:listError}=await accountQuery(()=>client.from('user_pictures').select('id,name,is_main,updated_at').eq('user_id',userId).order('is_main',{ascending:false}).order('name'));
       if(listError)throw listError;
       if(user?.id!==userId)return null;
       renderCloudSummary(list||[]);
       return data?{...data,picture:validatePicture(data.picture),updatedAt:data.updated_at}:null;
     },
-    applyPicture:saved=>{
-      clearTimeout(timer);cloudEnabled=false;
-      restorePicture(saved.picture);
-      activePictureId=saved.id;activePictureName=saved.name;cloudUpdatedAt=saved.updatedAt;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
-      renderPictureList();setStatus(`Default household · ${activePictureName}`);message(`Default household “${activePictureName}” is open. Changes save automatically.`);
-      if(dialog.open)dialog.close();
-    },
+    applyPicture:applySavedHousehold,
     onAvailable:saved=>{
-      if(!cloudEnabled){activePictureId=null;activePictureName='';cloudUpdatedAt='';renderPictureList();setStatus(saved?'Default household available · open Account':'Signed in · no default household saved');if(!saved)createMainFromCurrent();}
+      if(!cloudEnabled){activePictureId=null;activePictureName='';cloudUpdatedAt='';renderPictureList();setStatus(getPicture().example?'Example · not saved':saved?'Not saved · save a version in Account':'Signed in · no default household saved');if(!saved)createMainFromCurrent();}
     },
     onEmpty:details=>{onEmpty?.(details);},
     onError:e=>{error(`Could not open your saved household. ${e.message}`);setStatus('Saved household could not load · open Account');},
   });
   function setUser(nextUser){
     const changed=user?.id!==nextUser?.id;
-    if(changed){clearTimeout(timer);cloudEnabled=false;cloudUpdatedAt='';activePictureId=null;activePictureName='';cloudPictures=[];lastSaved='';}
+    if(changed){householdGeneration++;clearTimeout(timer);cloudEnabled=false;cloudUpdatedAt='';activePictureId=null;activePictureName='';cloudPictures=[];lastSaved='';}
     user=nextUser;renderSession();
     if(user && googlePopup){googlePopup.close();googlePopup=null;}
     if(user){error('');message('');}
     if(!user){pictureLoader.setUser(null);setStatus(`${getPicture().example?'Example · not saved':'Not saved · this tab only'}`);refreshProviders();return;}
-    if(changed)setStatus('Opening your default household…');
+    if(changed)setStatus(restoreOnLogin()?'Opening your default household…':getPicture().example?'Example · not saved':'New household · not saved');
     // Defer database requests until Supabase has released its auth callback lock.
     const userId=user.id;setTimeout(()=>{if(user?.id===userId)pictureLoader.setUser(userId);},0);
+  }
+  async function accountQuery(run){
+    const expectedUserId=user?.id;
+    const result=await queryWithSessionRefresh(run,async()=>{
+      const refreshed=await client.auth.refreshSession();
+      if(refreshed.data?.session?.user?.id!==expectedUserId&&refreshed.data?.session)throw new Error('The account changed. Reopen Account before saving.');
+      return refreshed;
+    });
+    if(result.error?.code==='STEADYBEE_REAUTH_REQUIRED'){
+      await client.auth.signOut({scope:'local'});setUser(null);
+      error('');message('Your sign-in expired. Continue with Google to reconnect. Your open household stays here.');
+    }
+    return result;
   }
   async function getClient(){
     if(!clientPromise)clientPromise=import(sdkUrl).then(({createClient})=>{
       if(!SUPABASE_URL||!SUPABASE_PUBLISHABLE_KEY)throw new Error('Account saving is not configured yet.');
       client=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      completeGoogleOAuthPopup({client,windowRef:window});
       client.auth.onAuthStateChange((event,session)=>{
-        completeGoogleOAuthPopup({client,windowRef:window});
         setUser(session?.user||null);
       });
       return client;
@@ -159,7 +198,10 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     return clientPromise;
   }
   function renderSession(){
+    renderExampleNotice();
     dialog.querySelector('.account-intro').hidden=Boolean(user);
+    const setupNote=document.querySelector('#welcome-screen .privacy-note');
+    if(setupNote)setupNote.textContent=user?'Your account is connected. Complete your household details to continue.':'Sign in to save your household and return on another device.';
     $('account-google-option').hidden=Boolean(user)||!googleEnabled;
     $('account-sign-in-unavailable').hidden=Boolean(user)||googleEnabled;$('account-session').hidden=!user;
     $('account-email-label').textContent=user?.email||'';
@@ -170,7 +212,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     if(!client||!user)return;
     const userId=user.id;
     try{
-      const {data,error:dbError}=await client.from('user_pictures').select('id,name,is_main,updated_at').eq('user_id',userId).order('is_main',{ascending:false}).order('name');
+      const {data,error:dbError}=await accountQuery(()=>client.from('user_pictures').select('id,name,is_main,updated_at').eq('user_id',userId).order('is_main',{ascending:false}).order('name'));
       if(dbError)throw dbError;
       if(user?.id!==userId)return;
       renderCloudSummary(data||[]);
@@ -206,24 +248,24 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     const selected=selectedPicture();if(!selected)return;
     error('');message(`Loading “${selected.name}”…`);
     try{
-      const {data,error:dbError}=await client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',user.id).eq('id',selected.id).single();
+      const {data,error:dbError}=await accountQuery(()=>client.from('user_pictures').select('id,name,is_main,picture,updated_at').eq('user_id',user.id).eq('id',selected.id).single());
       if(dbError)throw dbError;
       const picture=validatePicture(data.picture);
       $('account-restore-copy').textContent=`Open “${data.name}” saved ${new Date(data.updated_at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}? It replaces the household in this tab.`;
-      $('account-restore-confirm').hidden=false;$('account-confirm-open').focus();dialog.dataset.cloudPicture=JSON.stringify(picture);dialog.dataset.cloudUpdatedAt=data.updated_at;dialog.dataset.cloudPictureId=data.id;dialog.dataset.cloudPictureName=data.name;message('Review before opening.');
+      $('account-restore-confirm').hidden=false;$('account-open-picture').hidden=true;$('account-confirm-open').focus();dialog.dataset.cloudPicture=JSON.stringify(picture);dialog.dataset.cloudUpdatedAt=data.updated_at;dialog.dataset.cloudPictureId=data.id;dialog.dataset.cloudPictureName=data.name;dialog.dataset.cloudPictureIsMain=String(data.is_main);message('Review before opening.');
     }catch(e){error(`Could not open this version. ${e.message}`);message('');}
   });
   $('account-confirm-open').addEventListener('click',()=>{
     let picture;try{picture=validatePicture(JSON.parse(dialog.dataset.cloudPicture||'null'));}catch(e){error(`Saved version could not be opened. ${e.message}`);return;}
-    cloudEnabled=false;restorePicture(picture);activePictureId=dialog.dataset.cloudPictureId;activePictureName=dialog.dataset.cloudPictureName;cloudUpdatedAt=dialog.dataset.cloudUpdatedAt||'';lastSaved=JSON.stringify(getPicture());cloudEnabled=true;setStatus(`Household · ${activePictureName}`);dialog.close();
+    applySavedHousehold({picture,id:dialog.dataset.cloudPictureId,name:dialog.dataset.cloudPictureName,updated_at:dialog.dataset.cloudUpdatedAt,is_main:dialog.dataset.cloudPictureIsMain==='true'});
   });
-  $('account-cancel-open').addEventListener('click',()=>{$('account-restore-confirm').hidden=true;});
+  $('account-cancel-open').addEventListener('click',()=>{$('account-restore-confirm').hidden=true;renderPictureList();});
   async function setMainPicture(id){
     const previous=cloudPictures.find(item=>item.is_main);
     if(previous?.id===id)return;
-    if(previous){const {error:unsetError}=await client.from('user_pictures').update({is_main:false}).eq('user_id',user.id).eq('id',previous.id);if(unsetError)throw unsetError;}
-    const {error:setError}=await client.from('user_pictures').update({is_main:true}).eq('user_id',user.id).eq('id',id);
-    if(setError){if(previous)await client.from('user_pictures').update({is_main:true}).eq('user_id',user.id).eq('id',previous.id);throw setError;}
+    if(previous){const {error:unsetError}=await accountQuery(()=>client.from('user_pictures').update({is_main:false}).eq('user_id',user.id).eq('id',previous.id));if(unsetError)throw unsetError;}
+    const {error:setError}=await accountQuery(()=>client.from('user_pictures').update({is_main:true}).eq('user_id',user.id).eq('id',id));
+    if(setError){if(previous)await accountQuery(()=>client.from('user_pictures').update({is_main:true}).eq('user_id',user.id).eq('id',previous.id));throw setError;}
     await refreshPicture();message('Default household updated. It opens automatically next time you sign in.');
   }
   $('account-set-main').addEventListener('click',async()=>{try{const selected=selectedPicture();if(selected)await setMainPicture(selected.id);}catch(e){error(`Could not change the default household. ${e.message}`);}});
@@ -240,15 +282,15 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     try{
       if(!user)throw new Error('Sign in before saving.');
       if(form.dataset.mode==='rename'){
-        const id=form.dataset.pictureId,{error:renameError}=await client.from('user_pictures').update({name}).eq('user_id',user.id).eq('id',id);if(renameError)throw renameError;
+        const id=form.dataset.pictureId,{error:renameError}=await accountQuery(()=>client.from('user_pictures').update({name}).eq('user_id',user.id).eq('id',id));if(renameError)throw renameError;
         if(activePictureId===id)activePictureName=name;
         await refreshPicture();$('account-picture-select').value=id;if(makeMain)await setMainPicture(id);message(`Version renamed to “${name}”.`);
       }else{
         const picture={...validatePicture(getPicture()),example:false},id=crypto.randomUUID(),now=new Date().toISOString();
-        const {error:insertError}=await client.from('user_pictures').insert({id,user_id:user.id,name,is_main:false,picture,updated_at:now});if(insertError)throw insertError;
+        const {error:insertError}=await accountQuery(()=>client.from('user_pictures').insert({id,user_id:user.id,name,is_main:false,picture,updated_at:now}));if(insertError)throw insertError;
         if(makeMain)await setMainPicture(id);
         cloudEnabled=false;restorePicture(picture);activePictureId=id;activePictureName=name;cloudUpdatedAt=now;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
-        await refreshPicture();$('account-picture-select').value=id;setStatus(`Household · ${name}`);message(`“${name}” saved. Changes now sync to this version.`);
+        await refreshPicture();$('account-picture-select').value=id;renderPictureList();setStatus(`Household · ${name}`);message(`“${name}” saved. Changes now sync to this version.`);
       }
       form.hidden=true;form.reset();
     }catch(e){error(`Your household version was not saved. ${e.message}`);}
@@ -257,7 +299,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     const selected=selectedPicture();if(!selected||selected.is_main)return;
     if(!window.confirm(`Delete the “${selected.name}” version from your account? This cannot be undone.`))return;
     error('');
-    try{const {error:dbError}=await client.from('user_pictures').delete().eq('user_id',user.id).eq('id',selected.id);if(dbError)throw dbError;if(activePictureId===selected.id){cloudEnabled=false;activePictureId=null;activePictureName='';cloudUpdatedAt='';lastSaved='';setStatus('Current household is not saved to your account');}message(`“${selected.name}” version deleted.`);await refreshPicture();}
+    try{const {error:dbError}=await accountQuery(()=>client.from('user_pictures').delete().eq('user_id',user.id).eq('id',selected.id));if(dbError)throw dbError;if(activePictureId===selected.id){cloudEnabled=false;activePictureId=null;activePictureName='';cloudUpdatedAt='';lastSaved='';setStatus('Current household is not saved to your account');}message(`“${selected.name}” version deleted.`);await refreshPicture();}
     catch(e){error(`Could not delete this version. ${e.message}`);}
   });
   $('account-sign-out').addEventListener('click',async()=>{
@@ -265,11 +307,11 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     catch(e){error(`Could not sign out. ${e.message}`);}
   });
   function scheduleCloudSave(){
-    if(!user)return;
+    if(!user){setStatus();return;}
     const current=getPicture();
     if(current?.example){setStatus('Public example · not saved');return;}
     if(!current?.holdings?.name?.trim()||!Number.isInteger(current.holdings.age)){setStatus('Finish your household details to save');return;}
-    if(!cloudEnabled){createMainFromCurrent();return;}
+    if(!cloudEnabled){setStatus(cloudPictures.some(item=>item.is_main)?'Not saved · save a version in Account':'Preparing your default household…');createMainFromCurrent();return;}
     if(JSON.stringify(getPicture())===lastSaved){setStatus(`Household · ${activePictureName}`);return;}
     setStatus('Saving to your account…');clearTimeout(timer);timer=setTimeout(()=>{const task=saving.then(autoSave);saving=task.catch(()=>{});},650);
   }
@@ -279,8 +321,8 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       const picture=validatePicture(getPicture()),serial=JSON.stringify(picture);if(serial===lastSaved)return;
       const timestamp=new Date().toISOString();
       if(!activePictureId)throw new Error('Choose or save a named version before syncing changes.');
-      const request=client.from('user_pictures').update({picture,updated_at:timestamp}).eq('user_id',user.id).eq('id',activePictureId).eq('updated_at',cloudUpdatedAt).select('updated_at').maybeSingle();
-      const {data,error:dbError}=await request;
+      const request=()=>client.from('user_pictures').update({picture,updated_at:timestamp}).eq('user_id',user.id).eq('id',activePictureId).eq('updated_at',cloudUpdatedAt).select('updated_at').maybeSingle();
+      const {data,error:dbError}=await accountQuery(request);
       if(dbError)throw dbError;
       if(!data){cloudEnabled=false;setStatus('Cloud version changed elsewhere');if(dialog.open)error('Another tab updated this saved version. Reopen it before continuing so you do not overwrite newer changes.');return;}
       cloudUpdatedAt=data.updated_at;lastSaved=serial;setStatus(`Household · ${activePictureName}`);
@@ -289,5 +331,5 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   document.addEventListener('picture-updated',scheduleCloudSave);
   getClient().then(async()=>{const {data}=await client.auth.getSession();setUser(data.session?.user||null);}).catch(()=>{});
   renderSession();
-  return {open:openAccount};
+  return {open:openAccount,detach(){householdGeneration++;clearTimeout(timer);cloudEnabled=false;activePictureId=null;activePictureName='';cloudUpdatedAt='';lastSaved='';setStatus('Not saved · save a version in Account');}};
 }

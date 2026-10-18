@@ -20,6 +20,8 @@ test('OAuth popup callback reports completion and closes itself',()=>{
   const client={auth:{onAuthStateChange:callback=>{listener=callback;return {data:{subscription:{unsubscribe(){unsubscribed=true;}}}};}}};
   assert.equal(isGoogleOAuthPopup(popupWindow),true);
   assert.equal(completeGoogleOAuthPopup({client,windowRef:popupWindow}),true);
+  // Supabase consumes and clears the callback fragment before emitting auth events.
+  popupWindow.location.hash='';
   listener('SIGNED_IN',session);
   assert.deepEqual(posted,{data:{type:'steadybee-google-sign-in-complete'},origin:'https://steadybee.netlify.app'});
   assert.equal(closed,true);assert.equal(unsubscribed,true);

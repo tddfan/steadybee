@@ -10,10 +10,9 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountPictureStorage } from './picture-storage-view.mjs?v=20261018main2';
-import { mountAccountStorage } from './account-storage.mjs?v=20261018account3';
+import { mountAccountStorage } from './account-storage.mjs?v=20261018journey2';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
-import { mountPlanning } from "./planning-view.mjs?v=20261017review1";
+import { mountPlanning } from "./planning-view.mjs?v=20261018journey2";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
 
@@ -66,7 +65,7 @@ function setTotals() {
 
 const chartColours = ["#1F7A68", "#7C5CBF", "#C58B3B", "#007AFF", "#60A894", "#A18BCD", "#8E8E93", "#CC6600"];
 const chartViews = {
-  owner: { title: "Assets by person", context: "Shared assets count once. Select a person to open their items below." },
+  owner: { title: "Assets by person", context: "Select a category to view its assets." },
   type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
   access: { title: "Assets by access", context: "Access describes when money may generally be available; account and sale rules still apply." },
 };
@@ -759,8 +758,8 @@ function renderDatedEntries(summary) {
       row.addEventListener("click",()=>editFlowEntry(item,side)); column.append(row);
     }
     if (!items.length) column.append(make("p","flow-entry-empty",`No ${title.toLowerCase()} yet.`));
-    const add = make("button","flow-entry-add",`+ Add ${side === "income" ? "income" : "expense"}`); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
-    if(side === "income") { const pay = make("button","flow-entry-add","Pay & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
+    if(side === "income") { const pay = make("button","flow-entry-add","Salary & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
+    const add = make("button","flow-entry-add",side === "income" ? "+ Other income" : "+ Add expense"); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
     if(side === "spending") { const categories = make("button","flow-entry-add","Manage categories"); categories.type="button"; categories.addEventListener("click",()=>openFlowEditor("spending")); column.append(categories); }
     overview.append(column);
   }
@@ -1203,6 +1202,7 @@ $("welcome-form").addEventListener("submit", (event) => {
   const validation = validateDraft(candidate);
   if (!validation.valid) { const field = $(({name:"person-name",age:"person-age",partnerName:"welcome-partner-name",partnerAge:"welcome-partner-age"})[validation.errors[0].path] || "person-age");field.setCustomValidity(validation.errors[0].message);field.reportValidity();return; }
   draft = candidate;
+  const setupUrl=new URL(location.href);setupUrl.searchParams.delete("start");setupUrl.searchParams.delete("example");history.replaceState(null,"",setupUrl);
   mode = "personal";
   $("welcome-screen").hidden = true;
   $("canvas-screen").hidden = false;
@@ -1454,13 +1454,18 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-error").hidden = true;
   $("flow-dated-form").hidden = false;
   if(!$("flow-dated-dialog").open)$("flow-dated-dialog").showModal();
+  syncDatedAmountLabel();
   $("flow-dated-label").focus();
   $("flow-dated-form").scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 $("flow-add-income").addEventListener("click", (event) => showDatedForm("income", null, event.currentTarget));
 $("flow-add-expense").addEventListener("click", (event) => showDatedForm("spending", null, event.currentTarget));
 $("flow-add-state-pension").addEventListener("click",()=>openStatePension("primary"));
+function syncDatedAmountLabel(){
+  $("flow-dated-amount").closest("label").firstChild.textContent=$("flow-dated-side").value==="income"?"Amount received after tax (£)":"Amount paid (£)";
+}
 $("flow-dated-side").addEventListener("change", () => {
+  syncDatedAmountLabel();
   $("flow-dated-form-title").textContent = `${editingFlowEntryId ? "Edit" : "Add"} ${$("flow-dated-side").value === "income" ? "income" : "expense"}`;
 });
 function syncDatedFrequency() {
@@ -1709,7 +1714,8 @@ document.addEventListener("keydown", (event) => {
 });
 $("start-own-button").addEventListener("click", startBlankPicture);
 $("reset-example-button").addEventListener("click", () => {
-  storageController.pause();
+  accountController.detach();
+  const sampleUrl=new URL(location.href);sampleUrl.searchParams.delete("start");sampleUrl.searchParams.set("example","1");history.replaceState(null,"",sampleUrl);
   mode="example";
   planningController.restore(null);
   draft = createPublicDemoHousehold();
@@ -1722,7 +1728,8 @@ $("reset-example-button").addEventListener("click", () => {
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 function startBlankPicture() {
-  storageController.pause();
+  accountController.detach();
+  const setupUrl=new URL(location.href);setupUrl.searchParams.delete("example");setupUrl.searchParams.set("start","own");setupUrl.hash="assets";history.replaceState(null,"",setupUrl);
   showBlankPicture();
   document.dispatchEvent(new Event("picture-updated"));
 }
@@ -1978,21 +1985,13 @@ if(['flow','planning'].includes(location.hash.slice(1)))showScreen(location.hash
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
-function clearStoredTab() {
-  for(const input of document.querySelectorAll('form input,form textarea')){if(input.type==='checkbox' || input.type==='radio')input.checked=false;else input.value='';}
-  draft=createPublicDemoHousehold();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;holdingsOwner="all";
-  planningController.restore(null);syncFlowInputs();render();showScreen('assets');
-}
-const storageController=mountPictureStorage({
-  button:$('picture-storage-button'),
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
-  clearTab:clearStoredTab,
-});
-mountAccountStorage({
+const entryParams=new URLSearchParams(location.search);
+const restoreAccountDefault=entryParams.get('example')!=='1'&&entryParams.get('start')!=='own';
+const accountController=mountAccountStorage({
   button:$('account-button'),
   editPeople:()=>$('edit-profile-button').click(),
-  restoreOnLogin:()=>new URLSearchParams(location.search).get('example')!=='1',
+  startHousehold:startBlankPicture,
+  restoreOnLogin:()=>restoreAccountDefault,
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
   restorePicture:picture=>{
     const section=location.hash.slice(1);
@@ -2009,4 +2008,4 @@ mountAccountStorage({
   },
 });
 
-if(new URLSearchParams(location.search).get('start')==='own'){startBlankPicture();const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);}
+if(new URLSearchParams(location.search).get('start')==='own')startBlankPicture();

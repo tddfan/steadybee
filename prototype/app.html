@@ -5,21 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="steadybee-version" content="development" />
     <meta name="theme-color" content="#f4f1ea" />
-    <title>Your money picture · Steadybee</title>
+    <title>Your household · Steadybee</title>
     <meta name="description" content="Explore a fictional UK household example, then build a picture of what you own and owe." />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=4" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=4" />
     <link rel="manifest" href="./manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./asset-canvas.css?v=20261018main1" />
-    <link rel="stylesheet" href="./finance-theme.css?v=20261017profile1" />
-    <script type="module" src="./asset-canvas.mjs?v=20261018account5"></script>
+    <link rel="stylesheet" href="./finance-theme.css?v=20261018journey2" />
+    <script type="module" src="./asset-canvas.mjs?v=20261018journey2"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
     <div class="site-shell">
       <header class="site-header">
         <a class="wordmark" href="./index.html" target="_blank" rel="noopener" aria-label="About Steadybee (opens in a new tab)"><span class="brand-mark" aria-hidden="true">✳</span> steadybee<span class="brand-dot">.</span></a>
-        <div class="header-saving"><span id="picture-save-status" class="picture-save-status" role="status">Example · not saved</span><button id="account-button" class="storage-button account-button" type="button">Sign in</button><button id="picture-storage-button" class="storage-button" type="button">Encrypted backup</button></div>
+        <div class="header-saving"><span id="picture-save-status" class="picture-save-status" role="status">Example · not saved</span><button id="account-button" class="storage-button account-button" type="button">Sign in</button></div>
       </header>
 
       <main id="main">
@@ -38,13 +38,13 @@
               <details id="welcome-partner" class="welcome-partner"><summary>Add a partner</summary><div class="welcome-partner-fields"><div class="form-field"><label for="welcome-partner-name">Partner’s name</label><input id="welcome-partner-name" type="text" maxlength="60" /></div><div class="form-field"><label for="welcome-partner-age">Partner’s age <span class="optional">Optional</span></label><input id="welcome-partner-age" type="number" min="18" max="120" step="1" inputmode="numeric" /></div></div></details>
               <button id="start-button" class="button button-primary" type="submit">Continue <span aria-hidden="true">→</span></button>
             </form>
-            <p class="privacy-note">Sign in to save a cloud copy and reopen it on another device. Cloud saving is not end-to-end encrypted; encrypted backups stay available in Save picture.</p>
+            <p class="privacy-note">Sign in to save your household and return on another device.</p>
           </div>
 
         </section>
 
         <section id="canvas-screen" class="canvas-screen" aria-labelledby="canvas-title" hidden>
-          <nav class="picture-steps" aria-label="Your picture sections"><span class="picture-step is-current" aria-current="step"><span>1</span> Assets &amp; debt</span><span class="step-connector" aria-hidden="true"></span><button id="step-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><button id="assets-to-planning" class="picture-step" type="button"><span>3</span> Planning</button></nav>
+          <nav class="picture-steps" aria-label="Your household sections"><span class="picture-step is-current" aria-current="step"><span>1</span> Assets &amp; debt</span><span class="step-connector" aria-hidden="true"></span><button id="step-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><button id="assets-to-planning" class="picture-step" type="button"><span>3</span> Planning</button></nav>
           <div class="canvas-heading">
             <div>
               <p class="eyebrow" hidden><span id="example-badge">Fictional example</span></p>
@@ -53,7 +53,7 @@
             </div>
             <div class="canvas-heading-actions">
               <details class="heading-utilities">
-                <summary aria-label="More picture actions"><span class="more-label">More</span><span class="more-icon" aria-hidden="true">⋯</span></summary>
+                <summary aria-label="More household actions"><span class="more-label">More</span><span class="more-icon" aria-hidden="true">⋯</span></summary>
                 <div class="heading-utility-menu">
                   <button id="start-own-button" class="heading-utility" type="button">Start my own</button>
                   <button id="reset-example-button" class="heading-utility" type="button">Reset example</button>
@@ -106,7 +106,7 @@
 
         </section>
         <section id="flow-screen" class="flow-screen" aria-labelledby="flow-title" hidden>
-          <nav class="picture-steps" aria-label="Your picture sections"><button id="step-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>2</span> Income &amp; spending</span><span class="step-connector" aria-hidden="true"></span><button id="flow-to-planning" class="picture-step" type="button"><span>3</span> Planning</button></nav>
+          <nav class="picture-steps" aria-label="Your household sections"><button id="step-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>2</span> Income &amp; spending</span><span class="step-connector" aria-hidden="true"></span><button id="flow-to-planning" class="picture-step" type="button"><span>3</span> Planning</button></nav>
           <div class="flow-page-toolbar"><div class="flow-heading"><h1 id="flow-title" tabindex="-1">Income &amp; spending</h1></div>
           <section class="flow-timeline" aria-label="Income and spending timeline">
             <div class="flow-timeline-heading"><label for="flow-month"><span class="flow-month-label visually-hidden">View month</span><input id="flow-month" aria-label="View month" type="month" /></label><output id="flow-selected-month" hidden></output><button id="flow-timeline-now" type="button">Now</button><button id="flow-date-mode" class="date-mode-button" type="button" aria-expanded="false" aria-controls="flow-time-track">Timeline</button></div>
@@ -165,7 +165,7 @@
                 <label>Start month <span id="flow-dated-start-hint" class="optional">Optional</span><input id="flow-dated-start" type="month" /></label>
                 <label id="flow-dated-end-row">End month <span class="optional">Optional</span><input id="flow-dated-end" type="month" /></label>
               </div>
-              <p class="flow-dated-help">Set a future start month to plan ahead. Leave the end month blank for an ongoing entry. Yearly amounts appear as monthly averages. Enter income after tax.</p>
+              <p class="flow-dated-help">Use Salary &amp; pensions for pay that stops at retirement. Other income continues until its end month. Yearly amounts appear as monthly averages.</p>
               <p id="flow-dated-error" class="form-error" role="alert" hidden></p>
               <div class="flow-dated-form-actions"><button id="flow-dated-delete" class="text-button text-button-danger" type="button" hidden>Remove entry</button><button id="flow-dated-cancel" class="heading-action heading-action-secondary" type="button">Cancel</button><button class="button button-primary" type="submit">Save entry</button></div>
             </form>
@@ -187,7 +187,7 @@
           <div class="flow-next-planning"><button id="continue-planning" class="button button-primary" type="button">Planning →</button></div>
           <details class="flow-method-note"><summary>About these figures</summary><p class="flow-caveat">Illustration, not advice. Current rules, subject to change. Future months use entered amounts in today’s pounds; no inflation, income growth, investment returns or future tax changes are applied. Mortgage end dates use the entered remaining term and assume it does not change.</p></details>
         </section>
-        <section id="planning-screen" class="planning-screen" aria-labelledby="planning-title" hidden><nav class="picture-steps" aria-label="Your picture sections"><button id="planning-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><button id="planning-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>3</span> Planning</span></nav><div class="planning-heading"><h1 id="planning-title" tabindex="-1">Explore your future.</h1></div><div id="planning-content"></div></section>
+        <section id="planning-screen" class="planning-screen" aria-labelledby="planning-title" hidden><nav class="picture-steps" aria-label="Your household sections"><button id="planning-to-assets" class="picture-step" type="button"><span>1</span> Assets &amp; debt</button><span class="step-connector" aria-hidden="true"></span><button id="planning-to-flow" class="picture-step" type="button"><span>2</span> Income &amp; spending</button><span class="step-connector" aria-hidden="true"></span><span class="picture-step is-current" aria-current="step"><span>3</span> Planning</span></nav><div class="planning-heading"><h1 id="planning-title" tabindex="-1">Explore your future.</h1></div><div id="planning-content"></div></section>
       </main>
 
       <footer class="site-footer"><span>Steadybee · A working prototype</span><span>Illustration, not advice</span></footer>
@@ -305,7 +305,7 @@
 
     <dialog id="clear-dialog" class="form-dialog small-dialog" aria-labelledby="clear-dialog-title">
       <div class="dialog-heading"><h2 id="clear-dialog-title">Clear your picture?</h2><button id="close-clear-button" class="icon-button" type="button" aria-label="Keep my entries">×</button></div>
-      <p id="clear-dialog-description" class="dialog-intro">This clears this tab’s picture and stops saving. An encrypted device copy is kept until you delete it in saving options.</p>
+      <p id="clear-dialog-description" class="dialog-intro">This starts a blank household in this tab. Your saved account versions stay available in Account.</p>
       <div class="dialog-actions"><button id="cancel-clear-button" class="button button-secondary" type="button">Keep my entries</button><button id="confirm-clear-button" class="button button-danger" type="button">Clear everything</button></div>
     </dialog>
     <p id="live-message" class="visually-hidden" role="status" aria-live="polite"></p>

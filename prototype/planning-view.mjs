@@ -1,4 +1,5 @@
-import { mountExperiments } from './experiments-view.mjs?v=20261017save3';
+import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261017demo6';
+import { mountExperiments } from './experiments-view.mjs?v=20261018journey2';
 import {startingPictureKey} from './planning-review.mjs?v=20261017review1';
 import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261017save3';
 import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261017save3';
@@ -134,7 +135,7 @@ export function mountPlanning(root,getInputs) {
   const fundingComparison=el('section','plan-funding-comparison');fundingComparison.setAttribute('aria-label','Compare withdrawal orders');mainColumn.append(fundingComparison);fundingComparison.append($('plan-compare'));
   const outcomes=mountOutcomes(mainColumn,inspector,()=>{const {flow,holdings}=getInputs();return {flow,holdings,options:scenario};});
   const savedExperiments=mountExperiments(root,{getState:workingState,loadState:state=>restore({...state,experiments},{review:false}),getEntries:()=>experiments,setEntries:entries=>{experiments=entries;},getInputs});
-  root.querySelector('.plan-adjust-row').append(method);
+  toolbar.append(method);
   const sheetBackdrop=el('div','plan-sheet-backdrop');sheetBackdrop.setAttribute('aria-hidden','true');root.append(sheetBackdrop);
   const sheet=$('plan-controls'),handle=root.querySelector('.plan-sheet-handle');
   function syncSheetSemantics(){const modal=matchMedia('(max-width:767px)').matches && root.classList.contains('plan-controls-open');if(modal){sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','Your scenario');sheet.setAttribute('aria-modal','true');}else{sheet.removeAttribute('role');sheet.removeAttribute('aria-modal');}}
@@ -345,11 +346,11 @@ export function mountPlanning(root,getInputs) {
   const monthLabel=month=>new Date(`${month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'});
   function renderReadiness(flow,holdings) {
     const owners=holdings.partnerName ? ['primary','partner'] : ['primary'];
-    const budget=Object.values(flow.spending).reduce((sum,value)=>sum+value,0)+(flow.customSpending || []).reduce((sum,item)=>sum+item.amount,0);
+    const budget=summarizeMonthlyFlow(flow,holdings).spendingTotal;
     const checks=[
       ['People',owners.map(owner=>`${name(owner,holdings)}${Number.isFinite(owner==='primary' ? holdings.age : holdings.partnerAge) ? `, ${owner==='primary' ? holdings.age : holdings.partnerAge}` : ' · age missing'}`).join(' / ')],
-      ['Assets & debt',`${holdings.assets.length} assets · ${holdings.debts.length} debt${holdings.debts.length===1?'':'s'}. Check balances, ownership and repayments.`],
-      ['Regular budget',budget>0 ? `${currency(budget)}/month, before separate debt payments and scheduled costs.` : 'No regular budget entered. Check whether this is intentional.'],
+      ['Assets & debt',`${holdings.assets.length} asset${holdings.assets.length===1?'':'s'} · ${holdings.debts.length} debt${holdings.debts.length===1?'':'s'}. Check balances, ownership and repayments.`],
+      ['Spending',budget>0 ? `${currency(budget)} in ${monthLabel(flow.asOfMonth)}, including active entries and linked payments.` : `No spending entered for ${monthLabel(flow.asOfMonth)}. Check whether this is intentional.`],
       ['Pay & pension income','Check amounts, start/end dates and whether each figure is before or after tax.'],
       ['Pension access',holdings.assets.some(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge)?`${holdings.assets.filter(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge).length} pension pots without a recorded access age.`:holdings.assets.some(asset=>asset.kind==='dc-pension')?'Access ages recorded for all pension pots.':'No pension pots entered.']
     ];

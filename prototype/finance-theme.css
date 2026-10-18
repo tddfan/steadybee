@@ -701,7 +701,7 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
 .flow-routing-split .flow-percent-input input { width:76px; }
 @media(max-width:639px){.experiments-heading { top:-18px; }.experiments-heading h2 { font-size:22px; }}
 .plan-funding-comparison .plan-compare>h2 { margin:0 0 18px; font-size:21px; letter-spacing:-.025em; }
-.plan-adjust-row .plan-method { display:flex; justify-content:flex-end; align-items:center; margin:0; padding:0; border:0; background:transparent; box-shadow:none; }
+.plan-toolbar .plan-method { flex:none; display:flex; justify-content:flex-end; align-items:center; margin:0; padding:0; border:0; background:transparent; box-shadow:none; }
 .plan-info-button { display:grid; place-items:center; width:32px; height:32px; padding:0; border:1px solid transparent; border-radius:50%; background:transparent; color:var(--text-tertiary); cursor:pointer; }
 .plan-info-button:hover,.plan-info-button:focus-visible { border-color:var(--border-hairline); background:var(--bg-card); color:var(--accent-primary); }
 .plan-info-button svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
@@ -718,3 +718,17 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
 .plan-dialog-actions { display:flex; align-items:center; gap:12px; padding-top:16px; border-top:1px solid var(--border-hairline); }
 #plan-export-status { color:var(--text-secondary); font-size:13px; }
 @media(max-width:767px) { .plan-method-dialog { width:calc(100% - 20px); max-height:90vh; padding:18px; border-radius:18px; } .plan-method-dialog #plan-method-body { grid-template-columns:1fr; } .plan-dialog-actions { align-items:stretch; flex-direction:column; } }
+
+/* Keep the calculation icon beside the heading, without a spare mobile grid row. */
+.plan-adjust-row { background:transparent; }
+.plan-toolbar .plan-method .plan-info-button { width:36px; height:44px; }
+
+.account-example-notice { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; padding:14px 18px; margin:0 0 18px; border:1px solid var(--border-card); border-radius:var(--radius-bento); background:var(--bg-card); color:var(--text-secondary); font-size:14px; }
+.account-example-notice[hidden] { display:none; }
+.account-example-notice .button { min-height:40px; padding:8px 14px; font-size:14px; }
+@media(max-width:639px) { .account-example-notice { align-items:stretch; } .account-example-notice .button { width:100%; } }
+@media(max-width:639px) {
+  .plan-toolbar { position:relative; }
+  .plan-toolbar .planning-heading { padding-right:32px; }
+  .plan-toolbar .plan-method { position:absolute; top:0; right:0; }
+}
