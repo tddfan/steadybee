@@ -1,5 +1,5 @@
-import {calculateEstate,estateDefaults,validateEstateSettings,equalChildren,estateOwnership,estateOwnedValue,RELATIONSHIPS} from './inheritance.mjs?v=20261022insights1';
-import {projectPlan} from './planning.mjs?v=20261022insights1';
+import {calculateEstate,estateDefaults,validateEstateSettings,equalChildren,estateOwnership,estateOwnedValue,RELATIONSHIPS} from './inheritance.mjs?v=20261022insights2';
+import {projectPlan} from './planning.mjs?v=20261022insights2';
 import {ASSET_TYPES,DEBT_TYPES} from './asset-ledger.mjs?v=20261022cashflow2';
 import {formatGroupedNumberInputs,groupedNumberValue} from './grouped-number-input.mjs?v=20261022grouped1';
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;};

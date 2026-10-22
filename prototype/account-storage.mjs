@@ -1,5 +1,5 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
-import {validatePicture} from './picture-storage.mjs?v=20261022insights1';
+import {validatePicture} from './picture-storage.mjs?v=20261022insights2';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 import {startGoogleSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261018google2';
 
@@ -332,5 +332,5 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   document.addEventListener('picture-updated',scheduleCloudSave);
   getClient().then(async()=>{const {data}=await client.auth.getSession();setUser(data.session?.user||null);}).catch(()=>{});
   renderSession();
-  return {open:openAccount,detach(){householdGeneration++;clearTimeout(timer);cloudEnabled=false;activePictureId=null;activePictureName='';cloudUpdatedAt='';lastSaved='';setStatus('Not saved · save a version in Account');}};
+  return {open:openAccount,async analysisToken(){await getClient();const {data,error}=await client.auth.getSession();if(error || !data.session)throw new Error('Sign in to request AI review.');return data.session.access_token;},detach(){householdGeneration++;clearTimeout(timer);cloudEnabled=false;activePictureId=null;activePictureName='';cloudUpdatedAt='';lastSaved='';setStatus('Not saved · save a version in Account');}};
 }

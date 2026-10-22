@@ -1,5 +1,5 @@
 /** User-directed drawdown illustration; current tax assumptions, not an optimal strategy. */
-import {taxYearFor} from './planning-tax.mjs?v=20261022insights1';
+import {taxYearFor} from './planning-tax.mjs?v=20261022insights2';
 import { capitalGainsTax, incomeTaxWithSavings } from './investment-tax.mjs?v=20261015coverage6';
 const round=value=>Math.round(value*100)/100;
 export const WITHDRAWAL_ORDERS=Object.freeze({

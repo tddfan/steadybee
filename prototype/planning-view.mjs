@@ -1,13 +1,13 @@
-import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261022insights1';
-import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights1';
+import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261022insights2';
+import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights2';
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from './grouped-number-input.mjs?v=20261022grouped1';
-import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261022insights1';
-import { mountExperiments } from './experiments-view.mjs?v=20261022insights1';
+import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261022insights2';
+import { mountExperiments } from './experiments-view.mjs?v=20261022insights2';
 import {startingPictureKey} from './planning-review.mjs?v=20261017review1';
-import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261022insights1';
-import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261022insights1';
+import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261022insights2';
+import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261022insights2';
 import { planHorizon, summarizeCoverage, agesAt } from './coverage.mjs?v=20261016layout2';
-import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261022insights1';
+import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261022insights2';
 import {saveExperiment} from './scenario-library.mjs?v=20261017save3';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!=null)node.textContent=text;return node;};

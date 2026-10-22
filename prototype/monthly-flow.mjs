@@ -1,7 +1,7 @@
 /** Present-day monthly cash flow. Optional user-directed routing is a single-month illustration, not a forecast. */
-import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022insights1";
-import { employeeNIExempt } from "./planning-tax.mjs?v=20261022insights1";
-import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs?v=20261022insights1";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022insights2";
+import { employeeNIExempt } from "./planning-tax.mjs?v=20261022insights2";
+import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs?v=20261022insights2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 
 export const INCOME_FIELDS = Object.freeze([

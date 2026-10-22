@@ -1,6 +1,6 @@
 /** Deterministic findings and bounded experiments. No AI or account writes. */
-import {projectPlan} from './planning.mjs?v=20261022insights1';
-import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights1';
+import {projectPlan} from './planning.mjs?v=20261022insights2';
+import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights2';
 export const INSIGHT_GOALS=Object.freeze({security:'Spending security',retirement:'Earlier retirement',legacy:'Future assets'});
 export const INSIGHT_RECIPES=Object.freeze({
   spendLess:{title:'Spend 5% less after retirement',tradeoff:'Reduces regular household spending, including existing spending phases. Debt payments and separately scheduled costs stay unchanged.'},
@@ -51,7 +51,12 @@ export function createInsightPreview(flow,holdings,scenario,recipe,baseline=null
   const candidate=insightScenario(flow,holdings,scenario,recipe),before=baseline || projectPlan(flow,holdings,scenario),after=projectPlan(flow,holdings,candidate);
   if(before.endMonth!==after.endMonth)throw new Error('The experiment must use the same comparison horizon.');
   const summary=insightSummary(before),trial=insightSummary(after);
-  return {recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest};
+  // Compare the whole path: identical end balances can conceal earlier changes.
+  const measures=['householdSpending','taxTotal','incomeTotal','assetsTotal','debtsTotal','unfunded','pensionContributions'];
+  const changed=after.months.some((row,index)=>measures.some(key=>Math.abs((row[key] || 0)-(before.months[index]?.[key] || 0))>=.01));
+  const spendingYear=recipe==='spendLess' ? candidate.spendingChanges.find(item=>!scenario.spendingChanges?.some(old=>old.year===item.year && old.percent===item.percent))?.year : null;
+  const noChangeReason=changed ? '' : recipe==='spendLess' ? 'No regular spending changes within this plan. Check your regular budget and retirement dates; debt payments and dated costs are excluded.' : 'This experiment has no effect on the modelled monthly results.';
+  return {changed,noChangeReason,spendingYear,recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest};
 }
 export function buildInsights(flow,holdings,scenario,projection,goal='security'){
   if(!Object.hasOwn(INSIGHT_GOALS,goal))throw new Error('Choose a supported goal.');

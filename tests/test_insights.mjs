@@ -56,3 +56,9 @@ test('goals reorder experiments, settings save with household versions, and inva
  const picture={version:1,holdings,flow,planning:{scenario,metric:'income',group:'person',style:'bars',real:true},insights:{version:1,goal:'legacy'}};
  assert.deepEqual(validatePicture(picture).insights,picture.insights);assert.throws(()=>validateInsightSettings({version:1,goal:'guaranteed'}),/Insights/);assert.equal(Object.keys(INSIGHT_RECIPES).length,6);
 });
+test('no-effect previews inspect monthly paths, and explain an empty regular budget',()=>{
+ const {flow,holdings,scenario}=setup();flow.spending.everyday=0;
+ const empty=createInsightPreview(flow,holdings,scenario,'spendLess');assert.equal(empty.changed,false);assert.match(empty.noChangeReason,/regular spending/);
+ flow.spending.everyday=1000;const changed=createInsightPreview(flow,holdings,scenario,'spendLess');assert.equal(changed.changed,true);
+ const later=createInsightPreview(flow,holdings,{...scenario,years:1,retirementYears:{primary:2050}},'spendLess');assert.equal(later.changed,false);
+});
