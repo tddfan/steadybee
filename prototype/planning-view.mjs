@@ -1,13 +1,14 @@
-import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261022couple1';
-import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022couple1';
+import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261022insights1';
+import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights1';
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from './grouped-number-input.mjs?v=20261022grouped1';
-import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261022couple1';
-import { mountExperiments } from './experiments-view.mjs?v=20261022couple1';
+import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261022insights1';
+import { mountExperiments } from './experiments-view.mjs?v=20261022insights1';
 import {startingPictureKey} from './planning-review.mjs?v=20261017review1';
-import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261022couple1';
-import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261022couple1';
+import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261022insights1';
+import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261022insights1';
 import { planHorizon, summarizeCoverage, agesAt } from './coverage.mjs?v=20261016layout2';
-import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261022couple1';
+import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261022insights1';
+import {saveExperiment} from './scenario-library.mjs?v=20261017save3';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!=null)node.textContent=text;return node;};
 const currency=value=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(value);
@@ -604,11 +605,22 @@ export function mountPlanning(root,getInputs) {
   $('plan-savings-destination').addEventListener('change',event=>{scenario.savingsDestination=event.target.value;refresh();});
   $('plan-withdrawal-order').addEventListener('change',event=>{scenario.withdrawalOrder=event.target.value;refresh();});
   $('plan-adjust').addEventListener('click',()=>{const open=root.classList.toggle('plan-controls-open');$('plan-adjust').setAttribute('aria-expanded',String(open));$('plan-adjust').textContent=open ? 'Done' : 'Adjust scenario';syncSheetSemantics();renderChart(getInputs().holdings);if(open){if(matchMedia('(max-width:767px)').matches)window.scrollTo({top:window.scrollY+$('plan-chart').getBoundingClientRect().top-150,behavior:'instant'});else $('plan-controls').scrollIntoView({block:'nearest'});$('plan-controls').querySelector('input')?.focus({preventScroll:true});}else{$('plan-comparison').scrollIntoView({block:'nearest'});$('plan-adjust').focus({preventScroll:true});}});
-  $('plan-undo').addEventListener('click',()=>{if(!history.length)return;scenario=JSON.parse(history.pop());lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;syncControls();refresh();});
+  function undoScenario(){if(!history.length)return;scenario=JSON.parse(history.pop());lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;syncControls();refresh();}
+  $('plan-undo').addEventListener('click',undoScenario);
   $('plan-reset').addEventListener('click',()=>{editGroup++;scenario={years:scenario.years,planToAge:scenario.planToAge ?? 95,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(projection && !root.closest('[hidden]'))renderChart(getInputs().holdings);},100);});
-  function workingState(){return structuredClone({scenario,metric,group,style,real,taxCumulative,selectedYear,reviewedInputs:confirmedKey,outcomes:outcomes.snapshot()});}
+  function workingState(){const {flow,holdings}=getInputs();const resolved={...scenario,retirementYears:resolveRetirementYears(flow,holdings,scenario.retirementYears)};return structuredClone({scenario:resolved,metric,group,style,real,taxCumulative,selectedYear,reviewedInputs:confirmedKey,outcomes:outcomes.snapshot()});}
   function snapshot(){return {...workingState(),experiments:structuredClone(experiments)};}
   function restore(value,{review=true}={}){experiments=structuredClone(value?.experiments || []);outcomes.restore(value?.outcomes);savedExperiments.refresh();showBaseline=false;$('plan-show-baseline').checked=false;root.classList.remove('plan-controls-open');syncSheetSemantics();$('plan-adjust').setAttribute('aria-expanded','false');$('plan-adjust').textContent='Adjust scenario';restoredNeedsReview=Boolean(value)&&review;scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});taxCumulative=value?.taxCumulative ?? false;metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=review?(value?.reviewedInputs||null):confirmedKey;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
-  return {refresh,snapshot,restore};
+  function applyScenario(value){
+    const input=getInputs();projectPlan(input.flow,input.holdings,value);
+    const previous=JSON.stringify(scenario),earlier=[...history];scenario=structuredClone(value);syncControls();
+    lastSnapshot=JSON.stringify(scenario);refresh();history=[...earlier,previous].slice(-40);lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;
+    $('plan-undo').disabled=false;$('plan-undo').hidden=false;
+  }
+  function saveScenario(name,value){
+    const input=getInputs();projectPlan(input.flow,input.holdings,value);
+    experiments=saveExperiment(experiments,name,{...workingState(),scenario:structuredClone(value)});savedExperiments.refresh();document.dispatchEvent(new Event('picture-updated'));
+  }
+  return {refresh,snapshot,restore,applyScenario,undoScenario,saveScenario};
 }

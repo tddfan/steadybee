@@ -6,6 +6,8 @@ Implementation update: the [first Tax reporting delivery](2026-10-22-tax-reporti
 
 Further delivery: [Inheritance is now implemented](2026-10-22-inheritance-delivery.md) as a validated single-person current/projected estate snapshot with beneficiary distribution. Retirement defaults and savings-interest reconciliation have also been corrected. Insights and optional AI remain next; the historical audit below is not a list of current unfixed defects.
 
+Latest: [couple estate routes](2026-10-22-couple-inheritance.md) and [deterministic Insights](2026-10-22-insights-delivery.md) are implemented. Optional AI remains a later delivery. Couple scenarios explicitly hold values fixed between death dates rather than claiming survivor cash-flow projections.
+
 ## Recommended delivery order
 
 1. Correct and reconcile the tax calculations.

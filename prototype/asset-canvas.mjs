@@ -9,12 +9,13 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs?v=20261022cashflow2";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022couple1";
-import { mountAccountStorage } from './account-storage.mjs?v=20261022couple1';
-import {removePartnerFromPicture} from './household-profile.mjs?v=20261022couple1';
-import { mountInheritance } from "./inheritance-view.mjs?v=20261022couple1";
-import { mountPlanning } from "./planning-view.mjs?v=20261022couple1";
-import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022couple1";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022insights1";
+import { mountAccountStorage } from './account-storage.mjs?v=20261022insights1';
+import {removePartnerFromPicture} from './household-profile.mjs?v=20261022insights1';
+import {mountInsights} from "./insights-view.mjs?v=20261022insights1";
+import { mountInheritance } from "./inheritance-view.mjs?v=20261022insights1";
+import { mountPlanning } from "./planning-view.mjs?v=20261022insights1";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022insights1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 
@@ -34,6 +35,7 @@ let draft = createPublicDemoHousehold();
 let flowDraft = createExampleMonthlyFlow();
 let planningController = null;
 let inheritanceController = null;
+let insightsController = null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -1099,11 +1101,13 @@ function showScreen(screen, {updateHistory=true} = {}) {
   $("flow-screen").hidden = screen !== "flow";
   $("planning-screen").hidden = screen !== "planning";
   $("inheritance-screen").hidden = screen !== "inheritance";
+  $("insights-screen").hidden = screen !== "insights";
+  if(screen==="insights")insightsController?.refresh();
   if(screen==="inheritance")inheritanceController?.refresh();
   if (screen === "flow" || screen === "planning") {
     renderFlow();
   }
-  (screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
+  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
   revealCurrentSection();
 }
@@ -1783,6 +1787,7 @@ $("reset-example-button").addEventListener("click", () => {
   draft = createPublicDemoHousehold();
   flowDraft = createExampleMonthlyFlow();
   inheritanceController.restore(null);
+  insightsController.restore(null);
   syncFlowInputs();
   chartSelection = null;
   holdingsOwner = "all";
@@ -1801,6 +1806,8 @@ function showBlankPicture() {
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
   inheritanceController?.restore(null);
+  insightsController?.restore(null);
+  $("insights-screen").hidden=true;
   $("inheritance-screen").hidden=true;
   syncFlowInputs();
   mode = "personal";
@@ -2046,15 +2053,18 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 
 setupFlowInputs();
 inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
+insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}),{showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
+document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
+$("insights-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
 $("inheritance-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance'].includes(section))showScreen(section,{updateHistory:false});});
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
 
-if(['flow','planning','inheritance'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+if(['flow','planning','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
@@ -2065,12 +2075,12 @@ const accountController=mountAccountStorage({
   editPeople:()=>$('edit-profile-button').click(),
   startHousehold:startBlankPicture,
   restoreOnLogin:()=>restoreAccountDefault,
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot()}),
+  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot()}),
   restorePicture:picture=>{
     const section=location.hash.slice(1);
     draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode='personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance'].includes(section)?section:'assets');
-    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('welcome-screen').hidden=false;}
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets');
+    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');
   },
   onEmpty:({forceReset=false}={})=>{

@@ -1,8 +1,8 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022couple1';
-import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022couple1';
-import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022couple1';
-import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022couple1';
+import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022insights1';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022insights1';
+import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022insights1';
+import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022insights1';
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
 import { savingsTax, capitalGainsTax } from './investment-tax.mjs?v=20261015coverage6';
 import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
