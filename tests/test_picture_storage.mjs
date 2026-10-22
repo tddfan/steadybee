@@ -15,3 +15,11 @@ test('empty, unfinished personal facts can be saved and secrets require a useful
 test('retirement stress switch validates on saved scenario import',()=>{const p=picture();assert.equal(validatePicture(p).planning.scenario.retirementStress,true);p.planning.scenario.retirementStress='yes';assert.throws(()=>validatePicture(p),/switch/);});
 test('encrypted pictures preserve named scenarios and simulation settings, while old pictures stay valid',async()=>{const p=picture();p.planning.outcomes={volatility:15,paths:100};p.planning.experiments=[{id:'retire-60',name:'Retire at 60',createdAt:'2026-10-17T00:00:00.000Z',state:structuredClone(p.planning)}];const protection=await createProtection(password),encrypted=await encryptPicture(p,protection);assert.ok(!encrypted.includes('Retire at 60'));assert.deepEqual((await decryptPicture(encrypted,password)).picture,p);assert.equal(validatePicture(picture()).version,1);});
 test('imports reject malformed or nested scenario libraries and invalid simulation settings',()=>{const p=picture(),state=structuredClone(p.planning);p.planning.experiments=[{id:'a',name:'A',createdAt:'2026-10-17T00:00:00.000Z',state}];assert.equal(validatePicture(p).planning.experiments.length,1);p.planning.experiments[0].state.experiments=[];assert.throws(()=>validatePicture(p),/scenario/);delete p.planning.experiments;p.planning.outcomes={volatility:90,paths:100};assert.throws(()=>validatePicture(p),/simulation/);});
+
+test('Tax view and cumulative setting survive saved versions, while calculation-only overrides are rejected',()=>{
+ const p=picture();p.planning.metric='tax';p.planning.taxCumulative=true;
+ p.flow.pay.primary.niExemptFrom='2050-04';
+ const restored=validatePicture(p);assert.equal(restored.planning.metric,'tax');assert.equal(restored.planning.taxCumulative,true);assert.equal(restored.flow.pay.primary.niExemptFrom,'2050-04');
+ p.planning.taxCumulative='yes';assert.throws(()=>validatePicture(p),/tax display/);p.planning.taxCumulative=true;
+ p.flow.taxOverrides={primary:{employmentTax:0}};assert.throws(()=>validatePicture(p),/overrides/);
+});

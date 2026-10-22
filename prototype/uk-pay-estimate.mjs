@@ -16,7 +16,8 @@ function rate(value, label) {
 }
 const band = (amount, lower, upper) => Math.max(0, Math.min(amount, upper) - lower);
 
-export function estimateUkTakeHome2026({ baseSalary = 0, bonus = 0, employeePensionAmount = 0, employeePensionRate = 0, employerPensionAmount = 0, employerPensionRate = 0 }) {
+export function estimateUkTakeHome2026({ baseSalary = 0, bonus = 0, employeePensionAmount = 0, employeePensionRate = 0, employerPensionAmount = 0, employerPensionRate = 0, employeeNIExempt = false }) {
+  if (typeof employeeNIExempt !== "boolean") throw new RangeError("NI exemption must be true or false.");
   money(baseSalary, "Base salary"); money(bonus, "Bonus");
   money(employeePensionAmount, "Employee pension amount"); money(employerPensionAmount, "Employer pension amount");
   rate(employeePensionRate, "Employee pension rate"); rate(employerPensionRate, "Employer pension rate");
@@ -30,7 +31,7 @@ export function estimateUkTakeHome2026({ baseSalary = 0, bonus = 0, employeePens
   const personalAllowance = roundMoney(Math.max(0, 12570 - Math.max(0, adjustedIncome - 100000) / 2));
   const taxableIncome = Math.max(0, adjustedIncome - personalAllowance);
   const incomeTax = roundMoney(band(taxableIncome, 0, 37700) * .2 + band(taxableIncome, 37700, 125140) * .4 + Math.max(0, taxableIncome - 125140) * .45);
-  const employeeNI = roundMoney(band(grossPay, 12570, 50270) * .08 + Math.max(0, grossPay - 50270) * .02);
+  const employeeNI = employeeNIExempt ? 0 : roundMoney(band(grossPay, 12570, 50270) * .08 + Math.max(0, grossPay - 50270) * .02);
   const takeHome = roundMoney(grossPay - employeePension - incomeTax - employeeNI);
   return { grossPay, employeePension, employerPension, personalAllowance, incomeTax, employeeNI, takeHome };
 }

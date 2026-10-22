@@ -1,7 +1,8 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022cashflow2';
-import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022cashflow2';
-import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261015coverage6';
+import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022tax2';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022tax2';
+import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022tax2';
+import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022tax2';
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
 import { savingsTax } from './investment-tax.mjs?v=20261015coverage6';
 import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
@@ -64,7 +65,7 @@ export function projectPlan(flow, holdings, options = {}) {
       source.pay[owner].endDate=`${year}-${source.pay[owner].endDate?.slice(5) || '12'}`;
     }
   }
-  const warnings=['Tax estimates use 2026–27 England/Wales/NI rates and thresholds, held fixed in future years. Income and interest are annualised at each month’s level; this is not a tax-year reconciliation. General-account growth is capital appreciation only; dividends, capital losses and rental-income tax are not modelled.'];
+  const warnings=['Tax estimates use 2026–27 England/Wales/NI rates and thresholds, held fixed in future years. Recurring pay and State Pension tax use a forecast tax year when their basis is known; pension withdrawals accumulate across that year. Cash-interest tax remains annualised monthly. This is not a full tax return. General-account growth is capital appreciation only; dividends, capital losses and rental-income tax are not modelled.'];
   if(Object.values(source.pay).some(pay=>pay.annualTakeHome>0 && !pay.annualGross))warnings.push('Take-home-only pay has no known gross taxable income: tax estimates exclude that pay. Enter gross pay for income-band estimates.');
   const statePensions={};
   source.statePensions ||= {};
@@ -122,6 +123,16 @@ export function projectPlan(flow, holdings, options = {}) {
     }
     return result;
   }
+  const taxForecasts=new Map();source.hasPartner=Boolean(holdings.partnerName);
+  const forecastFor=month=>{const year=taxYearFor(month);if(!taxForecasts.has(year))taxForecasts.set(year,forecastTaxYear(source,statePensions,startMonth,year,{incomeGrowth,inflation,statePensionUprating:options.statePensionUprating!==false}));return taxForecasts.get(year);};
+  const taxLimitations=[];
+  if(Object.values(source.pay).some(pay=>pay.annualTakeHome>0))taxLimitations.push('Tax paid within entered take-home pay is unknown and excluded from the reported tax total.');
+  if(source.income.pensionIncome>0)taxLimitations.push('Regular private pension income has no recorded person/gross-net basis; its tax is not included.');
+  if(source.income.otherIncome>0 || source.datedEntries.some(item=>item.side==='income') || (source.includeLinkedRent && holdings.assets.some(asset=>asset.monthlyRent>0)))taxLimitations.push('Tax on other income, dated income, dividends and rent is not modelled.');
+  if(Object.values(source.statePensions || {}).some(input=>input?.otherTaxableIncome>0))taxLimitations.push('Other taxable income affects tax bands but its own tax is not included.');
+  if(!startMonth.endsWith('-04'))taxLimitations.push('Opening tax year: earlier recurring income is assumed at the opening rate. Prior tax paid and earlier withdrawals/gains are unknown.');
+  if((holdings.partnerName ? ['primary','partner'] : ['primary']).some(owner=>!Number.isFinite(ages[owner])))taxLimitations.push('NI exemption timing is unknown where age is missing.');
+  warnings.push('Pension drawdown uses cumulative taxable withdrawals in each April–March tax year, with forecast recurring income. Cash-interest tax remains an annualised monthly estimate; tax-year boundaries use whole months. NI age inferred from age is approximate; an entered NI exemption month takes precedence.',...taxLimitations);
   for(let index=0;index<years*12;index++) {
     const month=monthAt(startMonth,index), elapsed=index/12, deflator=(1+inflation/100)**((index+1)/12);
     if(stressTest && month===stressMonth){
@@ -141,11 +152,20 @@ export function projectPlan(flow, holdings, options = {}) {
     current.datedEntries=(current.datedEntries || []).map(item=>({...item,amount:round(item.amount*(item.side==='spending' ? expenseFactor : incomeFactor))}));
     if(oneOff?.amount>0)current.datedEntries.push({id:'planning-one-off',side:'spending',label:'Scenario one-off cost',amount:round(oneOff.amount*expenseFactor),frequency:'once',startMonth:oneOff.month,endMonth:''});
     for(const [owner,pension] of Object.entries(statePensions))current.statePensions[owner]={...current.statePensions[owner],mode:'official',weeklyForecast:round(pension.annualGross/52*(options.statePensionUprating===false ? 1 : expenseFactor))};
-    const withdrawalContext={month,ages:Object.fromEntries(Object.entries(ages).map(([owner,age])=>[owner,Number.isFinite(age) ? age+elapsed : null])),pensionAccessAge,order:WITHDRAWAL_ORDERS[options.withdrawalOrder || 'generalFirst']};
+    const taxForecast=forecastFor(month);current.taxOverrides={};
+    for(const owner of ['primary','partner']){
+      const pay=current.pay[owner],budget=taxForecast[owner];
+      if(source.income.pensionIncome || source.statePensions?.[owner]?.otherTaxableIncome)continue;
+      const gross=pay.annualGross+pay.annualBonus,employeePension=pay.employeePensionRate ? pay.annualGross*pay.employeePensionRate/100 : pay.employeePension;
+      current.taxOverrides[owner]={employmentTax:budget.employment ? round(budget.employmentTax*Math.max(0,gross-employeePension)/12/budget.employment) : 0};
+      const pension=current.statePensions[owner];
+      if(pension && month>=pension.startMonth)current.taxOverrides[owner].statePensionTax=budget.state ? round(budget.statePensionTax*pension.weeklyForecast*52/12/budget.state) : 0;
+    }
+    const withdrawalContext={month,taxYearIncome:Object.fromEntries(Object.entries(taxForecast).map(([owner,value])=>[owner,value.taxableIncome])),ages:Object.fromEntries(Object.entries(ages).map(([owner,age])=>[owner,Number.isFinite(age) ? age+elapsed : null])),pensionAccessAge,order:WITHDRAWAL_ORDERS[options.withdrawalOrder || 'generalFirst']};
     let payoffDraw={gross:0,net:0,tax:0,items:[]};
     if(index===0 && options.mortgagePayoffNow) {
       const requested=round(mortgageStates.reduce((sum,state)=>sum+state.debt.balance,0));
-      const openingSummary=computeAllocationWaterfall(current,{...balances,debts:[]},{primary:holdings.name,partner:holdings.partnerName}).summary;
+      const openingSummary=computeAllocationWaterfall(current,{...balances,age:ages.primary,partnerAge:ages.partner,debts:[]},{primary:holdings.name,partner:holdings.partnerName}).summary;
       const cashShares=options.mortgagePayoffSource==='cashShares';
       const payoffAssets=cashShares ? balances.assets.filter(asset=>asset.kind==='cash'||asset.kind==='shares') : balances.assets;
       payoffDraw=withdrawForSpending(payoffAssets,requested,withdrawalState,{...withdrawalContext,...(cashShares ? {order:WITHDRAWAL_ORDERS.generalFirst,saleAssetIds:payoffAssets.filter(asset=>asset.kind==='shares' && asset.accessBucket==='illiquid').map(asset=>asset.id)} : {}),annualTaxableIncome:annualTaxableFor(openingSummary,current),annualInterest:Object.fromEntries(Object.entries(cashInterestByOwner()).map(([owner,value])=>[owner,value*12]))});
@@ -153,7 +173,7 @@ export function projectPlan(flow, holdings, options = {}) {
       for(const state of mortgageStates){const repayment=Math.min(state.debt.balance,available);state.debt.balance=round(state.debt.balance-repayment);available=round(available-repayment);}
       mortgagePayoff={requested,paid:payoffDraw.net,remaining:round(requested-payoffDraw.net),gross:payoffDraw.gross,tax:payoffDraw.tax,items:payoffDraw.items};
     }
-    const workingHoldings={...balances,assets:balances.assets.map(asset=>asset.monthlyRent!=null ? {...asset,monthlyRent:round(asset.monthlyRent*incomeFactor)} : asset),debts:[]};
+    const workingHoldings={...balances,age:ages.primary,partnerAge:ages.partner,assets:balances.assets.map(asset=>asset.monthlyRent!=null ? {...asset,monthlyRent:round(asset.monthlyRent*incomeFactor)} : asset),debts:[]};
     let mortgagePayment=0;const debtInstallments=[];
     for(const state of mortgageStates) {
       if(!state.modelled || state.debt.balance<=0)continue;
@@ -224,9 +244,19 @@ export function projectPlan(flow, holdings, options = {}) {
     const withdrawableAssets=round(balances.assets.filter(asset=>eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
     const lockedPensions=round(balances.assets.filter(asset=>asset.kind==='dc-pension' && !eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
     const otherAssets=round(assetsTotal-withdrawableAssets-lockedPensions);
-    months.push({month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
+    const taxByType=Object.fromEntries(Object.keys(TAX_COMPONENTS).map(key=>[key,0])),taxByPerson={primary:0,partner:0};
+    for(const pay of summary.payDetails.filter(item=>item.active && !item.enteredTakeHome)){
+      const incomeTax=round(pay.estimate.incomeTax/12),ni=round(pay.estimate.employeeNI/12);
+      add(taxByType,'employmentTax',incomeTax);add(taxByType,'employeeNI',ni);add(taxByPerson,pay.owner,incomeTax+ni);
+    }
+    for(const pension of summary.statePensionDetails.filter(item=>item.active)){const tax=round(pension.annualTax/12);add(taxByType,'statePensionTax',tax);add(taxByPerson,pension.owner,tax);}
+    add(taxByType,'savingsInterestTax',cashInterestTax);
+    for(const [owner,value] of Object.entries(interestTaxByOwner))add(taxByPerson,owner,value);
+    for(const item of withdrawals){add(taxByType,'capitalGainsTax',item.bucket==='general' ? item.tax : item.capitalTax || 0);if(item.bucket==='pension')add(taxByType,'pensionDrawdownTax',item.pensionTax ?? item.tax);add(taxByPerson,item.owner,item.tax);}
+    const taxTotal=round(Object.values(taxByType).reduce((sum,value)=>sum+value,0));
+    months.push({taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
   }
-  return {startMonth,endMonth:months.at(-1).month,stressTest,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
+  return {taxLimitations,startMonth,endMonth:months.at(-1).month,stressTest,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
 }
 
 /** Calendar-year totals for flows; last monthly balance for stocks. Real flows discount each month. */
@@ -246,7 +276,8 @@ export function annualPlanView(projection, metric='income', group='person', real
     }
     const field=`${metric}By${group==='person' ? 'Person' : 'Type'}`;
     const values=month[field];
-    if(metric==='netWorth') {row.values={netWorth:(month.assetsTotal-month.debtsTotal)/divisor};}
+    if(metric==='tax') {for(const [key,value] of Object.entries((group==='person' ? month.taxByPerson : month.taxByType) || {}))row.values[key]=(row.values[key] || 0)+value/divisor;}
+    else if(metric==='netWorth') {row.values={netWorth:(month.assetsTotal-month.debtsTotal)/divisor};}
     else if(metric==='assets' || metric==='debts') {
       row.valid=values!==null;row.values=values ? Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value/divisor])) : {};
     } else {for(const [key,value] of Object.entries(values || {}))row.values[key]=(row.values[key] || 0)+value/divisor;}

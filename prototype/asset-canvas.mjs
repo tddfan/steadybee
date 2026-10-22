@@ -9,11 +9,11 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs?v=20261022cashflow2";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022cashflow2";
-import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
-import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
-import { mountPlanning } from "./planning-view.mjs?v=20261022milestones1";
-import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022cashflow2";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022tax2";
+import { mountAccountStorage } from './account-storage.mjs?v=20261022tax2';
+import {removePartnerFromPicture} from './household-profile.mjs?v=20261022tax2';
+import { mountPlanning } from "./planning-view.mjs?v=20261022tax2";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022tax2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 
@@ -988,6 +988,8 @@ function setupFlowInputs() {
     const dateRow = make("label", "flow-input-row", ""); dateRow.classList.add("flow-pension-row"); dateRow.append(make("span", "", "Last month you expect to receive pay"));
     const date = make("input", "flow-date-input"); date.type = "month"; date.dataset.flowPayOwner = owner; date.dataset.flowPayKey = "endDate"; date.id = `flow-pay-${owner}-endDate`; dateRow.append(date); card.append(dateRow);
     dateRow.append(make("small", "flow-pension-equivalent", "Pay is included through this month and stops the following month."));
+    const niDetails=make('details','flow-ni-details'),niLabel=make('label','flow-input-row'),niDate=make('input','flow-date-input');
+    niDetails.append(make('summary','','NI exemption date (optional)'));niLabel.append(make('span','','State Pension age reached in'));niDate.type='month';niDate.id=`flow-pay-${owner}-niExemptFrom`;niDate.dataset.flowPayOwner=owner;niDate.dataset.flowPayKey='niExemptFrom';niLabel.append(niDate);niDetails.append(niLabel,make('small','','Leave blank to estimate from age. This is when you reach State Pension age, even if you claim it later.'));card.append(niDetails);
     card.append(make("p", "flow-pay-monthly", "")); const monthly = card.lastChild; monthly.id = `flow-pay-${owner}-monthly`;
     card.append(make("p", "flow-pay-tax", "")); card.lastChild.id = `flow-pay-${owner}-tax`;
     $("flow-pay-inputs").append(card);
@@ -1353,7 +1355,7 @@ $("flow-editor").addEventListener("input", (event) => {
     category.amount = value;
     renderFlow(); return;
   }
-  if (input.dataset.flowPayKey === "endDate") { flowDraft.pay[input.dataset.flowPayOwner].endDate = input.value; renderFlow(); return; }
+  if (["endDate","niExemptFrom"].includes(input.dataset.flowPayKey)) { flowDraft.pay[input.dataset.flowPayOwner][input.dataset.flowPayKey] = input.value; renderFlow(); return; }
   const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : (input.dataset.flowPayKey?.endsWith("Rate") ? Number(input.value) : groupedNumberValue(input));
   const maximum = input.dataset.flowPayKey?.endsWith("Rate") ? 100 : 100_000_000;
   if (value !== null && (!Number.isFinite(value) || value < 0 || value > maximum || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)) {
@@ -1366,7 +1368,7 @@ $("flow-editor").addEventListener("input", (event) => {
     const owner=input.dataset.flowPayOwner,key=input.dataset.flowPayKey,card=input.closest('.flow-pay-card');
     if(value && ['employeePension','employeePensionRate','employerPension','employerPensionRate'].includes(key)){const paired=key.endsWith('Rate')?key.slice(0,-4):`${key}Rate`;$(`flow-pay-${owner}-${paired}`).value='';}
     const candidate={...flowDraft.pay[owner]};
-    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=fieldKey==='endDate'?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):(fieldKey.endsWith('Rate')?Number(field.value):groupedNumberValue(field));}
+    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=['endDate','niExemptFrom'].includes(fieldKey)?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):(fieldKey.endsWith('Rate')?Number(field.value):groupedNumberValue(field));}
     let notice=card.querySelector('.pay-edit-error');if(!notice){notice=make('p','form-error pay-edit-error');notice.setAttribute('role','alert');card.append(notice);}
     try{summarizeMonthlyFlow({...flowDraft,pay:{...flowDraft.pay,[owner]:candidate}},draft);flowDraft.pay[owner]=candidate;notice.hidden=true;for(const field of card.querySelectorAll('[aria-invalid]'))field.removeAttribute('aria-invalid');}
     catch(error){notice.textContent=`Not applied: ${error.message} Correct the pay or pension amount to continue.`;notice.hidden=false;input.setAttribute('aria-invalid','true');return;}

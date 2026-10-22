@@ -1,6 +1,7 @@
 /** Present-day monthly cash flow. Optional user-directed routing is a single-month illustration, not a forecast. */
-import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022cashflow2";
-import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022tax2";
+import { employeeNIExempt } from "./planning-tax.mjs?v=20261022tax2";
+import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs?v=20261022tax2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 
 export const INCOME_FIELDS = Object.freeze([
@@ -139,7 +140,11 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   const timelineStartMonth = flow.timelineStartMonth || flow.asOfMonth;
   for (const owner of ["primary", "partner"]) {
     const pay = flow.pay[owner];
-    const estimate = estimateUkTakeHome2026({ baseSalary: pay.annualGross, bonus: pay.annualBonus, employeePensionAmount: pay.employeePension, employeePensionRate: pay.employeePensionRate, employerPensionAmount: pay.employerPension, employerPensionRate: pay.employerPensionRate });
+    const estimate = estimateUkTakeHome2026({ baseSalary: pay.annualGross, bonus: pay.annualBonus, employeePensionAmount: pay.employeePension, employeePensionRate: pay.employeePensionRate, employerPensionAmount: pay.employerPension, employerPensionRate: pay.employerPensionRate, employeeNIExempt: employeeNIExempt(flow,holdings,owner,flow.asOfMonth) });
+    if (flow.taxOverrides?.[owner]?.employmentTax !== undefined) {
+      estimate.incomeTax = Math.round(flow.taxOverrides[owner].employmentTax * 1200) / 100;
+      estimate.takeHome = Math.round((estimate.grossPay-estimate.employeePension-estimate.incomeTax-estimate.employeeNI)*100)/100;
+    }
     const enteredTakeHome = pay.annualTakeHome !== null && pay.annualTakeHome !== undefined;
     const annualTakeHome = enteredTakeHome ? pennies(pay.annualTakeHome, "Annual take-home pay") / 100 : estimate.takeHome;
     if (pay.endDate && !/^\d{4}-(0[1-9]|1[0-2])$/.test(pay.endDate)) throw new RangeError("Pay end date must be a valid month and year.");
@@ -194,6 +199,7 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     const basisMonth=input.startMonth && flow.asOfMonth < input.startMonth ? input.startMonth : flow.asOfMonth;
     const taxablePay=pay && (!pay.endDate || basisMonth <= pay.endDate) ? Math.max(0,pay.annualGross-pay.employeePension) : 0;
     const detail=estimateStatePension(input,input.assessmentMonth || timelineStartMonth,taxablePay);
+    if(flow.taxOverrides?.[owner]?.statePensionTax !== undefined && detail.annualGross !== null){detail.annualTax=Math.round(flow.taxOverrides[owner].statePensionTax*1200)/100;detail.monthlyNet=Math.round((detail.annualGross-detail.annualTax)/12*100)/100;}
     detail.owner=owner;detail.person=names[owner] || (owner === "primary" ? "Your" : "Partner");
     detail.active=Boolean(detail.startMonth && flow.asOfMonth >= detail.startMonth && detail.monthlyNet !== null);
     statePensionDetails.push(detail);

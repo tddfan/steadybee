@@ -754,3 +754,15 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
 .plan-point-difference { color:var(--accent-primary);font-size:.8rem; }
 .plan-value-label { font:600 12px var(--font-sans);fill:var(--text-primary);paint-order:stroke;stroke:white;stroke-width:4px;stroke-linejoin:round;font-variant-numeric:tabular-nums; }
 @media(max-width:600px){.plan-point-summary small{flex-basis:100%;}.plan-value-label{font-size:11px;}}
+
+.plan-tax-mode{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--bg-subtle);}
+.plan-tax-mode[hidden],.plan-tax-detail[hidden]{display:none;}
+.plan-tax-mode button{padding:8px 12px;border:0;border-radius:8px;background:transparent;font:inherit;color:var(--text-secondary);}
+.plan-tax-mode button[aria-pressed=true]{background:white;color:var(--text-primary);box-shadow:0 1px 4px #0002;}
+.plan-tax-detail{margin-top:16px;overflow-x:auto;}
+.plan-tax-detail table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums;}
+.plan-tax-detail th,.plan-tax-detail td{padding:10px 8px;border-bottom:1px solid var(--border-hairline);text-align:right;}
+.plan-tax-detail th:first-child{text-align:left;font-weight:500;}
+.plan-tax-detail .plan-tax-total{font-weight:700;background:var(--accent-primary-tint);}
+.plan-tax-detail details{margin-top:12px;color:var(--text-secondary);font-size:.8rem;}
+@media(max-width:600px){.plan-tax-detail th,.plan-tax-detail td{padding:8px 4px;font-size:.75rem;}.plan-tax-mode{margin-top:8px;}}
