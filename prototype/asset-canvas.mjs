@@ -12,7 +12,7 @@ import {
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022cashflow2";
 import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
-import { mountPlanning } from "./planning-view.mjs?v=20261022cashflow2";
+import { mountPlanning } from "./planning-view.mjs?v=20261022milestones1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022cashflow2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";

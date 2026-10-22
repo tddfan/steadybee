@@ -747,3 +747,10 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
   .plan-toolbar .planning-heading { padding-right:32px; }
   .plan-toolbar .plan-method { position:absolute; top:0; right:0; }
 }
+
+.plan-point-summary { display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px;margin:8px 0 16px;color:var(--text-secondary);font-variant-numeric:tabular-nums; }
+.plan-point-summary strong { font-size:1.35rem;color:var(--text-primary); }
+.plan-point-summary small { font-size:.75rem; }
+.plan-point-difference { color:var(--accent-primary);font-size:.8rem; }
+.plan-value-label { font:600 12px var(--font-sans);fill:var(--text-primary);paint-order:stroke;stroke:white;stroke-width:4px;stroke-linejoin:round;font-variant-numeric:tabular-nums; }
+@media(max-width:600px){.plan-point-summary small{flex-basis:100%;}.plan-value-label{font-size:11px;}}

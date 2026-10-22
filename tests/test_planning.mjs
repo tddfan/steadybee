@@ -115,3 +115,12 @@ test('interest-only retains capital until its term ends and then funds the capit
  assert.equal(plan.months[0].mortgagePayment,1000);assert.equal(plan.months[0].debtsTotal,200000);
  assert.equal(plan.months[11].mortgagePayment,201000);assert.equal(plan.months[11].debtsTotal,0);
 });
+
+test('cash and shares payoff reports a partial payment when share-labelled assets have another type',()=>{
+ const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.includeLinkedMortgage=true;
+ holdings.assets=[{id:'cash',kind:'cash',value:1000},{id:'other',kind:'other',label:'Employee shares',value:5000,accessBucket:'illiquid'}];
+ holdings.debts=[{id:'m',kind:'mortgage',balance:3000,interestRate:0,remainingYears:10}];
+ const plan=projectPlan(flow,holdings,{...zero,mortgagePayoffNow:true,mortgagePayoffSource:'cashShares'});
+ assert.equal(plan.mortgagePayoff.paid,1000);assert.equal(plan.mortgagePayoff.remaining,2000);
+ assert.equal(plan.months[0].assetsByType.other,5000);
+});

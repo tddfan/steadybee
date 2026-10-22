@@ -22,7 +22,7 @@ export function mountPlanning(root,getInputs) {
   const reviewedKeyStorage='steadybee.planning.reviewed-inputs.v1';
   function cachedReviewKey(){try{return window.localStorage.getItem(reviewedKeyStorage);}catch{return null;}}
   function rememberReviewKey(key){try{window.localStorage.setItem(reviewedKeyStorage,key);}catch{}}
-  let chartRows=[],chartKeys=[],chartBaselineRows=[],baseline=null,baselineKey='',baselineOptions={},history=[],lastSnapshot=null,editGroup=0,lastHistoryGroup=-1;
+  let chartEvents=[],chartRows=[],chartKeys=[],chartBaselineRows=[],baseline=null,baselineKey='',baselineOptions={},history=[],lastSnapshot=null,editGroup=0,lastHistoryGroup=-1;
   root.addEventListener('focusin',event=>{if(event.target.matches('input,select'))editGroup++;});
   root.addEventListener('pointerdown',event=>{if(event.target.matches('input[type=range]'))editGroup++;});
   root.classList.add('plan-root');
@@ -284,8 +284,19 @@ export function mountPlanning(root,getInputs) {
     for(const key of [...keys,...negatives,...(metric==='income' ? ['spending'] : []),...(showBaseline ? ['baseline'] : [])]) {
       const item=el('span'),swatch=el('i');if(['baseline','spending'].includes(key))swatch.className='plan-line-key';swatch.style.background=key==='baseline' ? '#64758b' : colours[key] || '#ae725c';item.append(swatch,document.createTextNode(key==='baseline' ? 'Current plan' : key==='spending' ? 'Spending' : name(key,holdings)));$('plan-legend').append(item);
     }
+    const events=Object.entries(projection.retirementDates).filter(([,date])=>date).map(([owner,date])=>({year:date.slice(0,4),label:`${name(owner,holdings)} work ends ${date.slice(0,4)}`}));
+    if(getInputs().flow.includeLinkedMortgage && getInputs().holdings.debts.some(item=>item.kind==='mortgage' && item.balance>0)) {
+      const payoff=projection.months.find(item=>item.debtsByType && item.debtsByType.mortgage===0);
+      if(payoff)events.push({year:payoff.month.slice(0,4),label:`Mortgage paid ${payoff.month.slice(0,4)}`});
+    }
+    for(const [owner,pension] of Object.entries(projection.statePensions))events.push({year:pension.startMonth.slice(0,4),label:`${name(owner,holdings)} State Pension ${pension.startMonth.slice(0,4)}`});
+    if(scenario.oneOff?.amount>0 && scenario.oneOff.month)events.push({year:scenario.oneOff.month.slice(0,4),label:`One-off cost ${scenario.oneOff.month.slice(0,4)}`});
+    if(projection.firstUnfundedMonth)events.push({year:projection.firstUnfundedMonth.slice(0,4),label:`Cash gap ${projection.firstUnfundedMonth.slice(0,4)}`});
+    if(projection.stressTest?.month)events.push({year:projection.stressTest.month.slice(0,4),label:`Investment shock ${projection.stressTest.month.slice(0,4)}`});
+    events.sort((a,b)=>a.year.localeCompare(b.year));
+    chartEvents=events;
     const svg=$('plan-chart');svg.replaceChildren(svgNode('title',{},`${meta.title} by ${group}, ${real ? 'today’s' : 'future'} pounds. Use the year slider for exact values.`));
-    const W=Math.max(240,Math.min(1000,Math.round(svg.parentElement.clientWidth))),H=W<600 ? 330 : 460,left=74,right=12,top=16,bottom=38,width=W-left-right;
+    const W=Math.max(240,Math.min(1000,Math.round(svg.parentElement.clientWidth))),H=W<600 ? 330 : 460,left=74,right=12,top=52,bottom=38,width=W-left-right;
     svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
     const maximum=Math.max(1,...(showBaseline ? baseRows.map(row=>row.total) : []),...rows.map(row=>style==='lines' ? Math.max(...Object.values(row.values),metric==='income' ? row.spending : 0) : Math.max(row.total,metric==='income' ? row.spending : 0)));
     const minimum=Math.min(0,...(showBaseline ? baseRows.map(row=>row.total) : []),...rows.map(row=>metric==='saving' ? -row.withdrawn-row.unfunded : row.total));
@@ -306,12 +317,31 @@ export function mountPlanning(root,getInputs) {
     }
     if(showBaseline)svg.append(svgNode('path',{d:pathFor(baseRows.map((row,index)=>[x(index),y(row.total)])),fill:'none',stroke:'#64758b','stroke-width':2,'stroke-dasharray':'6 5'}));
     if(metric==='income'){const d=pathFor(rows.map((row,index)=>[x(index),y(row.spending)]));svg.append(svgNode('path',{d,fill:'none',stroke:'#fff','stroke-width':5,'stroke-linejoin':'round'}),svgNode('path',{d,fill:'none',stroke:colours.spending,'stroke-width':2.5,'stroke-dasharray':'7 5','stroke-linejoin':'round'}));}
+    const eventYears=[...new Set(events.map(event=>event.year))].filter(year=>rows.some(row=>row.year===year)).sort();
+    for(const [number,year] of eventYears.entries()) {
+      const index=rows.findIndex(row=>row.year===year),cx=x(index),markerY=number%2 ? 34 : 14;
+      const marker=svgNode('g',{'data-year':year,role:'button',tabindex:'0','aria-label':events.filter(event=>event.year===year).map(event=>event.label).join('; ')});
+      marker.append(svgNode('line',{x1:cx,x2:cx,y1:top,y2:H-bottom,stroke:'#8E8E93','stroke-dasharray':'3 5',opacity:'.45'}),svgNode('circle',{cx,cy:markerY,r:10,fill:year===selectedYear ? '#007AFF' : '#E5F1FF'}),svgNode('text',{x:cx,y:markerY+4,'text-anchor':'middle',fill:year===selectedYear ? '#fff' : '#007AFF','font-size':11},number+1),svgNode('title',{},events.filter(event=>event.year===year).map(event=>event.label).join(' · ')));
+      svg.append(marker);
+    }
+    if(metric==='netWorth') {
+      const labelled=[];
+      for(const index of [...new Set([selected,0,rows.length-1,...eventYears.map(year=>rows.findIndex(row=>row.year===year))])]) {
+        if(index!==selected && labelled.some(other=>Math.abs(x(index)-x(other))<(W<600 ? 90 : 105)))continue;
+        labelled.push(index);const cx=x(index),cy=y(rows[index].total),anchor=index===0 ? 'start' : index===rows.length-1 ? 'end' : 'middle';
+        svg.append(svgNode('circle',{cx,cy,r:index===selected ? 5 : 3,fill:'#007AFF',stroke:'#fff','stroke-width':2}),svgNode('text',{x:cx,y:Math.max(top+14,cy-12),'text-anchor':anchor,class:'plan-value-label'},`£${compact(rows[index].total)}`));
+      }
+    }
     for(let index=0;index<rows.length;index++) {
       if(index===0 || index===rows.length-1 || (Number(rows[index].year)%(W<600 ? 10 : 5)===0 && index>(W<600 ? 5 : 1) && index<rows.length-(W<600 ? Math.ceil(60/step) : 2)))svg.append(svgNode('text',{x:index===rows.length-1 ? W-right : x(index),y:H-10,'text-anchor':index===rows.length-1 ? 'end' : 'middle',class:'plan-axis'},rows[index].year));
       const hit=svgNode('rect',{x:left+index*step,y:top,width:step,height:plotHeight,fill:'transparent','data-year':rows[index].year,role:'button',tabindex:index===selected ? '0' : '-1','aria-label':`Explore ${rows[index].year}`});svg.append(hit);
     }
     $('plan-year').max=rows.length-1;$('plan-year').value=selected;const yearPicker=$('plan-compare-year');yearPicker.replaceChildren();for(const item of rows){const last=projection.months.filter(month=>month.month.startsWith(item.year)).at(-1);const option=el('option','',`${item.year} · ${ageLabel(last.month,holdings)}`);option.value=item.year;yearPicker.append(option);}yearPicker.value=selectedYear;for(const range of root.querySelectorAll('input[type=range]'))range.style.setProperty('--range-progress',`${Math.max(0,Math.min(100,(Number(range.value)-Number(range.min))/(Number(range.max)-Number(range.min) || 1)*100))}%`);$('plan-selected-year').textContent=yearPicker.selectedOptions[0]?.textContent || selectedYear;
     const row=rows[selected];
+    const yearEnd=projection.months.filter(month=>month.month.startsWith(row.year)).at(-1),divisor=real ? yearEnd.deflator : 1;
+    let pointSummary=$('plan-point-summary');if(!pointSummary){pointSummary=el('div','plan-point-summary');pointSummary.id='plan-point-summary';root.querySelector('.plan-chart-toolbar').after(pointSummary);}
+    pointSummary.replaceChildren(el('span','',`${row.year} · Net assets`),el('strong','',currency((yearEnd.assetsTotal-yearEnd.debtsTotal)/divisor)),el('small','',real ? 'Today’s money · year end' : 'Future value · year end'));
+    if(showBaseline){const baseEnd=baseline.months.find(month=>month.month===yearEnd.month);if(baseEnd){const difference=(yearEnd.assetsTotal-yearEnd.debtsTotal)/divisor-(baseEnd.assetsTotal-baseEnd.debtsTotal)/(real ? baseEnd.deflator : 1);pointSummary.append(el('span','plan-point-difference',`${difference>=0 ? '+' : '−'}${currency(Math.abs(difference))} vs current plan`));}}
     $('plan-detail-label').textContent=`${meta.title} · ${row.year}`;
     $('plan-detail-total').textContent=row.valid ? currency(row.total) : 'Unfunded';
     $('plan-detail-period').textContent=`${meta.balance ? `Balance at ${projection.months.filter(month=>month.month.startsWith(row.year)).at(-1).month}` : `${row.months} months in this calendar year`} · ${real ? 'today’s' : 'future'} pounds · ${ageLabel(projection.months.filter(month=>month.month.startsWith(row.year)).at(-1).month,holdings)}`;
@@ -333,16 +363,7 @@ export function mountPlanning(root,getInputs) {
     }
     renderComparison(holdings);
     $('plan-events').replaceChildren();
-    const events=Object.entries(projection.retirementDates).filter(([,date])=>date).map(([owner,date])=>({year:date.slice(0,4),label:`${name(owner,holdings)} work ends ${date.slice(0,4)}`}));
-    if(getInputs().flow.includeLinkedMortgage && getInputs().holdings.debts.some(item=>item.kind==='mortgage' && item.balance>0)) {
-      const payoff=projection.months.find(item=>item.debtsByType && item.debtsByType.mortgage===0);
-      if(payoff)events.push({year:payoff.month.slice(0,4),label:`Mortgage paid ${payoff.month.slice(0,4)}`});
-    }
-    for(const [owner,pension] of Object.entries(projection.statePensions))events.push({year:pension.startMonth.slice(0,4),label:`${name(owner,holdings)} State Pension ${pension.startMonth.slice(0,4)}`});
-    if(scenario.oneOff?.amount>0 && scenario.oneOff.month)events.push({year:scenario.oneOff.month.slice(0,4),label:`One-off cost ${scenario.oneOff.month.slice(0,4)}`});
-    if(projection.firstUnfundedMonth)events.push({year:projection.firstUnfundedMonth.slice(0,4),label:`Cash gap ${projection.firstUnfundedMonth.slice(0,4)}`});
-    if(projection.stressTest?.month)events.push({year:projection.stressTest.month.slice(0,4),label:`Investment shock ${projection.stressTest.month.slice(0,4)}`});
-    for(const event of events.filter(event=>rows.some(row=>row.year===event.year))) {const button=el('button','',event.label);button.type='button';button.setAttribute('aria-pressed',String(event.year===selectedYear));button.addEventListener('click',()=>{selectedYear=event.year;renderChart(holdings);});$('plan-events').append(button);}
+    for(const event of events.filter(event=>rows.some(row=>row.year===event.year))) {const end=projection.months.filter(month=>month.month.startsWith(event.year)).at(-1),value=(end.assetsTotal-end.debtsTotal)/(real ? end.deflator : 1);const button=el('button','',`${eventYears.indexOf(event.year)+1} · ${event.label} · ${currency(value)}`);button.title='Net assets at year end';button.type='button';button.setAttribute('aria-pressed',String(event.year===selectedYear));button.addEventListener('click',()=>{selectedYear=event.year;renderChart(holdings);});$('plan-events').append(button);}
     document.dispatchEvent(new Event('picture-updated'));
   }
   const monthLabel=month=>new Date(`${month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'});
@@ -481,7 +502,12 @@ export function mountPlanning(root,getInputs) {
       $('plan-real-growth').textContent=`Pay/rent: ${projection.assumptions.incomeGrowth}% nominal → ${Math.abs(realPay)<.005 ? 0 : realPay.toFixed(1)}% real at ${projection.assumptions.inflation}% inflation, before tax. Tax thresholds stay fixed.`;
       if($('plan-payoff-summary')){
         const payoff=projection.mortgagePayoff,box=$('plan-payoff-summary');box.replaceChildren();
-        if(payoff){const list=el('dl','plan-payoff-figures');for(const [label,value] of [...payoff.items.map(item=>[item.label,item.gross]),['Estimated tax',payoff.tax],['Mortgage repaid',payoff.paid],['Debt remaining',payoff.remaining]])list.append(el('dt','',label),el('dd','',currency(value)));box.append(list,el('span','','Repaid capital reduces assets and debt equally. Tax reduces net worth.'));}
+        if(payoff){const list=el('dl','plan-payoff-figures');for(const [label,value] of [...payoff.items.map(item=>[item.label,item.gross]),['Estimated tax',payoff.tax],['Mortgage repaid',payoff.paid],['Debt remaining',payoff.remaining]])list.append(el('dt','',label),el('dd','',currency(value)));box.append(list);
+          if(payoff.remaining>.01)box.append(el('strong','coverage-gap','Partial repayment · mortgage remains'),el('p','plan-control-help','This source could not fund the whole mortgage. Cash + shares uses only items recorded as Cash or Shares; review asset types if something is missing.'));
+          const withoutPayoff=projectPlan(flow,holdings,{...scenario,mortgagePayoffNow:false}),end=projection.months.at(-1),reference=withoutPayoff.months.at(-1),divisor=real ? end.deflator : 1;
+          const difference=(end.assetsTotal-end.debtsTotal-reference.assetsTotal+reference.debtsTotal)/divisor;
+          const effect=el('dl','plan-payoff-figures');effect.append(el('dt','','First-month payment reduction'),el('dd','',currency(withoutPayoff.months[0].mortgagePayment-projection.months[0].mortgagePayment)),el('dt','',`Net assets difference · ${end.month.slice(0,4)}`),el('dd','',`${difference>=0 ? '+' : '−'}${currency(Math.abs(difference))}`));box.append(effect,el('small','',`${real ? 'Today’s money' : 'Future value'} · same scenario without immediate repayment`),el('p','plan-control-help','Paying capital reduces assets and debt together. Later differences reflect saved interest, lost investment growth and tax.'));
+        }
         else box.textContent='Choose a funding source, then switch on repayment to see the breakdown.';
       }
       $('plan-state-summary').replaceChildren();
@@ -505,11 +531,14 @@ export function mountPlanning(root,getInputs) {
     document.dispatchEvent(new Event('picture-updated'));
   }
   root.addEventListener('click',event=>{const button=event.target.closest('[data-metric],[data-group],[data-style]');if(!button)return;if(button.dataset.metric)metric=button.dataset.metric;if(button.dataset.group)group=button.dataset.group;if(button.dataset.style)style=button.dataset.style;renderChart(getInputs().holdings);});
-  root.addEventListener('click',event=>{const button=event.target.closest('[data-money]');if(button){real=button.dataset.money==='real';renderChart(getInputs().holdings);}});
+  root.addEventListener('click',event=>{const button=event.target.closest('[data-money]');if(button){real=button.dataset.money==='real';refresh();}});
   function showChartTooltip(year,event) {
     const row=chartRows.find(item=>item.year===year);if(!row)return;
     const tip=$('plan-chart-tooltip');tip.replaceChildren(el('strong','',`${year} · ${real ? 'today’s money' : 'future value'}`));
     const list=el('dl');
+    const end=projection.months.filter(month=>month.month.startsWith(year)).at(-1),divisor=real ? end.deflator : 1;
+    list.append(el('dt','','Net assets'),el('dd','',currency((end.assetsTotal-end.debtsTotal)/divisor)),el('dt','','Assets'),el('dd','',currency(end.assetsTotal/divisor)),el('dt','','Debt'),el('dd','',currency(end.debtsTotal/divisor)));
+    const events=chartEvents.filter(item=>item.year===year);if(events.length)tip.append(el('p','',events.map(item=>item.label).join(' · ')));
     for(const key of chartKeys){const value=row.values[key] ?? row[key] ?? 0;if(value<=0)continue;const label=el('dt'),swatch=el('i');swatch.style.background=colours[key];label.append(swatch,document.createTextNode(name(key,getInputs().holdings)));list.append(label,el('dd','',currency(value)));}
     const reference=chartBaselineRows.find(item=>item.year===year);if(showBaseline && reference)list.append(el('dt','','Current plan'),el('dd','',currency(reference.total)),el('dt','','Difference'),el('dd','',currency(row.total-reference.total)));
     if(metric==='income')list.append(el('dt','','Spending'),el('dd','',currency(row.spending)));
