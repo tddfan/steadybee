@@ -1291,6 +1291,8 @@ function setFlowView(view) {
   $("flow-units").textContent = "£ / month";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
+$("flow-chart-add-income").addEventListener("click", () => openFlowEditor("income"));
+$("flow-chart-add-expense").addEventListener("click", event => showDatedForm("spending", null, event.currentTarget));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
 $("flow-view-sunburst").addEventListener("click", () => setFlowView("sunburst"));
 $("flow-view-treemap").addEventListener("click", () => setFlowView("treemap"));
@@ -1792,7 +1794,7 @@ function openFlowEditor(side, owner = null) {
   $("flow-pay-detail").hidden = side !== "income";
   $("flow-spending-detail").hidden = side !== "spending";
   $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
-  document.querySelectorAll(".flow-pay-card").forEach((card,index)=>{ card.hidden=Boolean(owner) && index !== (owner === "primary" ? 0 : 1); });
+  document.querySelectorAll(".flow-pay-card").forEach((card,index)=>{ card.hidden=(index === 1 && !draft.partnerName) || (Boolean(owner) && index !== (owner === "primary" ? 0 : 1)); });
   $("flow-income-inputs").closest("fieldset").hidden = Boolean(owner);
   $("flow-pay-detail").querySelector(".flow-input-guidance").hidden = Boolean(owner);
   $("flow-edit-title").textContent = side === "spending" ? "Spending categories" : owner ? `${owner === "primary" ? draft.name : draft.partnerName} · pay and pension` : "Pay and other income";
