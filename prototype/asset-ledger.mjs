@@ -13,7 +13,7 @@ export const ASSET_TYPES = Object.freeze({
 
 export const DEBT_TYPES = Object.freeze({
   mortgage: Object.freeze({ label: "Mortgage", group: "property" }),
-  loan: Object.freeze({ label: "Loan", group: "other" }),
+  loan: Object.freeze({ label: "Personal loan", group: "other" }),
   "credit-card": Object.freeze({ label: "Credit card", group: "other" }),
   other: Object.freeze({ label: "Other debt", group: "other" }),
 });

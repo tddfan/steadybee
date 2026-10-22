@@ -8,7 +8,7 @@ import {
   createId,
   summarizeDraft,
   validateDraft,
-} from "./asset-ledger.mjs?v=20261017public1";
+} from "./asset-ledger.mjs?v=20261022firstitems";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
@@ -1100,7 +1100,7 @@ function populateLinks(selected = "") {
 }
 
 function updateDialogFields(selectedLink = "") {
-  const placeholders = {home:"Our home","other-property":"Rental property",cash:"Savings account",isa:"ISA account",shares:"Employer shares","dc-pension":"Workplace pension",car:"Family car",mortgage:"Home mortgage",loan:"Bank loan","credit-card":"Credit card"};
+  const placeholders = {home:"Our home","other-property":"Rental property",cash:"Savings account",isa:"ISA account",shares:"Employer shares","dc-pension":"Workplace pension",car:"Family car",mortgage:"Home mortgage",loan:"Personal loan","credit-card":"Credit card"};
   $("item-label").placeholder = placeholders[$("item-kind").value] || "Account or item name";
   const mortgage = dialogType === "debt" && $("item-kind").value === "mortgage";
   $("mortgage-fields").hidden = !mortgage;
@@ -1225,6 +1225,8 @@ $("holdings-owner-filter").addEventListener("click", event => {
 $("first-piece").addEventListener("click", (event) => {
   const choice = event.target.closest("[data-first-kind]");
   if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
+  const debtChoice=event.target.closest("[data-first-debt-kind]");
+  if(debtChoice)showItemDialog("debt",null,debtChoice,debtChoice.dataset.firstDebtKind);
 });
 for (const id of ["step-to-flow", "continue-flow", "planning-to-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
 for (const id of ["step-to-assets", "planning-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
