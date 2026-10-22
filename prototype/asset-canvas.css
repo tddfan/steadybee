@@ -1628,6 +1628,22 @@ h2 { font-size:26px; }
 .account-dialog .account-picture-manage { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 .account-dialog .account-restore-confirm { border:1px solid var(--border-card); border-radius:12px; padding:12px; }
 .account-dialog .text-button { min-height:40px; }
+.account-dialog { padding:24px; border-radius:20px; }
+.account-dialog .dialog-heading { align-items:center; margin-bottom:8px; }
+.account-dialog .dialog-heading h2 { margin:0; font-size:25px; line-height:1.2; letter-spacing:-.025em; }
+.account-dialog .account-intro { margin:0 0 18px; color:var(--text-secondary); font-size:14px; }
+.account-dialog .account-email-label { margin:14px 0 4px; color:var(--text-secondary); font-size:13px; overflow-wrap:anywhere; }
+.account-dialog .account-cloud-summary { margin:12px 0; padding:14px 16px; border:1px solid var(--border-card); border-radius:14px; background:var(--bg-hover); color:var(--text-primary); font-weight:600; }
+.account-dialog .account-people-button { min-height:38px; margin:4px 0 8px; padding:7px 12px; font-size:14px; }
+.account-dialog .account-section-title { margin:14px 0 0; padding-top:16px; border-top:1px solid var(--border-card); font-size:16px; line-height:1.3; }
+.account-dialog .account-picture-choice { gap:8px; margin:8px 0 10px; color:var(--text-secondary); font-size:13px; }
+.account-dialog .account-picture-choice select { min-height:46px; font-size:15px; }
+.account-dialog .account-actions { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.account-dialog .account-actions .button { flex:1 1 180px; }
+.account-dialog .account-picture-manage { gap:4px 12px; padding-top:4px; }
+.account-dialog .account-picture-manage .text-button { font-size:13px; }
+.account-dialog #account-sign-out { margin-top:10px; padding-top:10px; border-top:1px solid var(--border-card); color:var(--text-secondary); }
+.account-dialog .account-privacy { margin:18px 0 0; color:var(--text-tertiary); font-size:12px; line-height:1.45; }
 .storage-actions { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; }
 #storage-preview,#storage-delete-confirm { padding:12px; border:1px solid #b9cbbb; border-radius:9px; background:#f1f6ef; margin-top:12px; }
 #storage-result:empty { display:none; }

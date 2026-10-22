@@ -10,7 +10,7 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261017public1";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountAccountStorage } from './account-storage.mjs?v=20261018journey2';
+import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
 import { mountPlanning } from "./planning-view.mjs?v=20261018journey2";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";

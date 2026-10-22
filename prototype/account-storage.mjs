@@ -53,21 +53,22 @@ export async function queryWithSessionRefresh(run,refreshSession){
 export function mountAccountStorage({button,getPicture,restorePicture,editPeople,startHousehold,onEmpty,restoreOnLogin=()=>true}) {
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='',householdGeneration=0;
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
-  dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Your Steadybee account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
-    <p class="account-intro">Your default household opens automatically and saves changes as you make them. Save a named version to explore alternatives.</p>
+  dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
+    <p class="account-intro">Sign in to save your household and return on another device.</p>
     <p id="account-error" class="form-error" role="alert" hidden></p><p id="account-message" role="status" aria-live="polite"></p>
     <div id="account-google-option" hidden><button id="account-google-sign-in" class="button button-primary" type="button">Continue with Google</button><p class="field-help">Use the same Google email as your existing Steadybee account.</p></div>
     <p id="account-sign-in-unavailable" class="field-help" hidden>Google sign-in is temporarily unavailable. Please try again later.</p>
     <section id="account-session" hidden><p id="account-email-label" class="account-email-label"></p>
       <div id="account-cloud-summary" class="account-cloud-summary"></div>
-      <label class="account-picture-choice" for="account-picture-select">Saved household versions<select id="account-picture-select" aria-label="Choose a saved household version"></select></label>
-      <div class="account-actions"><button id="account-open-picture" class="button button-primary" type="button" hidden>Open selected version</button><button id="account-save-picture" class="button button-secondary" type="button">Save a version…</button></div>
+      <h3 class="account-section-title">Your households</h3>
+      <label class="account-picture-choice" for="account-picture-select">Choose a version<select id="account-picture-select" aria-label="Choose a saved household version"></select></label>
+      <div class="account-actions"><button id="account-open-picture" class="button button-primary" type="button" hidden>Open household</button><button id="account-save-picture" class="button button-secondary" type="button">Save a version…</button></div>
       <form id="account-picture-name-form" class="account-picture-name-form" hidden><label for="account-picture-name">Name this version</label><div><input id="account-picture-name" maxlength="60" required placeholder="e.g. Retire at 60" /><label class="account-main-choice"><input id="account-picture-make-main" type="checkbox" /> Make this my default household</label><button type="submit" class="button button-primary">Save version</button></div></form>
-      <div class="account-picture-manage"><button id="account-set-main" class="text-button" type="button" hidden>Make selected the default</button><button id="account-rename-picture" class="text-button" type="button" hidden>Rename version</button><button id="account-delete-picture" class="text-button text-button-danger" type="button" hidden>Delete version</button></div>
+      <div class="account-picture-manage"><button id="account-set-main" class="text-button" type="button" hidden>Make default</button><button id="account-rename-picture" class="text-button" type="button" hidden>Rename</button><button id="account-delete-picture" class="text-button text-button-danger" type="button" hidden>Delete version</button></div>
       <div id="account-restore-confirm" class="account-restore-confirm" hidden><p id="account-restore-copy">This will replace the household open in this tab.</p><button id="account-confirm-open" class="button button-primary" type="button">Open selected version</button><button id="account-cancel-open" class="button button-secondary" type="button">Keep this tab</button></div>
       <button id="account-sign-out" class="text-button" type="button">Sign out</button>
     </section>
-    <p class="account-privacy">Your household data syncs through Supabase and is available only to your signed-in account. It is not end-to-end encrypted.</p>`;
+    <p class="account-privacy">Cloud household data is private to your account. It is not end-to-end encrypted.</p>`;
   document.body.append(dialog);const $=id=>dialog.querySelector(`#${id}`);
   const status=document.getElementById('picture-save-status');
   const exampleNotice=document.createElement('aside');exampleNotice.className='account-example-notice';exampleNotice.hidden=true;exampleNotice.setAttribute('aria-label','Sample household');
@@ -95,7 +96,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     }).catch(()=>{providerRequest=null;});
     return providerRequest;
   }
-  const peopleButton=document.createElement('button');peopleButton.type='button';peopleButton.className='button button-secondary';peopleButton.textContent='Manage people';peopleButton.addEventListener('click',()=>{dialog.close();editPeople?.();});$('account-session').prepend(peopleButton);
+  const peopleButton=document.createElement('button');peopleButton.type='button';peopleButton.className='button button-secondary account-people-button';peopleButton.textContent='Manage people';peopleButton.addEventListener('click',()=>{dialog.close();editPeople?.();});$('account-email-label').after(peopleButton);
   function selectedPicture(){return cloudPictures.find(item=>item.id===$('account-picture-select').value)||null;}
   function renderPictureList(){
     const select=$('account-picture-select'),chosen=select.value||activePictureId;
@@ -109,7 +110,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     $('account-rename-picture').hidden=!selected;
     $('account-delete-picture').hidden=!selected||selected.is_main;
     const main=cloudPictures.find(item=>item.is_main);
-    $('account-cloud-summary').textContent=cloudEnabled&&activePictureId?`${activePictureName}${cloudPictures.find(item=>item.id===activePictureId)?.is_main?' · default household':''} · changes save automatically`:main?`${main.name} · default household available`:cloudPictures.length?`${cloudPictures.length} saved versions · choose one as your default`:'No default household yet · finish setup to save it automatically';
+    $('account-cloud-summary').textContent=cloudEnabled&&activePictureId?`Currently open · ${activePictureName}${cloudPictures.find(item=>item.id===activePictureId)?.is_main?' · Default':''} · changes save automatically`:main?`Default household · ${main.name}`:cloudPictures.length?'No default selected · choose a version and make it default':'No household saved yet · your first saved household becomes the default';
   }
   function renderCloudSummary(data){
     cloudPictures=data||[];renderPictureList();renderExampleNotice();
@@ -204,7 +205,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     if(setupNote)setupNote.textContent=user?'Your account is connected. Complete your household details to continue.':'Sign in to save your household and return on another device.';
     $('account-google-option').hidden=Boolean(user)||!googleEnabled;
     $('account-sign-in-unavailable').hidden=Boolean(user)||googleEnabled;$('account-session').hidden=!user;
-    $('account-email-label').textContent=user?.email||'';
+    $('account-email-label').textContent=user?.email?`Signed in as ${user.email}`:'';
     button.textContent=user?'Account':'Sign in';button.title=user?'Signed in. Open account options and cloud save.':'Sign in to save your household to your account.';
     if(!user){$('account-open-picture').hidden=true;$('account-set-main').hidden=true;$('account-rename-picture').hidden=true;$('account-delete-picture').hidden=true;$('account-cloud-summary').textContent='';}
   }
