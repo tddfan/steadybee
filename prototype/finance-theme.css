@@ -377,6 +377,19 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
 .welcome-partner { grid-column:1/-1; }
 .welcome-partner > summary { padding:10px 0; min-height:44px; color:var(--accent-primary); cursor:pointer; }
 .welcome-partner-fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+/* The setup form is a single-column flow; the legacy landing-page grid left
+   the hidden artwork column in place and squeezed labels over their inputs. */
+#welcome-screen:not([hidden]) { display:block; width:min(100%,650px); min-height:0; margin:28px auto; padding:clamp(20px,5vw,36px); }
+#welcome-screen .welcome-copy { width:100%; max-width:none; min-width:0; }
+#welcome-screen h1 { max-width:100%; margin:0 0 24px; font-size:clamp(2rem,6vw,3rem); line-height:1.08; letter-spacing:-.04em; overflow-wrap:normal; }
+#welcome-screen .welcome-form { width:100%; max-width:none; grid-template-columns:minmax(0,1fr); align-items:stretch; gap:16px; }
+#welcome-screen .welcome-form > * { min-width:0; }
+#welcome-screen .welcome-form .form-field { width:100%; }
+#welcome-screen .welcome-form label { display:block; line-height:1.35; overflow-wrap:normal; }
+#welcome-screen .welcome-form input { width:100%; min-width:0; }
+#welcome-screen .welcome-partner { grid-column:auto; }
+#welcome-screen .welcome-form .button { width:100%; grid-column:auto; margin-top:4px; }
+#welcome-screen .privacy-note { max-width:46ch; }
 @media(max-width:1100px) and (min-width:768px) {
   #canvas-screen .asset-totals { grid-template-columns:1.3fr 1fr; }
   .flow-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -525,7 +538,7 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
   .plan-controls-heading h2 { font-size:20px; }
   body:has(#planning-screen:not([hidden]) .plan-controls-open) { overflow:hidden; }
   .form-dialog,.flow-edit-dialog,.storage-dialog { width:calc(100% - 24px); max-height:calc(100dvh - 24px); padding:20px; }
-  .welcome-screen { padding:22px; }
+  #welcome-screen:not([hidden]) { margin:16px auto; padding:22px; }
   .welcome-partner-fields { grid-template-columns:1fr; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; } }
