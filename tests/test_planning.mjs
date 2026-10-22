@@ -54,7 +54,9 @@ test('retiring changes cash-interest tax and annual views expose the deduction',
   const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=null;flow.pay.primary.annualGross=150000;
   holdings.assets=[{id:'c',kind:'cash',owner:'primary',value:100000}];
   const p=projectPlan(flow,holdings,{...zero,growth:{...zero.growth,cash:2},retirementYears:{primary:2026}});
-  assert.ok(p.months[0].cashInterestTax>0);assert.equal(p.months[3].cashInterestTax,0);
+  // January still belongs to the tax year containing the final salary. Its
+  // earned interest remains taxable; the new allowance begins in April.
+  assert.ok(p.months[0].cashInterestTax>0);assert.ok(p.months[3].cashInterestTax>0);assert.equal(p.months[6].cashInterestTax,0);
   const rows=annualPlanView(p,'assets','type',false);
   assert.equal(rows[0].cashInterestTax,p.months.slice(0,3).reduce((sum,m)=>sum+m.cashInterestTax,0));
 });

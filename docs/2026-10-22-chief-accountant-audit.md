@@ -3,6 +3,8 @@
 Audit date: 22 October 2026. Baseline commit: `9b3680e`.
 Scope: calculation code and synthetic numerical execution, not a certification of any private account. No account data was read or changed. No implementation changes were made by this reviewer.
 
+**Resolution:** the savings-interest defect below was subsequently fixed and independently revalidated. See [fix and validation](2026-10-22-savings-tax-fix.md). The findings below describe baseline `9b3680e`.
+
 ## Conclusion
 
 The per-person pension tax-free allowance, cumulative pension withdrawal taxation, retirement cessation fix, and tested mortgage arithmetic work under the model's stated assumptions. However, the tax figures should not yet be presented as a fully reconciled tax-year liability: a retirement-year savings-interest example overcharges tax by £518.31. Existing tests all pass because they do not cover this interaction.

@@ -1,10 +1,10 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022retirement1';
-import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022retirement1';
-import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022retirement1';
-import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022retirement1';
+import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022savingstax1';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022savingstax1';
+import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022savingstax1';
+import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022savingstax1';
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
-import { savingsTax } from './investment-tax.mjs?v=20261015coverage6';
+import { savingsTax, capitalGainsTax } from './investment-tax.mjs?v=20261015coverage6';
 import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
 
 export const PLANNING_DEFAULTS = Object.freeze({inflation:2,incomeGrowth:2,growth:Object.freeze({cash:2,isa:4,pension:4,property:2,shares:4}),years:30});
@@ -65,7 +65,7 @@ export function projectPlan(flow, holdings, options = {}) {
       source.pay[owner].endDate=`${year}-${source.pay[owner].endDate?.slice(5) || '12'}`;
     }
   }
-  const warnings=['Tax estimates use 2026–27 England/Wales/NI rates and thresholds, held fixed in future years. Recurring pay and State Pension tax use a forecast tax year when their basis is known; pension withdrawals accumulate across that year. Cash-interest tax remains annualised monthly. This is not a full tax return. General-account growth is capital appreciation only; dividends, capital losses and rental-income tax are not modelled.'];
+  const warnings=['Tax estimates use 2026–27 England/Wales/NI rates and thresholds, held fixed in future years. Recurring pay and State Pension tax use a forecast tax year when their basis is known; pension withdrawals and earned cash interest accumulate across that year. This is not a full tax return. General-account growth is capital appreciation only; dividends, capital losses and rental-income tax are not modelled.'];
   if(Object.values(source.pay).some(pay=>pay.annualTakeHome>0 && !pay.annualGross))warnings.push('Take-home-only pay has no known gross taxable income: tax estimates exclude that pay. Enter gross pay for income-band estimates.');
   const statePensions={};
   source.statePensions ||= {};
@@ -124,17 +124,19 @@ export function projectPlan(flow, holdings, options = {}) {
     return result;
   }
   const taxForecasts=new Map();source.hasPartner=Boolean(holdings.partnerName);
+  let interestTaxYear=null,yearInterest={primary:0,partner:0};
   const forecastFor=month=>{const year=taxYearFor(month);if(!taxForecasts.has(year))taxForecasts.set(year,forecastTaxYear(source,statePensions,startMonth,year,{incomeGrowth,inflation,statePensionUprating:options.statePensionUprating!==false}));return taxForecasts.get(year);};
   const taxLimitations=[];
   if(Object.values(source.pay).some(pay=>pay.annualTakeHome>0))taxLimitations.push('Tax paid within entered take-home pay is unknown and excluded from the reported tax total.');
   if(source.income.pensionIncome>0)taxLimitations.push('Regular private pension income has no recorded person/gross-net basis; its tax is not included.');
   if(source.income.otherIncome>0 || source.datedEntries.some(item=>item.side==='income') || (source.includeLinkedRent && holdings.assets.some(asset=>asset.monthlyRent>0)))taxLimitations.push('Tax on other income, dated income, dividends and rent is not modelled.');
   if(Object.values(source.statePensions || {}).some(input=>input?.otherTaxableIncome>0))taxLimitations.push('Other taxable income affects tax bands but its own tax is not included.');
-  if(!startMonth.endsWith('-04'))taxLimitations.push('Opening tax year: earlier recurring income is assumed at the opening rate. Prior tax paid and earlier withdrawals/gains are unknown.');
+  if(!startMonth.endsWith('-04'))taxLimitations.push('Opening tax year: earlier recurring income is assumed at the opening rate. Prior tax paid and earlier interest, withdrawals and gains are unknown.');
   if((holdings.partnerName ? ['primary','partner'] : ['primary']).some(owner=>!Number.isFinite(ages[owner])))taxLimitations.push('NI exemption timing is unknown where age is missing.');
-  warnings.push('Pension drawdown uses cumulative taxable withdrawals in each April–March tax year, with forecast recurring income. Cash-interest tax remains an annualised monthly estimate; tax-year boundaries use whole months. NI age inferred from age is approximate; an entered NI exemption month takes precedence.',...taxLimitations);
+  warnings.push('Pension drawdown and cash-interest tax use cumulative amounts in each April–March tax year, with forecast recurring income. Tax is reserved when the modelled liability increases, rather than predicting future interest. Tax-year boundaries use whole months. NI age inferred from age is approximate; an entered NI exemption month takes precedence.',...taxLimitations);
   for(let index=0;index<years*12;index++) {
     const month=monthAt(startMonth,index), elapsed=index/12, deflator=(1+inflation/100)**((index+1)/12);
+    if(interestTaxYear!==taxYearFor(month)){interestTaxYear=taxYearFor(month);yearInterest={primary:0,partner:0};}
     if(stressTest && month===stressMonth){
       for(const asset of balances.assets.filter(item=>['isa','general','shares','dc-pension'].includes(item.kind))){const loss=round(asset.value*.2);asset.value=round(asset.value-loss);stressTest.loss=round(stressTest.loss+loss);}
       stressTest.month=month;
@@ -168,7 +170,7 @@ export function projectPlan(flow, holdings, options = {}) {
       const openingSummary=computeAllocationWaterfall(current,{...balances,age:ages.primary,partnerAge:ages.partner,debts:[]},{primary:holdings.name,partner:holdings.partnerName}).summary;
       const cashShares=options.mortgagePayoffSource==='cashShares';
       const payoffAssets=cashShares ? balances.assets.filter(asset=>asset.kind==='cash'||asset.kind==='shares') : balances.assets;
-      payoffDraw=withdrawForSpending(payoffAssets,requested,withdrawalState,{...withdrawalContext,...(cashShares ? {order:WITHDRAWAL_ORDERS.generalFirst,saleAssetIds:payoffAssets.filter(asset=>asset.kind==='shares' && asset.accessBucket==='illiquid').map(asset=>asset.id)} : {}),annualTaxableIncome:annualTaxableFor(openingSummary,current),annualInterest:Object.fromEntries(Object.entries(cashInterestByOwner()).map(([owner,value])=>[owner,value*12]))});
+      payoffDraw=withdrawForSpending(payoffAssets,requested,withdrawalState,{...withdrawalContext,...(cashShares ? {order:WITHDRAWAL_ORDERS.generalFirst,saleAssetIds:payoffAssets.filter(asset=>asset.kind==='shares' && asset.accessBucket==='illiquid').map(asset=>asset.id)} : {}),annualTaxableIncome:annualTaxableFor(openingSummary,current),annualInterest:{...yearInterest}});
       let available=payoffDraw.net;
       for(const state of mortgageStates){const repayment=Math.min(state.debt.balance,available);state.debt.balance=round(state.debt.balance-repayment);available=round(available-repayment);}
       mortgagePayoff={requested,paid:payoffDraw.net,remaining:round(requested-payoffDraw.net),gross:payoffDraw.gross,tax:payoffDraw.tax,items:payoffDraw.items};
@@ -195,25 +197,43 @@ export function projectPlan(flow, holdings, options = {}) {
       add(incomeByType,type,item.amount);
     }
     const interestByOwner=cashInterestByOwner(),annualIncome=annualTaxableFor(summary,current);
-    const annualInterest=Object.fromEntries(Object.entries(interestByOwner).map(([owner,value])=>[owner,value*12]));
-    const interestTaxByOwner=Object.fromEntries(Object.entries(interestByOwner).map(([owner,value])=>[owner,round(savingsTax(annualIncome[owner] || 0,value*12)/12)]));
+    // Both interest and pension draws consume the same person's annual bands.
+    // Charge only the change caused by newly earned interest. Pension quotes
+    // then use this accrued interest, so their extra tax is not charged twice.
+    const interestCapitalTaxByOwner={primary:0,partner:0};
+    const interestTaxByOwner=Object.fromEntries(Object.entries(interestByOwner).map(([owner,value])=>{
+      const pensionIncome=withdrawalState.incomeTaxYear===interestTaxYear ? withdrawalState.yearTaxable?.[owner] || 0 : 0;
+      const base=taxForecast[owner].taxableIncome+pensionIncome,previous=yearInterest[owner];
+      yearInterest[owner]=round(previous+value);
+      // Later interest may also move this year's earlier realised gains into
+      // the higher CGT band. Reserve that adjustment separately from Income Tax.
+      const gains=withdrawalState.gains[owner] || 0;
+      interestCapitalTaxByOwner[owner]=round(capitalGainsTax(gains,base+yearInterest[owner])-capitalGainsTax(gains,base+previous));
+      return [owner,round(savingsTax(base,yearInterest[owner])-savingsTax(base,previous))];
+    }));
+    const annualInterest={...yearInterest};
     const cashInterestGross=round(Object.values(interestByOwner).reduce((sum,value)=>sum+value,0));
     const cashInterestTax=round(Object.values(interestTaxByOwner).reduce((sum,value)=>sum+value,0));
-    const cashValues={primary:0,partner:0};
-    for(const asset of balances.assets.filter(item=>item.kind==='cash')) {
-      const owner=ownerOf(asset);if(owner==='shared'){cashValues.primary+=asset.value/2;cashValues.partner+=asset.value/2;}else cashValues[owner]+=asset.value;
+    const cashCapitalGainsTax=round(Object.values(interestCapitalTaxByOwner).reduce((sum,value)=>sum+value,0));
+    // Allocate each person's tax to their own interest-bearing cash accounts.
+    // Joint interest and its tax are split equally; round each person's final
+    // account as the residual, not the household's final account.
+    const cashAssets=balances.assets.filter(item=>item.kind==='cash' && item.value>0),cashTaxByAsset=new Map();
+    for(const owner of ['primary','partner']){
+      const accounts=cashAssets.filter(asset=>ownerOf(asset)===owner || ownerOf(asset)==='shared');
+      const weight=asset=>asset.value/(ownerOf(asset)==='shared' ? 2 : 1),total=accounts.reduce((sum,asset)=>sum+weight(asset),0);
+      const liability=round(interestTaxByOwner[owner]+interestCapitalTaxByOwner[owner]);let reserved=0;
+      for(const [i,asset] of accounts.entries()){
+        const tax=i===accounts.length-1 ? round(liability-reserved) : round(liability*weight(asset)/total);
+        reserved=round(reserved+tax);cashTaxByAsset.set(asset,round((cashTaxByAsset.get(asset) || 0)+tax));
+      }
     }
-    // Provisional annualised interest tax is reserved monthly from the cash accounts.
-    // Interest allowances are annualised once across all accounts per person, not once per account.
-    let taxReserved=0;const cashAssets=balances.assets.filter(item=>item.kind==='cash' && item.value>0);
     for(const asset of balances.assets) {
       const group=assetGroup(asset.kind), key=group==='general' ? 'shares' : group;
       const annual=investmentReturns?.[key]?.[Math.floor(index/12)] ?? growth[key] ?? 0,openingValue=asset.value;
       asset.value=round(asset.value*(1+annual/100)**(1/12));
       if(group==='cash' && openingValue>0){
-        const owner=ownerOf(asset),owners=owner==='shared' ? ['primary','partner'] : [owner];
-        const tax=asset===cashAssets.at(-1) ? round(cashInterestTax-taxReserved) : round(owners.reduce((sum,person)=>sum+(interestTaxByOwner[person] || 0)*(openingValue/owners.length)/(cashValues[person] || 1),0));
-        asset.value=round(Math.max(0,asset.value-tax));taxReserved=round(taxReserved+tax);
+        asset.value=round(Math.max(0,asset.value-(cashTaxByAsset.get(asset) || 0)));
       }
     }
     let pensionContributions=0;
@@ -251,10 +271,11 @@ export function projectPlan(flow, holdings, options = {}) {
     }
     for(const pension of summary.statePensionDetails.filter(item=>item.active)){const tax=round(pension.annualTax/12);add(taxByType,'statePensionTax',tax);add(taxByPerson,pension.owner,tax);}
     add(taxByType,'savingsInterestTax',cashInterestTax);
-    for(const [owner,value] of Object.entries(interestTaxByOwner))add(taxByPerson,owner,value);
+    add(taxByType,'capitalGainsTax',cashCapitalGainsTax);
+    for(const [owner,value] of Object.entries(interestTaxByOwner))add(taxByPerson,owner,value+interestCapitalTaxByOwner[owner]);
     for(const item of withdrawals){add(taxByType,'capitalGainsTax',item.bucket==='general' ? item.tax : item.capitalTax || 0);if(item.bucket==='pension')add(taxByType,'pensionDrawdownTax',item.pensionTax ?? item.tax);add(taxByPerson,item.owner,item.tax);}
     const taxTotal=round(Object.values(taxByType).reduce((sum,value)=>sum+value,0));
-    months.push({taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
+    months.push({taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,cashCapitalGainsTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
   }
   return {taxLimitations,startMonth,endMonth:months.at(-1).month,stressTest,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
 }
@@ -264,11 +285,11 @@ export function annualPlanView(projection, metric='income', group='person', real
   const annual=new Map();
   for(const month of projection.months) {
     const year=month.month.slice(0,4);
-    if(!annual.has(year))annual.set(year,{year,months:0,values:{},income:0,spending:0,cashDrawn:0,unfunded:0,withdrawn:0,withdrawalTax:0,cashInterestGross:0,cashInterestTax:0,householdSpending:0,mortgagePayment:0,debtPayment:0,withdrawals:[],valid:true});
+    if(!annual.has(year))annual.set(year,{year,months:0,values:{},income:0,spending:0,cashDrawn:0,unfunded:0,withdrawn:0,withdrawalTax:0,cashInterestGross:0,cashInterestTax:0,cashCapitalGainsTax:0,householdSpending:0,mortgagePayment:0,debtPayment:0,withdrawals:[],valid:true});
     const row=annual.get(year);row.months++;
     const divisor=real ? month.deflator : 1;
     row.income+=month.incomeTotal/divisor;row.spending+=month.spendingTotal/divisor;row.cashDrawn+=month.cashDrawn/divisor;row.unfunded+=month.unfunded/divisor;
-    row.cashInterestGross+=month.cashInterestGross/divisor;row.cashInterestTax+=month.cashInterestTax/divisor;row.withdrawn+=month.withdrawalNet/divisor;row.withdrawalTax+=month.withdrawalTax/divisor;row.householdSpending+=month.householdSpending/divisor;row.mortgagePayment+=month.mortgagePayment/divisor;row.debtPayment+=month.debtPayment/divisor;
+    row.cashInterestGross+=month.cashInterestGross/divisor;row.cashInterestTax+=month.cashInterestTax/divisor;row.cashCapitalGainsTax+=(month.cashCapitalGainsTax || 0)/divisor;row.withdrawn+=month.withdrawalNet/divisor;row.withdrawalTax+=month.withdrawalTax/divisor;row.householdSpending+=month.householdSpending/divisor;row.mortgagePayment+=month.mortgagePayment/divisor;row.debtPayment+=month.debtPayment/divisor;
     for(const item of month.withdrawals) {
       let combined=row.withdrawals.find(value=>value.owner===item.owner && value.bucket===item.bucket);
       if(!combined){combined={owner:item.owner,bucket:item.bucket,gross:0,net:0,tax:0};row.withdrawals.push(combined);}
