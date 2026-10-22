@@ -23,7 +23,7 @@ export function mountOutcomes(container,before,getInputs){
   output.append(node('p','outcomes-qualification','Simulation frequency depends on this model; it is not a validated personal probability of success. Illustration, not advice.'));
  }
  $('plan-outcomes-form').addEventListener('submit',event=>{event.preventDefault();if(!$('plan-outcomes-form').reportValidity())return;hasRun=true;clear();const inputs=getInputs();$('plan-outcomes-status').textContent='Running paths…';$('plan-outcomes-progress').max=Number($('plan-path-count').value);$('plan-outcomes-progress').value=0;$('plan-outcomes-progress').hidden=false;$('plan-cancel-outcomes').hidden=false;$('plan-run-outcomes').disabled=true;panel.setAttribute('aria-busy','true');
-  try{const active=new Worker(new URL('./planning-simulation-worker.mjs?v=20261022tax2',import.meta.url),{type:'module'});worker=active;
+  try{const active=new Worker(new URL('./planning-simulation-worker.mjs?v=20261022retirement1',import.meta.url),{type:'module'});worker=active;
    active.onmessage=({data})=>{if(worker!==active)return;if(data.type==='progress'){$('plan-outcomes-progress').value=data.done;$('plan-outcomes-status').textContent=`${data.done} of ${data.total} paths`;return;}stop();if(data.type==='result'){render(data.result);$('plan-outcomes-status').textContent=`${data.result.paths} paths complete`;}else $('plan-outcomes-status').textContent=data.message || 'Simulation could not run.';};
    active.onerror=()=>{if(worker!==active)return;stop();$('plan-outcomes-status').textContent='Simulation could not run. Please try again.';};
    active.postMessage({...structuredClone(inputs),settings:{paths:Number($('plan-path-count').value),volatility:Number($('plan-volatility').value),seed:20261017}});

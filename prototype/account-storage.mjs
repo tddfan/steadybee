@@ -1,5 +1,5 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
-import {validatePicture} from './picture-storage.mjs?v=20261022tax2';
+import {validatePicture} from './picture-storage.mjs?v=20261022retirement1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 import {startGoogleSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261018google2';
 

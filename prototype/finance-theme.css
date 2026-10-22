@@ -300,6 +300,8 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
 .plan-display-options-body { display:flex; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid var(--border-hairline); border-radius:10px; background:#fff; }
 .plan-display-options-body > div { display:flex; gap:4px; }
 .plan-chart-controls button { min-height:38px; font-size:13px; border-radius:8px; }
+.plan-group-switch { display:flex; gap:3px; padding:3px; border-radius:10px; background:var(--bg-subtle); }
+.plan-group-switch button[aria-pressed=true] { color:var(--text-primary); background:white; box-shadow:0 1px 4px rgba(0,0,0,.12); }
 .plan-display-options button[aria-pressed=true] { color:var(--accent-primary); background:var(--accent-primary-tint); }
 .plan-baseline-toggle { display:flex; align-items:center; gap:8px; min-height:40px; font-size:14px; color:var(--text-primary); }
 .plan-baseline-toggle input { width:18px; height:18px; min-height:18px; }
