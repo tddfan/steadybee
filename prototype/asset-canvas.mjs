@@ -2008,4 +2008,8 @@ const accountController=mountAccountStorage({
   },
 });
 
-if(new URLSearchParams(location.search).get('start')==='own')startBlankPicture();
+if(entryParams.get('start')==='own')startBlankPicture();
+if(entryParams.get('account')==='1'){
+  const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('account');history.replaceState(history.state,'',cleanUrl);
+  accountController.open();
+}
