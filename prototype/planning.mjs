@@ -1,8 +1,8 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022savingstax1';
-import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022savingstax1';
-import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022savingstax1';
-import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022savingstax1';
+import {TAX_COMPONENTS,taxYearFor,forecastTaxYear} from './planning-tax.mjs?v=20261022inheritance1';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022inheritance1';
+import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022inheritance1';
+import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261022inheritance1';
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
 import { savingsTax, capitalGainsTax } from './investment-tax.mjs?v=20261015coverage6';
 import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
@@ -275,7 +275,8 @@ export function projectPlan(flow, holdings, options = {}) {
     for(const [owner,value] of Object.entries(interestTaxByOwner))add(taxByPerson,owner,value+interestCapitalTaxByOwner[owner]);
     for(const item of withdrawals){add(taxByType,'capitalGainsTax',item.bucket==='general' ? item.tax : item.capitalTax || 0);if(item.bucket==='pension')add(taxByType,'pensionDrawdownTax',item.pensionTax ?? item.tax);add(taxByPerson,item.owner,item.tax);}
     const taxTotal=round(Object.values(taxByType).reduce((sum,value)=>sum+value,0));
-    months.push({taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,cashCapitalGainsTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
+    const estateBalances=options.captureEstateBalances ? {estateAssets:balances.assets.map(({id,kind,owner,label,value})=>({id,kind,owner,label,value})),estateDebts:balances.debts.map(({id,kind,owner,label,balance,linkedAssetId})=>({id,kind,owner,label,balance,linkedAssetId}))} : {};
+    months.push({...estateBalances,taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,cashCapitalGainsTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
   }
   return {taxLimitations,startMonth,endMonth:months.at(-1).month,stressTest,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
 }

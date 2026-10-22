@@ -4,6 +4,8 @@ Prepared 22 October 2026. This is a researched implementation roadmap and calcul
 
 Implementation update: the [first Tax reporting delivery](2026-10-22-tax-reporting-delivery.md) now adds the Planning Tax view and addresses the initial pension-withdrawal/NI cases. It documents the remaining reconciliation limits. The audit below records the findings before that implementation; Inheritance, Insights and AI remain subsequent deliveries.
 
+Further delivery: [Inheritance is now implemented](2026-10-22-inheritance-delivery.md) as a validated single-person current/projected estate snapshot with beneficiary distribution. Retirement defaults and savings-interest reconciliation have also been corrected. Insights and optional AI remain next; the historical audit below is not a list of current unfixed defects.
+
 ## Recommended delivery order
 
 1. Correct and reconcile the tax calculations.

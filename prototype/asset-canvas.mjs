@@ -9,11 +9,12 @@ import {
   summarizeDraft,
   validateDraft,
 } from "./asset-ledger.mjs?v=20261022cashflow2";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022savingstax1";
-import { mountAccountStorage } from './account-storage.mjs?v=20261022savingstax1';
-import {removePartnerFromPicture} from './household-profile.mjs?v=20261022savingstax1';
-import { mountPlanning } from "./planning-view.mjs?v=20261022savingstax1";
-import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022savingstax1";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022inheritance1";
+import { mountAccountStorage } from './account-storage.mjs?v=20261022inheritance1';
+import {removePartnerFromPicture} from './household-profile.mjs?v=20261022inheritance1';
+import { mountInheritance } from "./inheritance-view.mjs?v=20261022inheritance1";
+import { mountPlanning } from "./planning-view.mjs?v=20261022inheritance1";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022inheritance1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 
@@ -32,6 +33,7 @@ const make = (tag, className, content) => {
 let draft = createPublicDemoHousehold();
 let flowDraft = createExampleMonthlyFlow();
 let planningController = null;
+let inheritanceController = null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -960,6 +962,7 @@ function renderFlow() {
   renderDatedEntries(summary);
   renderStatePensionRecords(summary);
   if (!$("planning-screen").hidden) planningController?.refresh();
+  if (!$("inheritance-screen").hidden) inheritanceController?.refresh();
   document.dispatchEvent(new Event("picture-updated"));
   formatGroupedNumberInputs();
 }
@@ -1095,12 +1098,22 @@ function showScreen(screen, {updateHistory=true} = {}) {
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
   $("planning-screen").hidden = screen !== "planning";
+  $("inheritance-screen").hidden = screen !== "inheritance";
+  if(screen==="inheritance")inheritanceController?.refresh();
   if (screen === "flow" || screen === "planning") {
     renderFlow();
   }
-  (screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
+  (screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
+  revealCurrentSection();
 }
+function revealCurrentSection(){
+  for(const nav of document.querySelectorAll('.picture-steps')){
+    if(!nav.getClientRects().length)continue;const active=nav.querySelector('[aria-current]');
+    if(active)nav.scrollLeft=Math.max(0,active.offsetLeft+active.offsetWidth-nav.clientWidth+8);
+  }
+}
+window.addEventListener('resize',revealCurrentSection);
 
 function populateKinds(type, selected = "") {
   const select = $("item-kind");
@@ -1769,6 +1782,7 @@ $("reset-example-button").addEventListener("click", () => {
   planningController.restore(null);
   draft = createPublicDemoHousehold();
   flowDraft = createExampleMonthlyFlow();
+  inheritanceController.restore(null);
   syncFlowInputs();
   chartSelection = null;
   holdingsOwner = "all";
@@ -1786,6 +1800,8 @@ function showBlankPicture() {
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
+  inheritanceController?.restore(null);
+  $("inheritance-screen").hidden=true;
   syncFlowInputs();
   mode = "personal";
   editingId = null;
@@ -2029,13 +2045,16 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 });
 
 setupFlowInputs();
+inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
+document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
+$("inheritance-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning'].includes(section))showScreen(section,{updateHistory:false});});
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance'].includes(section))showScreen(section,{updateHistory:false});});
 
-if(['flow','planning'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+if(['flow','planning','inheritance'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
@@ -2046,12 +2065,12 @@ const accountController=mountAccountStorage({
   editPeople:()=>$('edit-profile-button').click(),
   startHousehold:startBlankPicture,
   restoreOnLogin:()=>restoreAccountDefault,
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
+  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot()}),
   restorePicture:picture=>{
     const section=location.hash.slice(1);
     draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode='personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);syncFlowInputs();render();showScreen(['assets','flow','planning'].includes(section)?section:'assets');
-    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('welcome-screen').hidden=false;}
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance'].includes(section)?section:'assets');
+    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');
   },
   onEmpty:({forceReset=false}={})=>{

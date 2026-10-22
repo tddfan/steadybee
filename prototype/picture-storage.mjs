@@ -1,8 +1,9 @@
 /** Local encrypted pictures. No network, credentials or clear-text storage. */
 import {validateDraft} from './asset-ledger.mjs?v=20261022cashflow2';
-import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261022savingstax1';
-import {projectPlan} from './planning.mjs?v=20261022savingstax1';
+import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261022inheritance1';
+import {projectPlan} from './planning.mjs?v=20261022inheritance1';
 import {planHorizon} from './coverage.mjs?v=20261015coverage6';
+import {validateEstateSettings} from './inheritance.mjs?v=20261022inheritance1';
 export const PICTURE_STORAGE_KEY='steadybee.protected-picture.v1';
 const MAX_BYTES=2_000_000,ITERATIONS=310_000;
 const record=value=>value!==null && typeof value==='object' && !Array.isArray(value);
@@ -21,6 +22,7 @@ export function validatePicture(input) {
   if(!record(input)||input.version!==1||!record(input.flow)||!record(input.planning))throw new Error('This is not a supported Steadybee picture.');
   if(new TextEncoder().encode(JSON.stringify(input)).length>1_000_000)throw new Error('This picture is too large.');
   if(input.example!=null && typeof input.example!=='boolean')throw new Error('The picture label is invalid.');
+  if(input.inheritance!=null)validateEstateSettings(input.inheritance);
   const validation=validateDraft(input.holdings);if(!validation.valid)throw new Error(validation.errors[0].message);
   if(input.holdings.partnerAge!=null && (!Number.isInteger(input.holdings.partnerAge)||input.holdings.partnerAge<18||input.holdings.partnerAge>120))throw new Error('Enter a partner age from 18 to 120.');
   const p=input.planning,s=p.scenario;

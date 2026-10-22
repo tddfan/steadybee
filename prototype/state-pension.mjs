@@ -1,7 +1,7 @@
 /** Optional 2026–27 State Pension illustration. Qualifying years are assumptions, not a DWP entitlement check.
  * https://www.gov.uk/government/publications/your-new-state-pension-explained/your-state-pension-explained
  */
-import { estimateUkTakeHome2026 } from './uk-pay-estimate.mjs?v=20261022savingstax1';
+import { estimateUkTakeHome2026 } from './uk-pay-estimate.mjs?v=20261022inheritance1';
 export const FULL_STATE_PENSION_WEEKLY_2026 = 241.30;
 const round = value => Math.round(value * 100) / 100;
 const validMonth = value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);

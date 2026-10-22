@@ -768,3 +768,65 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
 .plan-tax-detail .plan-tax-total{font-weight:700;background:var(--accent-primary-tint);}
 .plan-tax-detail details{margin-top:12px;color:var(--text-secondary);font-size:.8rem;}
 @media(max-width:600px){.plan-tax-detail th,.plan-tax-detail td{padding:8px 4px;font-size:.75rem;}.plan-tax-mode{margin-top:8px;}}
+
+/* Inheritance: compact estate summary, beneficiary inputs and progressive detail. */
+.inheritance-screen { min-width:0; }
+.estate-heading,.estate-section-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.estate-heading { margin:24px 0; }
+.estate-heading h1,.estate-heading p { margin:0 0 5px; }
+.estate-card { min-width:0; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-bento); box-shadow:var(--shadow-bento); padding:22px; margin-bottom:18px; }
+.estate-card h2 { margin:0 0 16px; font-size:20px; }
+.estate-toolbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:end; }
+.estate-toolbar label,.estate-fields label,.estate-field { display:grid; gap:7px; font-size:14px; color:var(--text-secondary); }
+.estate-toolbar p { grid-column:1/-1; margin:0; font-size:13px; }
+.inheritance-screen input:not([type=checkbox]),.inheritance-screen select { min-height:44px; min-width:0; width:100%; font:inherit; font-variant-numeric:tabular-nums; border:1px solid var(--border-hairline); border-radius:10px; padding:10px; background:#fff; color:var(--text-primary); }
+.estate-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.estate-kpis .estate-card { display:grid; gap:10px; margin:0; }
+.estate-kpis span { color:var(--text-secondary); font-size:14px; }
+.estate-kpis strong { font-size:clamp(22px,2.6vw,34px); font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.estate-kpis .estate-net { background:var(--text-primary); color:white; }
+.estate-net span { color:#ddd; }
+#estate-tax { color:var(--accent-debt); }
+.estate-status { margin:12px 0 22px; font-size:14px; color:var(--text-secondary); }
+.estate-grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:18px; }
+.estate-person { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 88px 44px; gap:8px; padding:12px 0; border-bottom:1px solid var(--border-hairline); align-items:center; }
+.estate-percent { display:flex; align-items:center; gap:4px; }
+.estate-children { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:10px 0; font-size:14px; }
+.estate-children input { max-width:65px; }
+.estate-benefit { display:flex; justify-content:space-between; gap:12px; padding:14px; border-radius:12px; background:var(--bg-canvas); margin-top:10px; font-variant-numeric:tabular-nums; }
+.estate-benefit > div { min-width:0; overflow-wrap:anywhere; }
+.estate-benefit small { display:block; margin-top:4px; font-size:12px; }
+.estate-check { display:flex; align-items:flex-start; gap:10px; font-size:14px; margin:18px 0; }
+.estate-check input { width:20px; height:20px; flex:none; margin:0; accent-color:var(--accent-primary); }
+.estate-details summary { min-height:44px; display:list-item; cursor:pointer; padding:10px 0; font-weight:600; }
+.estate-details p,.estate-grid .muted { font-size:13px; line-height:1.5; }
+.estate-details li { font-size:14px; margin-bottom:8px; }
+.estate-fields { display:grid; gap:12px; margin-top:12px; }
+.estate-notice { padding:12px; background:var(--accent-warn-tint); color:var(--accent-warn); border-radius:10px; font-size:13px; }
+.estate-ownership-row { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--border-hairline); }
+.estate-ownership-row > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.estate-ownership-row input { max-width:90px; }
+.estate-type-row { display:grid; grid-template-columns:minmax(0,1fr) auto 100px; gap:14px; padding:14px 0; border-bottom:1px solid var(--border-hairline); font-variant-numeric:tabular-nums; }
+.estate-calculation { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; font-variant-numeric:tabular-nums; }
+.estate-calculation dd { text-align:right; margin:0; font-weight:600; }
+#estate-method-dialog { max-width:min(620px,calc(100vw - 24px)); }
+@media(max-width:850px) { .estate-grid { grid-template-columns:1fr; } }
+@media(max-width:640px) {
+ .picture-steps,.planning-screen .picture-steps { display:flex; overflow-x:auto; max-width:100%; scrollbar-width:thin; }
+ .picture-steps .picture-step { flex:none; width:auto; white-space:nowrap; padding:10px 12px; }
+ .estate-heading { margin:18px 0; }
+ .estate-card { padding:16px; }
+ .estate-toolbar { grid-template-columns:1fr; gap:12px; }
+ .estate-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+ .estate-kpis .estate-card { padding:14px; }
+ .estate-kpis strong { font-size:23px; }
+ .estate-person { grid-template-columns:minmax(0,1fr) 86px 40px; }
+ .estate-person > input { grid-column:1/3; }
+ .estate-person > select { grid-column:1; grid-row:2; font-size:13px; }
+ .estate-person > .estate-percent { grid-column:2; grid-row:2; }
+ .estate-person > button { grid-column:3; grid-row:1/3; }
+ .inheritance-screen .estate-percent input[type=number] { font-size:14px; padding:6px; -moz-appearance:textfield; }
+ .estate-percent input::-webkit-inner-spin-button,.estate-percent input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+ .estate-type-row { grid-template-columns:minmax(0,1fr) auto; gap:6px; }
+ .estate-type-row .muted { grid-column:1/-1; font-size:12px; }
+}
