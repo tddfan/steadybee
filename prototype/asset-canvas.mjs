@@ -12,9 +12,10 @@ import {
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
-import { mountPlanning } from "./planning-view.mjs?v=20261018journey2";
+import { mountPlanning } from "./planning-view.mjs?v=20261022grouped2";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
+import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -938,6 +939,7 @@ function renderFlow() {
   renderStatePensionRecords(summary);
   if (!$("planning-screen").hidden) planningController?.refresh();
   document.dispatchEvent(new Event("picture-updated"));
+  formatGroupedNumberInputs();
 }
 function setupFlowInputs() {
   for (const owner of ["primary", "partner"]) {
@@ -949,6 +951,7 @@ function setupFlowInputs() {
       const wrapper = make("span", "flow-money-input"); const input = make("input");
       const percent = key.endsWith("Rate");
       input.type = "number"; input.min = "0"; input.max = percent ? "100" : "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = key === "annualTakeHome" ? "Use estimate" : "0";
+      if (!percent) enableGroupedNumberInput(input);
       input.dataset.flowPayOwner = owner; input.dataset.flowPayKey = key; input.id = `flow-pay-${owner}-${key}`;
       wrapper.append(make("span", "", percent ? "%" : "£"), input); row.append(wrapper); card.append(row);
     }
@@ -970,7 +973,7 @@ function setupFlowInputs() {
         name.setAttribute("aria-label", `Category name for ${label}`);
       }
       const moneyField = make("span", "flow-money-input");
-      const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0";
+      const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0"; enableGroupedNumberInput(input);
       input.setAttribute("aria-label", `Monthly amount for ${label}`);
       input.dataset.flowSide = side; input.dataset.flowKey = key;
       moneyField.append(make("span", "", "£"), input);
@@ -987,7 +990,7 @@ function setupFlowInputs() {
   const customName = make("input"); customName.id = "flow-custom-spending-new-label"; customName.type = "text"; customName.maxLength = 48; customName.placeholder = "e.g. Holidays"; customName.required = true;
   customNameLabel.append(customName);
   const customAmountLabel = make("label", "", "Monthly amount");
-  const customAmount = make("input"); customAmount.id = "flow-custom-spending-new-amount"; customAmount.type = "number"; customAmount.min = "0"; customAmount.max = "100000000"; customAmount.step = "0.01"; customAmount.inputMode = "decimal"; customAmount.value = "0";
+  const customAmount = make("input"); customAmount.id = "flow-custom-spending-new-amount"; customAmount.type = "number"; customAmount.min = "0"; customAmount.max = "100000000"; customAmount.step = "0.01"; customAmount.inputMode = "decimal"; customAmount.value = "0"; enableGroupedNumberInput(customAmount);
   customAmountLabel.append(customAmount);
   const addCategory = make("button", "heading-action heading-action-secondary", "+ Add category"); addCategory.type = "submit";
   customForm.append(customNameLabel, customAmountLabel, addCategory);
@@ -1007,7 +1010,7 @@ function renderCustomSpendingInputs() {
     const name = make("input", "flow-category-name"); name.type = "text"; name.maxLength = 48; name.value = category.label;
     name.dataset.flowCustomSpendingLabel = category.id; name.setAttribute("aria-label", `Category name for ${category.label}`);
     const moneyField = make("span", "flow-money-input");
-    const amount = make("input"); amount.type = "number"; amount.min = "0"; amount.max = "100000000"; amount.step = "0.01"; amount.inputMode = "decimal"; amount.value = category.amount ? String(category.amount) : "";
+    const amount = make("input"); amount.type = "number"; amount.min = "0"; amount.max = "100000000"; amount.step = "0.01"; amount.inputMode = "decimal"; amount.value = category.amount ? String(category.amount) : ""; enableGroupedNumberInput(amount);
     amount.dataset.flowCustomSpendingAmount = category.id; amount.setAttribute("aria-label", `Monthly amount for ${category.label}`);
     moneyField.append(make("span", "", "£"), amount);
     const remove = make("button", "flow-custom-spending-remove", "Remove"); remove.type = "button"; remove.dataset.removeCustomSpending = category.id; remove.setAttribute("aria-label", `Remove ${category.label} category`);
@@ -1051,6 +1054,7 @@ function syncFlowInputs() {
   $("flow-allocation-enabled").checked = flowDraft.assumptions.allocationEnabled === true;
   $("flow-trading-label").value = flowDraft.assumptions.tradingLabel ?? "";
   $("flow-primary-share").value = flowDraft.savings?.primaryShare ?? "";
+  formatGroupedNumberInputs();
 }
 function showScreen(screen, {updateHistory=true} = {}) {
   $("welcome-screen").hidden=true;
@@ -1118,7 +1122,7 @@ function updateDialogFields(selectedLink = "") {
 
 function updateEquityPreview() {
   const debt = editingId && dialogType === "asset" ? draft.debts.filter(item => item.linkedAssetId === editingId).reduce((sum, item) => sum + item.balance, 0) : 0;
-  const note = $("item-equity"), value = Number($("item-amount").value);
+  const note = $("item-equity"), value = groupedNumberValue($("item-amount"));
   note.hidden = !debt || !$("item-amount").value || !Number.isFinite(value);
   note.textContent = note.hidden ? "" : `Linked debt ${money(debt)} · Equity ${money(value - debt)}`;
 }
@@ -1151,6 +1155,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-share-cost").value = item?.costBasis ?? "";
   $("item-share-scheme").value = item?.employeeScheme || "";
   $("item-pension-access-age").value = item?.pensionAccessAge ?? "";
+  formatGroupedNumberInputs($("item-form"));
   $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined || item?.monthlyPayment !== undefined);
   updateDialogFields(item?.linkedAssetId);
   $("item-dialog").showModal();
@@ -1160,19 +1165,19 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
 function itemFromForm() {
   const kind = $("item-kind").value;
   const label = $("item-label").value.trim();
-  const rawAmount = $("item-amount").value.trim();
+  const rawAmount = $("item-amount").value.replace(/,/g, "").trim();
   if (!kind) throw new Error("Choose what kind of item this is.");
   if (!rawAmount) throw new Error(dialogType === "asset" ? "Enter its current value." : "Enter the balance still owed.");
   const amount = Number(rawAmount);
   if (dialogType === "asset") {
     const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
     if (!$("share-tax-fields").hidden) {
-      if ($("item-share-cost").value.trim()) asset.costBasis = Number($("item-share-cost").value);
+      if ($("item-share-cost").value.trim()) asset.costBasis = groupedNumberValue($("item-share-cost"));
       if ($("item-share-scheme").value) asset.employeeScheme = $("item-share-scheme").value;
     }
     if (!$("access-bucket-field").hidden) asset.accessBucket = $("item-access-bucket").value;
     if (!$("pension-access-field").hidden && $("item-pension-access-age").value.trim()) asset.pensionAccessAge = Number($("item-pension-access-age").value);
-    if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
+    if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = groupedNumberValue($("item-monthly-rent"));
     if (!$("cash-rate-field").hidden && $("item-cash-rate").value.trim()) asset.interestRate = Number($("item-cash-rate").value);
     if (!$("investment-field").hidden && $("item-investment-label").value.trim()) asset.investmentLabel = $("item-investment-label").value.trim();
     return asset;
@@ -1181,7 +1186,7 @@ function itemFromForm() {
   if (kind === "mortgage") {
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
     if ($("item-remaining-years").value.trim()) debt.remainingYears = Number($("item-remaining-years").value);
-    if ($("item-monthly-payment").value.trim()) debt.monthlyPayment = Number($("item-monthly-payment").value);
+    if ($("item-monthly-payment").value.trim()) debt.monthlyPayment = groupedNumberValue($("item-monthly-payment"));
   }
   if (!$("debt-link-field").hidden && $("item-linked-asset").value) debt.linkedAssetId = $("item-linked-asset").value;
   return debt;
@@ -1306,13 +1311,13 @@ $("flow-editor").addEventListener("input", (event) => {
   }
   if (input.dataset.flowCustomSpendingAmount !== undefined) {
     const category = flowDraft.customSpending.find((row) => row.id === input.dataset.flowCustomSpendingAmount);
-    const value = input.value.trim() ? Number(input.value) : 0;
+    const value = input.value.trim() ? groupedNumberValue(input) : 0;
     if (!category || !Number.isFinite(value) || value < 0 || value > 100_000_000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.001) return;
     category.amount = value;
     renderFlow(); return;
   }
   if (input.dataset.flowPayKey === "endDate") { flowDraft.pay[input.dataset.flowPayOwner].endDate = input.value; renderFlow(); return; }
-  const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : Number(input.value);
+  const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : (input.dataset.flowPayKey?.endsWith("Rate") ? Number(input.value) : groupedNumberValue(input));
   const maximum = input.dataset.flowPayKey?.endsWith("Rate") ? 100 : 100_000_000;
   if (value !== null && (!Number.isFinite(value) || value < 0 || value > maximum || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)) {
     $("flow-input-error").textContent = maximum === 100 ? "Enter a pension contribution rate from 0% to 100%." : "Enter an amount from £0 to £100,000,000, with no more than two decimal places.";
@@ -1324,7 +1329,7 @@ $("flow-editor").addEventListener("input", (event) => {
     const owner=input.dataset.flowPayOwner,key=input.dataset.flowPayKey,card=input.closest('.flow-pay-card');
     if(value && ['employeePension','employeePensionRate','employerPension','employerPensionRate'].includes(key)){const paired=key.endsWith('Rate')?key.slice(0,-4):`${key}Rate`;$(`flow-pay-${owner}-${paired}`).value='';}
     const candidate={...flowDraft.pay[owner]};
-    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=fieldKey==='endDate'?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):Number(field.value);}
+    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=fieldKey==='endDate'?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):(fieldKey.endsWith('Rate')?Number(field.value):groupedNumberValue(field));}
     let notice=card.querySelector('.pay-edit-error');if(!notice){notice=make('p','form-error pay-edit-error');notice.setAttribute('role','alert');card.append(notice);}
     try{summarizeMonthlyFlow({...flowDraft,pay:{...flowDraft.pay,[owner]:candidate}},draft);flowDraft.pay[owner]=candidate;notice.hidden=true;for(const field of card.querySelectorAll('[aria-invalid]'))field.removeAttribute('aria-invalid');}
     catch(error){notice.textContent=`Not applied: ${error.message} Correct the pay or pension amount to continue.`;notice.hidden=false;input.setAttribute('aria-invalid','true');return;}
@@ -1347,7 +1352,7 @@ $("flow-editor").addEventListener("submit", (event) => {
   event.preventDefault();
   const label = $("flow-custom-spending-new-label").value.trim();
   const rawAmount = $("flow-custom-spending-new-amount").value.trim();
-  const amount = Number(rawAmount);
+  const amount = groupedNumberValue($("flow-custom-spending-new-amount"));
   try {
     if (!label || !rawAmount || !Number.isFinite(amount) || amount < 0 || amount > 100_000_000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.001) throw new RangeError("Enter a category name and a monthly amount up to £100,000,000.");
     const category = { id: createId("spend"), label, amount };
@@ -1420,8 +1425,8 @@ $("flow-allocation-enabled").addEventListener("change", (event) => updateAllocat
 for (const [id, key, integer] of [["flow-reserve-months", "cashReserveMonths", true], ["flow-isa-allowance", "isaAllowance", false], ["flow-isa-used-primary", "isaUsedPrimary", false], ["flow-isa-used-partner", "isaUsedPartner", false]]) {
   $(id).addEventListener("input", (event) => {
     const raw = event.currentTarget.value.trim();
-    const value = raw === "" ? null : Number(raw);
-    if (raw !== "" && (!Number.isFinite(value) || value < 0 || (integer && !Number.isInteger(value)))) {
+    const value = raw === "" ? null : (integer ? Number(raw) : groupedNumberValue(event.currentTarget));
+    if (raw !== "" && (!Number.isFinite(value) || value < 0 || (integer && (value > 24 || !Number.isInteger(value))) || (!integer && (value > 100000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)))) {
       $("flow-allocation-error").textContent = "Enter a valid non-negative amount.";
       $("flow-allocation-error").hidden = false;
       return;
@@ -1445,6 +1450,7 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-side").value = entry?.side || side;
   $("flow-dated-label").value = entry?.label || "";
   $("flow-dated-amount").value = entry?.amount ?? "";
+  formatGroupedNumberInputs($("flow-dated-form"));
   $("flow-dated-frequency").value = entry?.frequency || "monthly";
   $("flow-dated-start").value = entry ? entry.startMonth || "" : flowDraft.asOfMonth;
   $("flow-dated-end").value = entry?.endMonth || "";
@@ -1484,9 +1490,9 @@ $("flow-dated-list").addEventListener("click", (event) => {
 $("flow-dated-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
-    const amount = Number($("flow-dated-amount").value);
-    if (!$("flow-dated-label").value.trim() || !$("flow-dated-amount").value.trim() || !Number.isFinite(amount) || amount <= 0)
-      throw new RangeError("Give this entry a name and an amount greater than £0.");
+    const amount = groupedNumberValue($("flow-dated-amount"));
+    if (!$("flow-dated-label").value.trim() || !$("flow-dated-amount").value.trim() || !Number.isFinite(amount) || amount <= 0 || amount > 100_000_000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.001)
+      throw new RangeError("Give this entry a name and an amount from £0.01 to £100,000,000.");
     if (flowDatedRequireStart && !$("flow-dated-start").value) throw new RangeError("Choose the month when State Pension begins.");
     const entry = { id: editingFlowEntryId || createId("entry"), side: $("flow-dated-side").value, label: $("flow-dated-label").value.trim(), amount, frequency: $("flow-dated-frequency").value, startMonth: $("flow-dated-start").value, endMonth: $("flow-dated-end").value };
     if(!$("flow-dated-replaces-row").hidden) {
@@ -1890,7 +1896,7 @@ function organizeFlowInputs() {
 }
 
 function statePensionInput() {
-  return {qualifyingYears:Number($("flow-state-years").value),assessmentMonth:$("flow-state-assessment").value,startMonth:$("flow-state-start").value,qualifyingUntil:$("flow-state-continue").checked ? $("flow-state-until").value : "",mode:$("flow-state-mode").value,weeklyForecast:$("flow-state-weekly").value === "" ? null : Number($("flow-state-weekly").value),otherTaxableIncome:Number($("flow-state-other").value || 0)};
+  return {qualifyingYears:Number($("flow-state-years").value),assessmentMonth:$("flow-state-assessment").value,startMonth:$("flow-state-start").value,qualifyingUntil:$("flow-state-continue").checked ? $("flow-state-until").value : "",mode:$("flow-state-mode").value,weeklyForecast:$("flow-state-weekly").value === "" ? null : groupedNumberValue($("flow-state-weekly")),otherTaxableIncome:groupedNumberValue($("flow-state-other")) || 0};
 }
 function previewStatePension() {
   const input=statePensionInput();
@@ -1920,6 +1926,7 @@ function openStatePension(owner="primary") {
   $("flow-state-mode").value=input?.mode || "record";
   $("flow-state-weekly").value=input?.weeklyForecast ?? "";
   $("flow-state-other").value=input?.otherTaxableIncome ?? 0;
+  formatGroupedNumberInputs($("flow-state-form"));
   $("flow-state-remove").hidden=!input; $("flow-state-error").hidden=true;
   previewStatePension();
   if(!$("flow-state-dialog").open) $("flow-state-dialog").showModal();
@@ -1950,6 +1957,9 @@ $("flow-state-form").addEventListener("change",previewStatePension);
 $("flow-state-form").addEventListener("submit",event=>{
   event.preventDefault();
   try {
+    const weeklyRaw=$("flow-state-weekly").value.trim(),weekly=groupedNumberValue($("flow-state-weekly")),otherIncome=groupedNumberValue($("flow-state-other"));
+    if(weeklyRaw && (!Number.isFinite(weekly) || weekly<0 || weekly>10000 || Math.abs(weekly*100-Math.round(weekly*100))>0.001))throw new RangeError("Enter a weekly forecast from £0 to £10,000, with up to two decimal places.");
+    if(!Number.isFinite(otherIncome)||otherIncome<0||otherIncome>100_000_000||Math.abs(otherIncome*100-Math.round(otherIncome*100))>0.001)throw new RangeError("Enter other taxable income from £0 to £100,000,000, with up to two decimal places.");
     if($("flow-state-mode").value!=="official" && !$("flow-state-years").value) throw new RangeError("Enter qualifying NI years, including zero if none are recorded.");
     if($("flow-state-continue").checked && !$("flow-state-until").value) throw new RangeError("Choose the last month of assumed qualifying years.");
     const owner=$("flow-state-owner").value, input=statePensionInput();

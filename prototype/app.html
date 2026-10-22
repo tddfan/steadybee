@@ -12,7 +12,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./asset-canvas.css?v=20261022firstitems" />
     <link rel="stylesheet" href="./finance-theme.css?v=20261022setupfix" />
-    <script type="module" src="./asset-canvas.mjs?v=20261022firstitems"></script>
+    <script type="module" src="./asset-canvas.mjs?v=20261022grouped2"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -159,9 +159,9 @@
               <p class="flow-allocation-note">Each person’s share tops up their own reserve, then their own remaining ISA allowance. The rest goes to their general investment account in this illustration.</p>
               <div class="flow-allocation-grid">
                 <label for="flow-reserve-months">Cash reserve <small>Months of recorded spending</small><input id="flow-reserve-months" type="number" min="1" max="24" step="1" inputmode="numeric" placeholder="6" /></label>
-                <label for="flow-isa-allowance">ISA limit per person <small>2026–27 overall limit</small><input id="flow-isa-allowance" type="number" min="0" max="100000" step="1" inputmode="numeric" placeholder="20000" /></label>
-                <label for="flow-isa-used-primary"><span id="flow-isa-primary-label">Your ISA subscriptions this tax year</span><input id="flow-isa-used-primary" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
-                <label id="flow-isa-used-partner-row" for="flow-isa-used-partner"><span id="flow-isa-partner-label">Partner ISA subscriptions this tax year</span><input id="flow-isa-used-partner" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
+                <label for="flow-isa-allowance">ISA limit per person <small>2026–27 overall limit</small><input id="flow-isa-allowance" type="text" data-grouped-number min="0" max="100000" step="1" inputmode="numeric" placeholder="20000" /></label>
+                <label for="flow-isa-used-primary"><span id="flow-isa-primary-label">Your ISA subscriptions this tax year</span><input id="flow-isa-used-primary" type="text" data-grouped-number min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
+                <label id="flow-isa-used-partner-row" for="flow-isa-used-partner"><span id="flow-isa-partner-label">Partner ISA subscriptions this tax year</span><input id="flow-isa-used-partner" type="text" data-grouped-number min="0" max="100000" step="0.01" inputmode="decimal" placeholder="0" /></label>
                 <label for="flow-trading-label">General investment account label <small>Optional; no particular investment is assumed</small><input id="flow-trading-label" type="text" maxlength="60" placeholder="e.g. an existing trading account" /></label>
               </div>
               <p class="flow-allocation-source">ISA limit: <a href="https://www.gov.uk/individual-savings-accounts" target="_blank" rel="noopener noreferrer">GOV.UK, 2026–27</a>. Current rules, subject to change. A blank “subscriptions” field is treated as £0; enter what you have already paid in this tax year. Existing ISA balances do not use this year's allowance.</p>
@@ -178,7 +178,7 @@
                 <label>Type<select id="flow-dated-side"><option value="income">Income received</option><option value="spending">Expense paid</option></select></label>
                 <label id="flow-dated-replaces-row" hidden>Expense to change<select id="flow-dated-replaces"></select><small>The new amount replaces this category during its dates, rather than being added on top.</small></label>
                 <label>Name<input id="flow-dated-label" type="text" maxlength="80" placeholder="e.g. Part-time work or school fees" required /></label>
-                <label>Amount (£)<input id="flow-dated-amount" type="number" min="0" max="100000000" step="0.01" inputmode="decimal" placeholder="0" required /></label>
+                <label>Amount (£)<input id="flow-dated-amount" type="text" data-grouped-number min="0" max="100000000" step="0.01" inputmode="decimal" placeholder="0" required /></label>
                 <label>How often?<select id="flow-dated-frequency"><option value="monthly">Each month</option><option value="yearly">Each year</option><option value="once">One-off</option></select></label>
                 <label>Start month <span id="flow-dated-start-hint" class="optional">Optional</span><input id="flow-dated-start" type="month" /></label>
                 <label id="flow-dated-end-row">End month <span class="optional">Optional</span><input id="flow-dated-end" type="month" /></label>
@@ -225,8 +225,8 @@
         <label id="flow-state-until-row">Last month of expected qualifying years<input id="flow-state-until" type="month" /><small>Your pay end month is offered as a starting point. NI credits can continue after work ends.</small></label>
         <div class="flow-state-grid">
           <label>Amount basis<select id="flow-state-mode"><option value="record">Record years only for now</option><option value="official">Use my official weekly forecast</option><option value="simplified">Use a simplified 35-year illustration</option></select></label>
-          <label id="flow-state-weekly-row">Official forecast (£ per week)<input id="flow-state-weekly" type="number" min="0" max="10000" step="0.01" /></label>
-          <label id="flow-state-other-row">Other taxable income (£ per year)<input id="flow-state-other" type="number" min="0" max="100000000" step="0.01" value="0" /><small>Excluding pay already entered. Used only to estimate tax on this pension.</small></label>
+          <label id="flow-state-weekly-row">Official forecast (£ per week)<input id="flow-state-weekly" type="text" data-grouped-number min="0" max="10000" step="0.01" /></label>
+          <label id="flow-state-other-row">Other taxable income (£ per year)<input id="flow-state-other" type="text" data-grouped-number min="0" max="100000000" step="0.01" value="0" /><small>Excluding pay already entered. Used only to estimate tax on this pension.</small></label>
         </div>
         <p id="flow-state-preview" class="flow-state-preview" aria-live="polite"></p>
         <details class="flow-state-basis"><summary>How this illustration works</summary><p>The 2026–27 full rate is £241.30 a week. A simplified estimate uses projected qualifying years ÷ 35, capped at the full rate, with a 10-year minimum. Records before April 2016, contracting out, overseas years and protected amounts can change entitlement. Use an <a href="https://www.gov.uk/check-state-pension" target="_blank" rel="noopener">official forecast</a> for your own amount.</p><p>Future qualifying years are an assumption of complete 12-month periods, not a check of your NI record. Income Tax uses recorded pay and the other taxable income you enter, under 2026–27 England/Wales/NI rules. No NI is deducted from State Pension. Other taxes and future changes are not modelled.</p><a href="https://www.gov.uk/government/publications/your-new-state-pension-explained/your-state-pension-explained" target="_blank" rel="noopener">DWP rules and rate</a></details>
@@ -268,7 +268,7 @@
         </div>
         <div class="form-field">
           <label id="item-amount-label" for="item-amount">What is it worth today?</label>
-          <div class="money-input"><span aria-hidden="true">£</span><input id="item-amount" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" placeholder="0" required /></div>
+          <div class="money-input"><span aria-hidden="true">£</span><input id="item-amount" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" placeholder="0" required /></div>
 
         </div>
         <div id="access-bucket-field" class="form-field" hidden><label for="item-access-bucket">When can you use it?</label><select id="item-access-bucket"><option value="review">Check access</option><option value="accessible">Accessible</option><option value="illiquid">Needs sale</option></select><p class="field-help">Check any employee scheme or sale restrictions before marking shares accessible.</p></div>
@@ -291,15 +291,15 @@
               <div class="unit-input"><input id="item-remaining-years" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 18" /><span aria-hidden="true">years</span></div>
             </div>
           </div>
-          <div class="form-field"><label for="item-monthly-payment">Monthly payment <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-payment" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Leave blank to estimate a level repayment from the balance, rate and remaining years. Enter the actual amount paid to override the estimate.</p></div><p class="field-help">The estimate assumes a repayment mortgage and an unchanged interest rate. Your lender’s payment may differ; this payment is not added to debt balance.</p>
+          <div class="form-field"><label for="item-monthly-payment">Monthly payment <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-payment" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Leave blank to estimate a level repayment from the balance, rate and remaining years. Enter the actual amount paid to override the estimate.</p></div><p class="field-help">The estimate assumes a repayment mortgage and an unchanged interest rate. Your lender’s payment may differ; this payment is not added to debt balance.</p>
         </details>
         <details id="item-additional" class="item-additional"><summary>Additional details</summary>
           <div class="form-field"><label for="item-confidence">Value accuracy</label><select id="item-confidence"><option value="estimate">Estimate</option><option value="exact">Exact</option><option value="review">Needs review</option></select></div>
           <div id="share-tax-fields" hidden>
-          <div class="form-field"><label for="item-share-cost">Total paid for these shares <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-share-cost" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Used to estimate the gain when shares are sold. Leave blank if unknown.</p></div>
+          <div class="form-field"><label for="item-share-cost">Total paid for these shares <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-share-cost" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Used to estimate the gain when shares are sold. Leave blank if unknown.</p></div>
           <div class="form-field"><label for="item-share-scheme">Share scheme</label><select id="item-share-scheme"><option value="">Other / not specified</option><option value="saye">SAYE / ShareSave</option></select><p class="field-help">SAYE sales may incur Capital Gains Tax. The model assumes shares are held and available for sale, not unexercised options.</p></div>
         </div>
-          <div id="rent-field" class="form-field" hidden><label for="item-monthly-rent">Monthly rent received <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-rent" type="number" min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Shown as context; not counted as an asset value.</p></div>
+          <div id="rent-field" class="form-field" hidden><label for="item-monthly-rent">Monthly rent received <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-rent" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Shown as context; not counted as an asset value.</p></div>
           <div id="cash-rate-field" class="form-field" hidden><label for="item-cash-rate">Current cash interest rate <span class="optional">Optional</span></label><div class="unit-input"><input id="item-cash-rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" /><span aria-hidden="true">%</span></div><p class="field-help">Shown as context; future interest is not calculated.</p></div>
           <div id="investment-field" class="form-field" hidden><label for="item-investment-label">Invested in <span class="optional">Optional</span></label><input id="item-investment-label" type="text" maxlength="80" placeholder="e.g. S&amp;P" /><p class="field-help">A description of your holding, not a growth forecast.</p></div>
         </details>
