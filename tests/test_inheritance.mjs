@@ -82,3 +82,50 @@ test('inheritance settings survive saved household encryption; older saves and u
   p.inheritance.beneficiaries[0].percent=25;assert.doesNotThrow(()=>validatePicture(p));
   p.inheritance.transferBasicPercent=200;assert.throws(()=>validatePicture(p));delete p.inheritance;assert.doesNotThrow(()=>validatePicture(p));
 });
+
+const coupleSettings=overrides=>{
+  const s=settings({owner:'couple',residenceAssetId:'home'});s.couple={...s.couple,relationship:'married',firstDeathDate:'2027-01-01',routeConfirmed:true,descendantsConfirmed:true,...overrides};return s;
+};
+const family=()=>({name:'Parent A',partnerName:'Parent B',assets:[{...home(500000),owner:'shared'},{...cash(500000),owner:'shared'}],debts:[]});
+test('married parents can each leave directly to children or pass to survivor first, with no duplicate estate',()=>{
+  for(const route of ['direct','survivor']){
+    const r=calculateEstate(family(),coupleSettings({route}));assert.equal(r.estateTax,0);assert.equal(r.afterEstateTax,1000000);assert.equal(total(r.beneficiaries,'afterEstateTax'),1000000);assert.equal(r.familyGross,1000000);
+    if(route==='survivor'){assert.equal(r.second.basicBand,650000);assert.equal(r.second.residenceBand,350000);}
+  }
+});
+test('couple direct route keeps two estates separate and transfers only actual unused bands',()=>{
+  const h={...family(),assets:[{...cash(100000),id:'a'},{...cash(600000),id:'b',owner:'partner'}]},s=coupleSettings();s.residenceAssetId='';
+  const r=calculateEstate(h,s);assert.equal(r.first.estateTax,0);assert.equal(r.second.basicBand,550000);assert.equal(r.estateTax,20000);assert.equal(r.afterEstateTax,680000);
+  s.couple.relationship='unmarried';assert.equal(calculateEstate(h,s).estateTax,110000);
+});
+test('spouse exemption and allowance transfer are not inferred for unmarried parents',()=>{
+  const r=calculateEstate(family(),coupleSettings({route:'survivor',relationship:'unmarried'}));
+  assert.equal(r.first.estateTax,70000);assert.equal(r.transferBasicPercent,0);assert.equal(r.transferResidencePercent,0);assert.equal(r.second.estateTax,172000);assert.equal(r.estateTax,242000);assert.equal(r.afterEstateTax,758000);
+  assert.equal(total(r.settlement,'amount'),70000);assert.equal(total(r.beneficiaries,'afterEstateTax'),758000);
+});
+test('first-death residence taper reduces transfer even where everything goes to a spouse',()=>{
+  const h={...family(),assets:[home(600000),cash(1500000)]};
+  const r=calculateEstate(h,coupleSettings({route:'survivor'}));assert.equal(r.first.estateTax,0);assert.equal(r.transferBasicPercent,100);assert.ok(Math.abs(r.transferResidencePercent-125000/175000*100)<1e-8);assert.equal(r.second.residenceBand,250000);
+});
+test('couple routes remove first-parent assets going to children; retained pensions use the second death rules',()=>{
+  const h={...family(),assets:[{...cash(325000),owner:'partner'},{id:'p',kind:'dc-pension',owner:'primary',value:100000}]};
+  const s=coupleSettings({firstDeathDate:'2027-04-05'});s.deathDate='2027-04-06';s.residenceAssetId='';
+  const direct=calculateEstate(h,s);assert.equal(direct.first.outsideEstate,100000);assert.equal(direct.second.pensionValue,0);assert.equal(direct.estateTax,0);
+  s.couple.route='survivor';const survivor=calculateEstate(h,s);assert.equal(survivor.second.pensionValue,100000);assert.equal(survivor.second.outsideEstate,0);assert.equal(survivor.afterEstateTax,425000);
+});
+test('family allocations conserve odd pennies, costs are counted once, and original records are unchanged',()=>{
+  const h={...family(),assets:[{...cash(.01),owner:'shared'}]},before=JSON.stringify(h),s=coupleSettings();s.residenceAssetId='';s.beneficiaries=equalChildren(3);
+  const r=calculateEstate(h,s);assert.equal(r.afterEstateTax,.01);assert.equal(total(r.beneficiaries,'afterEstateTax'),.01);assert.equal(JSON.stringify(h),before);
+  const t=coupleSettings({route:'survivor',primaryCosts:1000,partnerCosts:2000});const paid=calculateEstate(family(),t);assert.equal(paid.costs,3000);assert.equal(paid.afterEstateTax,997000);
+});
+test('older inheritance saves migrate safely and couple assumptions reject invalid relationships/dates',()=>{
+  const old=settings();delete old.couple;assert.equal(validateEstateSettings(old).couple.route,'direct');
+  assert.throws(()=>calculateEstate(family(),coupleSettings({relationship:'unconfirmed'})),/married/);
+  assert.throws(()=>calculateEstate(family(),coupleSettings({firstDeathDate:'2029-01-01'})),/first death/i);
+  const s=coupleSettings();s.beneficiaries[0].relationship='other';assert.throws(()=>calculateEstate(family(),s),/children/);
+});
+test('couple route, dates and relationship survive saved household versions',()=>{
+  const picture={version:1,holdings:createPublicDemoHousehold(),flow:createExampleMonthlyFlow(),planning:{scenario:{years:1},metric:'income',group:'person',style:'bars',real:true},inheritance:coupleSettings({route:'survivor'})};
+  assert.deepEqual(validatePicture(picture).inheritance,picture.inheritance);
+  picture.inheritance.couple.route='unsupported';assert.throws(()=>validatePicture(picture),/couple/);
+});
