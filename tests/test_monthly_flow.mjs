@@ -68,7 +68,7 @@ test("future months turn dated income and expenses on, then end pay and the mort
   assert.equal(events.some((event) => event.month === "2051-10" && event.label.includes("mortgage")), true);
 });
 
-test("personal rent waits for inclusion, while pension pots and mortgage balances never become monthly flows", () => {
+test("mortgage payments are included by default and can be excluded, while rent remains optional", () => {
   const assets = createPublicDemoHousehold();
   assets.assets.push({id:"demo-rental",kind:"other-property",monthlyRent:50,value:1_000,owner:"primary"});
   const flow = createBlankMonthlyFlow();
@@ -78,7 +78,9 @@ test("personal rent waits for inclusion, while pension pots and mortgage balance
   flow.includeLinkedRent = true;
   summary = summarizeMonthlyFlow(flow, assets);
   assert.equal(summary.incomeTotal, 50);
-  assert.equal(summary.spendingTotal, 0);
+  assert.equal(summary.spendingTotal, 1279.67);
+  flow.includeLinkedMortgage = false;
+  assert.equal(summarizeMonthlyFlow(flow, assets).spendingTotal, 0);
   flow.includeLinkedMortgage = true;
   summary = summarizeMonthlyFlow(flow, assets);
   assert.equal(summary.spendingTotal, 1279.67);
@@ -325,4 +327,22 @@ test('tax-year routing stops reserve top-ups once funded and honours future cost
   assert.equal(result.months[1].people[0].cash,0);
   assert.equal(result.people[0].isa,6000);
   assert.equal(result.people[0].general,0);
+});
+
+test('an NI record automatically produces a pension estimate through the final pay month', () => {
+ const flow=createBlankMonthlyFlow();flow.timelineStartMonth=flow.asOfMonth='2026-10';
+ flow.pay.primary.annualGross=40000;flow.pay.primary.endDate='2036-10';
+ flow.statePensions={primary:{qualifyingYears:20,assessmentMonth:'2026-10',mode:'record'}};
+ const summary=summarizeMonthlyFlow(flow,{age:54,assets:[],debts:[]});
+ const pension=summary.statePensionDetails[0];
+ assert.equal(pension.futureYears,10);assert.equal(pension.totalYears,30);
+ assert.equal(pension.startMonth,'2039-10');assert.equal(pension.annualGross,10755.09);
+ assert.equal(pension.active,false);
+ flow.statePensions.primary.assumeFutureYears=false;
+ assert.equal(summarizeMonthlyFlow(flow,{age:54}).statePensionDetails[0].futureYears,0);
+});
+test('interest-only mortgage payments reduce savings without treating the capital as a monthly cost', () => {
+ const flow=createBlankMonthlyFlow();flow.pay.primary.annualTakeHome=36000;
+ const summary=summarizeMonthlyFlow(flow,{debts:[{id:'io',kind:'mortgage',balance:200000,interestRate:6,remainingYears:20,mortgageType:'interest-only'}]});
+ assert.equal(summary.spendingTotal,1000);assert.equal(summary.remainder,2000);
 });

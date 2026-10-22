@@ -26,3 +26,20 @@ export function estimateStatePension(input, referenceMonth, employmentIncome = 0
   const annualTax = annualGross === null ? null : round(estimateUkTakeHome2026({baseSalary:round(other+annualGross)}).incomeTax - estimateUkTakeHome2026({baseSalary:other}).incomeTax);
   return { ...input, mode, startMonth:startMonth || null, qualifyingYears, futureYears, totalYears, annualGross, annualTax, monthlyNet:annualGross === null ? null : round((annualGross-annualTax)/12), referenceMonth, taxableIncomeAssumed:other };
 }
+
+/** Resolve an NI record into an illustration without inventing recorded years.
+ * Ages only give an approximate start month; an entered official date wins.
+ */
+export function resolveStatePensionInput(input, flow, holdings, owner) {
+  if (!input) return null;
+  const reference = flow.timelineStartMonth || flow.asOfMonth;
+  const age = owner === 'primary' ? holdings.age : holdings.partnerAge;
+  const pensionAge = Number(reference.slice(0, 4)) - age >= 1978 ? 68 : 67;
+  const offset = Number.isFinite(age) ? Math.max(0, (pensionAge - age) * 12) : null;
+  const [year, month] = reference.split('-').map(Number);
+  const startMonth = input.startMonth || (offset === null ? '' : new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 7));
+  const pay = flow.pay[owner];
+  const employed = (pay.annualGross || pay.annualTakeHome || 0) > 0;
+  const qualifyingUntil = input.assumeFutureYears === false ? '' : input.qualifyingUntil || (employed ? pay.endDate || startMonth : '');
+  return {...input, mode: input.mode === 'official' ? 'official' : startMonth ? 'simplified' : 'record', startMonth, qualifyingUntil, approximateStart: !input.startMonth};
+}

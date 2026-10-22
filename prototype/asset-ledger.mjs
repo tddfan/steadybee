@@ -188,6 +188,7 @@ export function validateDraft(draft) {
         debt.remainingYears > 100)
     )
       error(`${path}.remainingYears`, "Enter more than 0 and up to 100 years remaining.");
+    if (debt.mortgageType && !["repayment", "interest-only"].includes(debt.mortgageType)) error(`${path}.mortgageType`, "Choose repayment or interest-only.");
     if (!isBlank(debt.monthlyPayment) &&
       (debt.kind !== "mortgage" || !isMoney(debt.monthlyPayment)))
       error(`${path}.monthlyPayment`, "Enter an explicit monthly mortgage payment, to the penny.");

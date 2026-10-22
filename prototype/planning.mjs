@@ -1,10 +1,10 @@
 /** Deterministic monthly scenario. Rates are editable illustrations, not forecasts. */
-import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261015coverage6';
-import { estimateStatePension } from './state-pension.mjs?v=20261015coverage6';
+import { computeAllocationWaterfall } from './monthly-flow.mjs?v=20261022cashflow2';
+import { estimateStatePension, resolveStatePensionInput } from './state-pension.mjs?v=20261022cashflow2';
 import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligibleWithdrawalBucket } from './withdrawals.mjs?v=20261015coverage6';
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
 import { savingsTax } from './investment-tax.mjs?v=20261015coverage6';
-import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261015coverage6';
+import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
 
 export const PLANNING_DEFAULTS = Object.freeze({inflation:2,incomeGrowth:2,growth:Object.freeze({cash:2,isa:4,pension:4,property:2,shares:4}),years:30});
 const round = value => Math.round(value*100)/100;
@@ -69,13 +69,13 @@ export function projectPlan(flow, holdings, options = {}) {
   const statePensions={};
   source.statePensions ||= {};
   for(const owner of holdings.partnerName ? ['primary','partner'] : ['primary']) {
-    const input=source.statePensions[owner],age=ages[owner];
+    const input=resolveStatePensionInput(source.statePensions[owner],source,holdings,owner),age=ages[owner];
     if(!Number.isFinite(age))warnings.push(`${owner==='primary' ? holdings.name || 'Your' : holdings.partnerName} age is missing; personal pension access cannot be assumed.`);
     if(!input || (!Number.isFinite(age) && (!input.startMonth || input.mode==='record'))) {warnings.push('State Pension needs a current age and NI record, or an official forecast and start month.');continue;}
     const eligibility=Number.isFinite(age) ? monthAt(startMonth,Math.max(0,(statePensionAge-age)*12)) : input.startMonth;
     const start=input.startMonth && input.startMonth>eligibility ? input.startMonth : eligibility;
     const employed=(source.pay[owner].annualGross || source.pay[owner].annualTakeHome || 0)>0;
-    const until=options.futureNI!==false && employed ? (source.pay[owner].endDate && source.pay[owner].endDate<start ? source.pay[owner].endDate : start) : '';
+    const until=options.futureNI!==false && input.assumeFutureYears!==false ? input.qualifyingUntil || (employed ? (source.pay[owner].endDate && source.pay[owner].endDate<start ? source.pay[owner].endDate : start) : '') : '';
     const basis={...input,mode:input.mode==='official' ? 'official' : 'simplified',startMonth:start,qualifyingUntil:until};
     const estimate=estimateStatePension(basis,input.assessmentMonth || startMonth);
     statePensions[owner]={...estimate,totalYears:basis.mode==='simplified' ? Math.min(35,estimate.totalYears) : estimate.totalYears,projectedNIYears:estimate.totalYears,approximateAge:age};
@@ -90,7 +90,7 @@ export function projectPlan(flow, holdings, options = {}) {
   const mortgageStates=balances.debts.filter(item=>item.kind==='mortgage').map(debt=>{
     const annualRate=options.mortgageRate ?? debt.interestRate;
     const term=options.mortgageTermYears ?? (debt.remainingYears ? Math.max(1/12,debt.remainingYears-earlier) : null);
-    const payment=earlier || options.mortgageTermYears!=null || options.mortgageRate!=null ? estimateRepaymentMortgagePayment({balance:debt.balance,annualRate,remainingYears:term ?? undefined}) : debt.monthlyPayment ?? estimateRepaymentMortgagePayment({balance:debt.balance,annualRate,remainingYears:term ?? undefined});
+    const payment=earlier || options.mortgageTermYears!=null || options.mortgageRate!=null ? estimateRepaymentMortgagePayment({balance:debt.balance,annualRate,remainingYears:term ?? undefined,mortgageType:debt.mortgageType}) : debt.monthlyPayment ?? estimateRepaymentMortgagePayment({balance:debt.balance,annualRate,remainingYears:term ?? undefined,mortgageType:debt.mortgageType});
     const modelled=flow.includeLinkedMortgage && payment!=null && annualRate!=null;
     if(!modelled)warnings.push(`${debt.label || 'Mortgage'} balance is held unchanged: include payments and supply a rate and payment/term to model repayment.`);
     return {debt,payment,annualRate,termMonths:term ? Math.round(term*12) : null,modelled};

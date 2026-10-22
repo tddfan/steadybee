@@ -12,7 +12,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./asset-canvas.css?v=20261022pension-equivalent1" />
     <link rel="stylesheet" href="./finance-theme.css?v=20261022flowadd1" />
-    <script type="module" src="./asset-canvas.mjs?v=20261022pension-equivalent1"></script>
+    <script type="module" src="./asset-canvas.mjs?v=20261022cashflow2"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -220,12 +220,12 @@
           <label>Person<select id="flow-state-owner"><option value="primary">Sam</option><option value="partner">Priya</option></select></label>
           <label>Qualifying NI years so far<input id="flow-state-years" type="number" min="0" max="60" step="1" required /><small>Include qualifying years from contributions or credits.</small></label>
           <label>Record checked in<input id="flow-state-assessment" type="month" required /></label>
-          <label>State Pension starts<input id="flow-state-start" type="month" /><small>Use the month from your official forecast; it is separate from stopping work.</small></label>
+          <label>State Pension starts<input id="flow-state-start" type="month" /><small>Estimated from your recorded age; change it to the month on your official forecast. Separate from stopping work.</small></label>
         </div>
         <label class="flow-state-check"><input id="flow-state-continue" type="checkbox" /> Assume one full qualifying NI year for each future year until:</label>
         <label id="flow-state-until-row">Last month of expected qualifying years<input id="flow-state-until" type="month" /><small>Your pay end month is offered as a starting point. NI credits can continue after work ends.</small></label>
         <div class="flow-state-grid">
-          <label>Amount basis<select id="flow-state-mode"><option value="record">Record years only for now</option><option value="official">Use my official weekly forecast</option><option value="simplified">Use a simplified 35-year illustration</option></select></label>
+          <label>Amount basis<select id="flow-state-mode"><option value="official">Use my official weekly forecast</option><option value="simplified">Calculate from NI qualifying years</option></select></label>
           <label id="flow-state-weekly-row">Official forecast (£ per week)<input id="flow-state-weekly" type="text" data-grouped-number min="0" max="10000" step="0.01" /></label>
           <label id="flow-state-other-row">Other taxable income (£ per year)<input id="flow-state-other" type="text" data-grouped-number min="0" max="100000000" step="0.01" value="0" /><small>Excluding pay already entered. Used only to estimate tax on this pension.</small></label>
         </div>
@@ -281,7 +281,8 @@
         </div>
         <p id="item-equity" class="item-equity" hidden></p>
         <details id="mortgage-fields" class="optional-fields" hidden>
-          <summary>Repayment details</summary>
+          <summary>Mortgage payment details</summary>
+          <div class="form-field"><label for="item-mortgage-type">Mortgage type</label><select id="item-mortgage-type"><option value="repayment">Repayment (capital and interest)</option><option value="interest-only">Interest-only</option></select></div>
           <div class="field-pair">
             <div class="form-field">
               <label for="item-interest-rate">Current interest rate <span class="optional">Optional</span></label>
@@ -292,7 +293,7 @@
               <div class="unit-input"><input id="item-remaining-years" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 18" /><span aria-hidden="true">years</span></div>
             </div>
           </div>
-          <div class="form-field"><label for="item-monthly-payment">Monthly payment <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-payment" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Leave blank to estimate a level repayment from the balance, rate and remaining years. Enter the actual amount paid to override the estimate.</p></div><p class="field-help">The estimate assumes a repayment mortgage and an unchanged interest rate. Your lender’s payment may differ; this payment is not added to debt balance.</p>
+          <div class="form-field"><label for="item-monthly-payment">Monthly payment <span class="optional">Optional</span></label><div class="money-input"><span aria-hidden="true">£</span><input id="item-monthly-payment" type="text" data-grouped-number min="0" max="100000000000" step="0.01" inputmode="decimal" /></div><p class="field-help">Leave blank to calculate from the mortgage type, balance, rate and term. Enter your lender’s payment to override it. Included automatically in monthly spending.</p></div><p class="field-help">Interest-only pays the interest each month; the capital is still due at the end of the term. Estimates assume an unchanged rate.</p>
         </details>
         <details id="item-additional" class="item-additional"><summary>Additional details</summary>
           <div class="form-field"><label for="item-confidence">Value accuracy</label><select id="item-confidence"><option value="estimate">Estimate</option><option value="exact">Exact</option><option value="review">Needs review</option></select></div>

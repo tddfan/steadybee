@@ -1,7 +1,7 @@
 /** Present-day monthly cash flow. Optional user-directed routing is a single-month illustration, not a forecast. */
-import { estimateStatePension } from "./state-pension.mjs";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022cashflow2";
 import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs";
-import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs";
+import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 
 export const INCOME_FIELDS = Object.freeze([
   { key: "pensionIncome", label: "Pension income received now" },
@@ -37,7 +37,7 @@ export function createBlankMonthlyFlow() {
     statePensions: { primary: null, partner: null },
     savings: { primaryShare: null },
     includeLinkedRent: false,
-    includeLinkedMortgage: false,
+    includeLinkedMortgage: true,
     assumptions: {
       annualInflation: null,
       incomeGrowthRate: null,
@@ -179,7 +179,7 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   const linkedMortgages = debts.filter((debt) => debt.kind === "mortgage")
     .map((debt) => {
       const entered = debt.monthlyPayment !== undefined;
-      const calculated = entered ? null : estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears });
+      const calculated = entered ? null : estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, mortgageType: debt.mortgageType });
       const endMonth = debt.remainingYears ? addMonths(timelineStartMonth, Math.round(debt.remainingYears * 12)) : null;
       return { id: debt.id, label: debt.label?.trim() || "Mortgage", amount: entered ? pennies(debt.monthlyPayment, "Monthly mortgage payment") / 100 : calculated, estimated: !entered, balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, endMonth, active: !endMonth || flow.asOfMonth < endMonth };
     }).filter((debt) => debt.amount !== null);
@@ -189,7 +189,7 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   }
   const statePensionDetails = [];
   for(const owner of ["primary","partner"]) {
-    const input=flow.statePensions?.[owner]; if(!input) continue;
+    const input=resolveStatePensionInput(flow.statePensions?.[owner], flow, holdings, owner); if(!input) continue;
     const pay=payDetails.find(item=>item.owner === owner);
     const basisMonth=input.startMonth && flow.asOfMonth < input.startMonth ? input.startMonth : flow.asOfMonth;
     const taxablePay=pay && (!pay.endDate || basisMonth <= pay.endDate) ? Math.max(0,pay.annualGross-pay.employeePension) : 0;

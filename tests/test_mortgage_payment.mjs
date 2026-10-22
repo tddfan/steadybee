@@ -15,3 +15,9 @@ test("missing or invalid mortgage inputs cannot invent a payment", () => {
   assert.equal(estimateRepaymentMortgagePayment({ balance: 235000, annualRate: 4.3, remainingYears: undefined }), null);
   assert.throws(() => estimateRepaymentMortgagePayment({ balance: -1, annualRate: 4.7, remainingYears: 21 }), RangeError);
 });
+
+test('interest-only calculates monthly interest and honours a zero rate', () => {
+ assert.equal(estimateRepaymentMortgagePayment({balance:200000,annualRate:6,mortgageType:'interest-only'}),1000);
+ assert.equal(estimateRepaymentMortgagePayment({balance:200000,annualRate:0,mortgageType:'interest-only'}),0);
+ assert.equal(estimateRepaymentMortgagePayment({balance:200000,mortgageType:'interest-only'}),null);
+});

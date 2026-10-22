@@ -1,7 +1,7 @@
 /** Local encrypted pictures. No network, credentials or clear-text storage. */
-import {validateDraft} from './asset-ledger.mjs?v=20261015coverage6';
-import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261015coverage6';
-import {projectPlan} from './planning.mjs?v=20261017feedback2';
+import {validateDraft} from './asset-ledger.mjs?v=20261022cashflow2';
+import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261022cashflow2';
+import {projectPlan} from './planning.mjs?v=20261022cashflow2';
 import {planHorizon} from './coverage.mjs?v=20261015coverage6';
 export const PICTURE_STORAGE_KEY='steadybee.protected-picture.v1';
 const MAX_BYTES=2_000_000,ITERATIONS=310_000;
