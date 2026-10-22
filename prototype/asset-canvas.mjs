@@ -889,6 +889,19 @@ function renderFlow() {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
     $(`flow-pay-${detail.owner}-monthly`).textContent = !detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
     $(`flow-pay-${detail.owner}-tax`).textContent = detail.annualGross ? `Rough 2026–27 estimate: Income Tax ${money(detail.estimate.incomeTax)}, employee NI ${money(detail.estimate.employeeNI)}, employee pension ${money(detail.employeePension)}${detail.employerPension ? `, employer pension ${money(detail.employerPension)}` : ""} per year. Employer pension is outside take-home pay.` : "";
+    const baseSalary = flowDraft.pay[detail.owner].annualGross || 0;
+    for (const [kind, label] of [["employee", "Your pension"], ["employer", "Employer pension"]]) {
+      const rate = flowDraft.pay[detail.owner][`${kind}PensionRate`] || 0;
+      const amount = flowDraft.pay[detail.owner][`${kind}Pension`] || 0;
+      const amountNote = $(`flow-pay-${detail.owner}-${kind}-amount-equivalent`);
+      const rateNote = $(`flow-pay-${detail.owner}-${kind}-rate-equivalent`);
+      amountNote.textContent = rate ? `Calculated: ${money(baseSalary * rate / 100)} per year` : "";
+      rateNote.textContent = amount ? baseSalary ? `Calculated: ${plain(amount / baseSalary * 100)}% of base pay` : "Enter base salary to calculate the percentage" : "";
+      amountNote.hidden = !rate;
+      rateNote.hidden = !amount;
+      amountNote.setAttribute("aria-label", `${label} yearly amount calculated from percentage`);
+      rateNote.setAttribute("aria-label", `${label} percentage calculated from yearly amount`);
+    }
   }
   $("flow-include-rent").checked = flowDraft.includeLinkedRent;
   $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
@@ -946,17 +959,26 @@ function setupFlowInputs() {
     const card = make("fieldset", "flow-pay-card");
     const legend = make("legend"); legend.id = `flow-pay-${owner}-name`; legend.textContent = owner === "primary" ? "Your pay" : "Partner's pay";
     card.append(legend);
-    for (const [key, label] of [["annualGross", "Yearly base salary"], ["annualBonus", "Yearly bonus"], ["employeePensionRate", "Your pension (base pay rate)"], ["employeePension", "Your pension (yearly amount)"], ["employerPensionRate", "Employer pension (base pay rate)"], ["employerPension", "Employer pension (yearly amount)"], ["annualTakeHome", "Actual take-home (yearly)"]]) {
+    for (const [key, label] of [["annualGross", "Yearly base salary"], ["annualBonus", "Yearly bonus"], ["employeePensionRate", "Your pension (% of base pay)"], ["employeePension", "Your pension (yearly amount)"], ["employerPensionRate", "Employer pension (% of base pay)"], ["employerPension", "Employer pension (yearly amount)"], ["annualTakeHome", "Actual take-home (yearly)"]]) {
       const row = make("label", "flow-input-row"); row.append(make("span", "", label));
+      if (["employeePensionRate", "employeePension", "employerPensionRate", "employerPension"].includes(key)) row.classList.add("flow-pension-row");
       const wrapper = make("span", "flow-money-input"); const input = make("input");
       const percent = key.endsWith("Rate");
       input.type = "number"; input.min = "0"; input.max = percent ? "100" : "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = key === "annualTakeHome" ? "Use estimate" : "0";
       if (!percent) enableGroupedNumberInput(input);
       input.dataset.flowPayOwner = owner; input.dataset.flowPayKey = key; input.id = `flow-pay-${owner}-${key}`;
       wrapper.append(make("span", "", percent ? "%" : "£"), input); row.append(wrapper); card.append(row);
+      if (["employeePensionRate", "employeePension", "employerPensionRate", "employerPension"].includes(key)) {
+        const kind = key.startsWith("employee") ? "employee" : "employer";
+        const note = make("small", "flow-pension-equivalent");
+        note.id = `flow-pay-${owner}-${kind}-${key.endsWith("Rate") ? "rate" : "amount"}-equivalent`;
+        note.hidden = true;
+        row.append(note);
+      }
     }
-    const dateRow = make("label", "flow-input-row"); dateRow.append(make("span", "", "Expected pay end month"));
+    const dateRow = make("label", "flow-input-row", ""); dateRow.classList.add("flow-pension-row"); dateRow.append(make("span", "", "Last month you expect to receive pay"));
     const date = make("input", "flow-date-input"); date.type = "month"; date.dataset.flowPayOwner = owner; date.dataset.flowPayKey = "endDate"; date.id = `flow-pay-${owner}-endDate`; dateRow.append(date); card.append(dateRow);
+    dateRow.append(make("small", "flow-pension-equivalent", "Pay is included through this month and stops the following month."));
     card.append(make("p", "flow-pay-monthly", "")); const monthly = card.lastChild; monthly.id = `flow-pay-${owner}-monthly`;
     card.append(make("p", "flow-pay-tax", "")); card.lastChild.id = `flow-pay-${owner}-tax`;
     $("flow-pay-inputs").append(card);

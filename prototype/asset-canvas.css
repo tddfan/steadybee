@@ -810,6 +810,8 @@ button.picture-step:hover { border-color: #579177; background: #f1f7f2; }
 .flow-pay-card { min-width: 0; margin: 0; padding: 16px 19px; border: 1px solid #d6e2d7; border-radius: 13px; background: #f8fbf7; }
 .flow-pay-card legend { padding: 0 6px; color: #285d46; font-size: 1.1rem; font-weight: 750; }
 .flow-pay-card .flow-input-row { font-size: .91rem; }
+.flow-pay-card .flow-pension-row { flex-wrap: wrap; }
+.flow-pension-equivalent { flex: 0 0 100%; margin: -4px 0 8px; color: #586b60; font-size: .78rem; text-align: right; }
 .flow-date-input { width: 150px; min-height: 44px; padding: 5px 8px; border: 1px solid #aabeb0; border-radius: 8px; background: white; color: #274437; font: inherit; }
 .flow-pay-monthly { margin: 12px 0 0; color: #28634b; font-size: .94rem; font-weight: 750; }
 @media (max-width: 900px) { .flow-pay-grid { grid-template-columns: 1fr; } }
