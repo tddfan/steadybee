@@ -45,8 +45,8 @@ export function projectPlan(flow, holdings, options = {}) {
   if(options.mortgageRate!=null && (!Number.isFinite(options.mortgageRate)||options.mortgageRate<0||options.mortgageRate>30))throw new RangeError('Mortgage rate must be from 0% to 30%.');
   const oneOff=options.oneOff;
   if(oneOff && (!Number.isFinite(oneOff.amount)||oneOff.amount<0||oneOff.amount>10000000||!/^\d{4}-(0[1-9]|1[0-2])$/.test(oneOff.month)))throw new RangeError('Enter a valid one-off month and an amount up to £10 million.');
-  const pensionAccessAge=options.pensionAccessAge ?? 57,statePensionAge=options.statePensionAge ?? 67;
-  for(const [label,value,min] of [['Personal pension access age',pensionAccessAge,57],['State Pension scenario age',statePensionAge,67]])if(!Number.isInteger(value)||value<min||value>75)throw new RangeError(`${label} must be from ${min} to 75.`);
+  const pensionAccessAge=options.pensionAccessAge ?? 55,statePensionAge=options.statePensionAge ?? 67;
+  for(const [label,value,min] of [['Personal pension access age',pensionAccessAge,55],['State Pension scenario age',statePensionAge,67]])if(!Number.isInteger(value)||value<min||value>75)throw new RangeError(`${label} must be from ${min} to 75.`);
   const ages={primary:options.ages?.primary ?? holdings.age,partner:options.ages?.partner ?? holdings.partnerAge};
   for(const age of Object.values(ages))if(age!=null && (!Number.isInteger(age)||age<18||age>120))throw new RangeError('Enter current ages as whole years from 18 to 120.');
   const spendingChanges=structuredClone(options.spendingChanges ?? (options.spendingChange ? [options.spendingChange] : [])).sort((a,b)=>a.year-b.year);
@@ -220,7 +220,7 @@ export function projectPlan(flow, holdings, options = {}) {
     const assetsByType=totals(balances.assets,'value',item=>assetGroup(item.kind)),assetsByPerson=totals(balances.assets,'value',ownerOf);
     const debtsByType=totals(balances.debts,'balance',item=>item.kind==='mortgage' ? 'mortgage' : 'otherDebt'),debtsByPerson=totals(balances.debts,'balance',ownerOf);
     const assetsTotal=round(Object.values(assetsByType).reduce((sum,value)=>sum+value,0)),debtsTotal=round(Object.values(debtsByType).reduce((sum,value)=>sum+value,0));
-    const closingContext={pensionAccessAge,ages:Object.fromEntries(Object.entries(ages).map(([owner,age])=>[owner,Number.isFinite(age) ? age+(index+1)/12 : null]))};
+    const closingContext={month,pensionAccessAge,ages:Object.fromEntries(Object.entries(ages).map(([owner,age])=>[owner,Number.isFinite(age) ? age+(index+1)/12 : null]))};
     const withdrawableAssets=round(balances.assets.filter(asset=>eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
     const lockedPensions=round(balances.assets.filter(asset=>asset.kind==='dc-pension' && !eligibleWithdrawalBucket(asset,closingContext)).reduce((sum,asset)=>sum+asset.value,0));
     const otherAssets=round(assetsTotal-withdrawableAssets-lockedPensions);

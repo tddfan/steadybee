@@ -209,7 +209,7 @@ export function mountPlanning(root,getInputs) {
     scenario.spendingChanges ??= [{year:lastWorkYear+1,percent:100}];
     renderSpendingChanges(flow);
     slider($('plan-pension-controls'),'plan-state-age','State Pension scenario age',67,70,scenario.statePensionAge ?? 67,value=>scenario.statePensionAge=value);
-    slider($('plan-pension-controls'),'plan-personal-age','Personal pension access age',57,65,scenario.pensionAccessAge ?? 57,value=>scenario.pensionAccessAge=value);
+    slider($('plan-pension-controls'),'plan-personal-age','Pension access age',55,75,scenario.pensionAccessAge ?? 55,value=>scenario.pensionAccessAge=value);
     slider($('plan-gain-slider'),'plan-opening-gain','Unknown opening cost: gain share',0,100,scenario.openingGainPercent ?? 100,value=>scenario.openingGainPercent=value,'%');
     for(const owner of holdings.partnerName ? ['primary','partner'] : ['primary']) {
       const label=el('label','',`${owner==='primary' ? holdings.name || 'Your' : holdings.partnerName} current age`),input=el('input');
@@ -272,7 +272,7 @@ export function mountPlanning(root,getInputs) {
     for(const button of root.querySelectorAll('[data-money]'))button.setAttribute('aria-pressed',String(button.dataset.money===(real ? 'real' : 'nominal')));
     const pensionNote=$('plan-pension-note');pensionNote.replaceChildren();pensionNote.hidden=metric!=='income';
     if(metric==='income') {
-      pensionNote.append(document.createTextNode(`State Pension scenario age ${projection.statePensionAge}; personal pension access ${projection.pensionAccessAge}. `));
+      pensionNote.append(document.createTextNode(`State Pension scenario age ${projection.statePensionAge}; personal pension access uses age 55 through March 2028, then 57 from April (legal change: 6 April 2028). `));
       const edit=el('button','plan-text-button','Review pension assumptions');edit.type='button';edit.addEventListener('click',()=>revealControl($('plan-pension-assumptions')));pensionNote.append(edit);
     }
     root.querySelector('.plan-chart-unit').textContent=meta.balance ? '£ · year end' : '£ per year';
@@ -354,7 +354,7 @@ export function mountPlanning(root,getInputs) {
       ['Assets & debt',`${holdings.assets.length} asset${holdings.assets.length===1?'':'s'} · ${holdings.debts.length} debt${holdings.debts.length===1?'':'s'}. Check balances, ownership and repayments.`],
       ['Spending',budget>0 ? `${currency(budget)} in ${monthLabel(flow.asOfMonth)}, including active entries and linked payments.` : `No spending entered for ${monthLabel(flow.asOfMonth)}. Check whether this is intentional.`],
       ['Pay & pension income','Check amounts, start/end dates and whether each figure is before or after tax.'],
-      ['Pension access',holdings.assets.some(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge)?`${holdings.assets.filter(asset=>asset.kind==='dc-pension' && !asset.pensionAccessAge).length} pension pots without a recorded access age.`:holdings.assets.some(asset=>asset.kind==='dc-pension')?'Access ages recorded for all pension pots.':'No pension pots entered.']
+      ['Pension access',holdings.assets.some(asset=>asset.kind==='dc-pension')?'Uses age 55 through March 2028, then 57; a later provider-confirmed age applies per pot.':'No pension pots entered.']
     ];
     $('plan-readiness').replaceChildren(...checks.map(([title,text])=>{const item=el('li');item.append(el('strong','',title),el('span','',text));return item;}));
   }

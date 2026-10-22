@@ -6,6 +6,8 @@ export const WITHDRAWAL_ORDERS=Object.freeze({
   pensionFirst:['cash','pension','general','isa'],
   isaFirst:['cash','isa','general','pension'],
 });
+const statutoryPensionAge=month=>month && month>='2028-04' ? 57 : 55;
+const requiredPensionAge=(asset,context)=>Math.max(context.pensionAccessAge ?? 55,asset.pensionAccessAge || 0,statutoryPensionAge(context.month));
 export function createWithdrawalState(assets,{taxFreeRemaining={},openingGainPercent=100}={}) {
   if(!Number.isFinite(openingGainPercent)||openingGainPercent<0||openingGainPercent>100)throw new RangeError('Opening investment gain must be from 0% to 100%.');
   for(const value of Object.values(taxFreeRemaining))if(!Number.isFinite(value)||value<0||value>268275)throw new RangeError('Remaining pension lump-sum allowance must be from £0 to £268,275.');
@@ -15,7 +17,7 @@ export function createWithdrawalState(assets,{taxFreeRemaining={},openingGainPer
 /** Same eligibility rule for drawdown and the coverage balance. Amounts remain before tax. */
 export function eligibleWithdrawalBucket(asset,context={}) {
   const owner=asset.owner || 'primary';
-  if(asset.kind==='dc-pension')return ['primary','partner'].includes(owner) && Number.isFinite(context.ages?.[owner]) && context.ages[owner]>=Math.max(context.pensionAccessAge ?? 57,asset.pensionAccessAge || 0) ? 'pension' : null;
+  if(asset.kind==='dc-pension')return ['primary','partner'].includes(owner) && Number.isFinite(context.ages?.[owner]) && context.ages[owner]>=requiredPensionAge(asset,context) ? 'pension' : null;
   if(asset.kind==='isa')return owner==='shared' ? null : 'isa';
   if(asset.kind==='cash')return 'cash';
   if(asset.kind==='general' || (asset.kind==='shares' && (asset.accessBucket==='accessible' || (asset.accessBucket==='illiquid' && context.saleAssetIds?.includes(asset.id)))))return 'general';
@@ -26,7 +28,6 @@ export function withdrawForSpending(assets,needed,state,context={}) {
   if(!Number.isFinite(needed)||needed<0)throw new RangeError('The spending gap must be non-negative.');
   const order=context.order || WITHDRAWAL_ORDERS.generalFirst;
   if(order.length!==4||new Set(order).size!==4||order.some(key=>!['cash','general','isa','pension'].includes(key)))throw new RangeError('Choose each withdrawal bucket once.');
-  const pensionAccessAge=context.pensionAccessAge ?? 57;
   if(context.month && state.taxMonth!==context.month){state.taxMonth=context.month;state.monthlyTaxable={primary:0,partner:0};}
   const monthlyTaxable=context.month ? state.monthlyTaxable : {primary:0,partner:0},items=[];
   let left=round(needed),grossTotal=0,taxTotal=0;
@@ -63,7 +64,7 @@ export function withdrawForSpending(assets,needed,state,context={}) {
       const candidates=assets.filter(asset=>{
         if(asset.value<=0 || bucketOf(asset)!==bucket)return false;
         const owner=ownerOf(asset);
-        if(bucket==='pension')return ['primary','partner'].includes(owner) && Number.isFinite(context.ages?.[owner]) && context.ages[owner]>=Math.max(pensionAccessAge,asset.pensionAccessAge || 0);
+        if(bucket==='pension')return ['primary','partner'].includes(owner) && Number.isFinite(context.ages?.[owner]) && context.ages[owner]>=requiredPensionAge(asset,context);
         if(bucket==='isa')return owner!=='shared';
         return true;
       });

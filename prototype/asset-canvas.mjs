@@ -12,7 +12,7 @@ import {
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
 import { mountAccountStorage } from './account-storage.mjs?v=20261022accountui';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261017profile1';
-import { mountPlanning } from "./planning-view.mjs?v=20261022grouped2";
+import { mountPlanning } from "./planning-view.mjs?v=20261022pensionaccess3";
 import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
@@ -198,7 +198,7 @@ function assetContext(asset) {
   if (asset.monthlyRent !== undefined) notes.push(`${money(asset.monthlyRent)}/month rent`);
   if (asset.interestRate !== undefined) notes.push(`${plain(asset.interestRate)}% cash rate`);
   if (asset.investmentLabel) notes.push(`Invested in ${asset.investmentLabel}`);
-  if (asset.kind === "dc-pension") notes.push(asset.pensionAccessAge ? `Scheme access age ${asset.pensionAccessAge}` : "Check scheme access age");
+  if (asset.kind === "dc-pension") notes.push(asset.pensionAccessAge ? `Scheme access age ${asset.pensionAccessAge}` : "Plan uses 55 through Mar 2028, then 57");
   if (accessBucket(asset) === "review") notes.push("Access rules to confirm");
   return notes.join(" · ");
 }
@@ -223,7 +223,7 @@ function compactMoney(value) {
   return money(value);
 }
 function needsAccessReview(asset) {
-  return (asset.kind === "dc-pension" && !asset.pensionAccessAge) || accessBucket(asset) === "review";
+  return accessBucket(asset) === "review";
 }
 function renderAccessReview() {
   const items = draft.assets.filter(needsAccessReview);
@@ -236,7 +236,7 @@ function renderAccessReview() {
     const button = make("button", "access-review-item");
     button.type = "button";
     button.dataset.reviewId = asset.id;
-    button.append(icon(asset.kind), make("span", "", `${ownerName(asset.owner)} · ${itemName(asset, ASSET_TYPES)}`), make("small", "", asset.kind === "dc-pension" ? "Confirm scheme access age →" : "Confirm access or sale rules →"));
+    button.append(icon(asset.kind), make("span", "", `${ownerName(asset.owner)} · ${itemName(asset, ASSET_TYPES)}`), make("small", "", "Confirm access or sale rules →"));
     list.append(button);
   }
 }
@@ -269,7 +269,7 @@ function renderOrbit(summary) {
     for(const item of items) {
       const owner=item.owner || "primary",value=type==='asset' ? item.value : item.balance;
       const linkedAsset=type==='debt' ? draft.assets.find(asset=>asset.id===item.linkedAssetId) : null;
-      const access=type==='debt' ? (linkedAsset ? itemName(linkedAsset,ASSET_TYPES) : 'Debt') : item.kind==='dc-pension' ? (item.pensionAccessAge ? `Age ${item.pensionAccessAge}+` : 'Check age') : ({accessible:'Available',pension:'Pension',illiquid:'Needs sale',review:'Check access'})[accessBucket(item)];
+      const access=type==='debt' ? (linkedAsset ? itemName(linkedAsset,ASSET_TYPES) : 'Debt') : item.kind==='dc-pension' ? (item.pensionAccessAge ? `Age ${item.pensionAccessAge}+` : '55 → 57') : ({accessible:'Available',pension:'Pension',illiquid:'Needs sale',review:'Check access'})[accessBucket(item)];
       const review=type==='asset' && needsAccessReview(item);
       const row=make('button',`holding-row asset-row owner-${owner}${type==='debt' ? ' is-debt' : ''}`);row.type='button';row.dataset.orbitType=type;row.dataset.orbitId=item.id;
       row.setAttribute('aria-label',`Edit ${ownerName(owner)} ${itemName(item,types)}, ${money(value)}${review ? `, ${access}` : ''}${item.confidence==='review' ? ', review value' : ''}`);
@@ -1114,6 +1114,7 @@ function updateDialogFields(selectedLink = "") {
   $("access-bucket-field").hidden = dialogType !== "asset" || !["shares", "other"].includes($("item-kind").value);
   $("share-tax-fields").hidden = dialogType !== "asset" || $("item-kind").value !== "shares";
   $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
+  if (!$("pension-access-field").hidden) $("item-additional").open = true;
   $("item-amount-label").textContent = dialogType === "asset" ? "Current value" : "Balance owed";
 
   if (dialogType === "debt") populateLinks(selectedLink);
@@ -1136,7 +1137,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-form").reset();
   $("item-error").hidden = true;
   $("item-error").textContent = "";
-  $("item-additional").open = false;
+  $("item-additional").open = Boolean(item?.kind === "dc-pension" && trigger?.dataset?.reviewId);
   $("item-dialog-title").textContent = `${item ? "Edit" : "Add"} ${type === "asset" ? "an asset" : "a debt"}`;
   $("save-item-button").textContent = item ? "Save changes" : type === "asset" ? "Add asset" : "Add debt";
   $("delete-item-button").hidden = !item;
@@ -1159,7 +1160,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined || item?.monthlyPayment !== undefined);
   updateDialogFields(item?.linkedAssetId);
   $("item-dialog").showModal();
-  $(item || initialKind ? "item-amount" : "item-kind").focus();
+  $(item?.kind === "dc-pension" && trigger?.dataset?.reviewId ? "item-pension-access-age" : item || initialKind ? "item-amount" : "item-kind").focus();
 }
 
 function itemFromForm() {
