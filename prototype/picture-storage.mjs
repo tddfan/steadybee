@@ -1,8 +1,10 @@
 /** Local encrypted pictures. No network, credentials or clear-text storage. */
-import {validateDraft} from './asset-ledger.mjs?v=20261015coverage6';
-import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261015coverage6';
-import {projectPlan} from './planning.mjs?v=20261017feedback2';
+import {validateDraft} from './asset-ledger.mjs?v=20261022cashflow2';
+import {computeAllocationWaterfall} from './monthly-flow.mjs?v=20261022insights2';
+import {projectPlan} from './planning.mjs?v=20261022insights2';
 import {planHorizon} from './coverage.mjs?v=20261015coverage6';
+import {validateEstateSettings} from './inheritance.mjs?v=20261022insights2';
+import {validateInsightSettings} from './insights.mjs?v=20261022insights2';
 export const PICTURE_STORAGE_KEY='steadybee.protected-picture.v1';
 const MAX_BYTES=2_000_000,ITERATIONS=310_000;
 const record=value=>value!==null && typeof value==='object' && !Array.isArray(value);
@@ -21,10 +23,14 @@ export function validatePicture(input) {
   if(!record(input)||input.version!==1||!record(input.flow)||!record(input.planning))throw new Error('This is not a supported Steadybee picture.');
   if(new TextEncoder().encode(JSON.stringify(input)).length>1_000_000)throw new Error('This picture is too large.');
   if(input.example!=null && typeof input.example!=='boolean')throw new Error('The picture label is invalid.');
+  if(input.inheritance!=null)validateEstateSettings(input.inheritance);
+  if(input.insights!=null)validateInsightSettings(input.insights);
   const validation=validateDraft(input.holdings);if(!validation.valid)throw new Error(validation.errors[0].message);
   if(input.holdings.partnerAge!=null && (!Number.isInteger(input.holdings.partnerAge)||input.holdings.partnerAge<18||input.holdings.partnerAge>120))throw new Error('Enter a partner age from 18 to 120.');
   const p=input.planning,s=p.scenario;
-  if(!record(s)||!['netWorth','income','saving','assets','debts'].includes(p.metric)||!['person','type'].includes(p.group)||!['bars','lines'].includes(p.style)||typeof p.real!=='boolean'||(p.selectedYear!=null && !/^\d{4}$/.test(p.selectedYear)))throw new Error('This picture has unsupported chart settings.');
+  if(p.taxCumulative!=null && typeof p.taxCumulative!=='boolean')throw new Error('The tax display setting is invalid.');
+  if(p.reviewedInputs!=null && (typeof p.reviewedInputs!=='string'||! /^[a-f0-9]{16}$/.test(p.reviewedInputs)))throw new Error('The starting-picture review marker is invalid.');
+  if(!record(s)||!['netWorth','income','saving','assets','debts','tax'].includes(p.metric)||!['person','type'].includes(p.group)||!['bars','lines'].includes(p.style)||typeof p.real!=='boolean'||(p.selectedYear!=null && !/^\d{4}$/.test(p.selectedYear)))throw new Error('This picture has unsupported chart settings.');
   if(p.outcomes!=null && (!record(p.outcomes)||![100,200,500].includes(p.outcomes.paths)||(p.outcomes.volatility!==null && (!Number.isFinite(p.outcomes.volatility)||p.outcomes.volatility<0||p.outcomes.volatility>40))))throw new Error('The simulation settings are invalid.');
   if(p.experiments!=null){
     if(!Array.isArray(p.experiments)||p.experiments.length>12)throw new Error('Keep up to 12 saved scenarios.');
@@ -38,6 +44,7 @@ export function validatePicture(input) {
   if(s.years!=null && (!Number.isInteger(s.years)||s.years<1||s.years>100))throw new Error('The horizon is invalid.');
   if(s.planToAge!=null)planHorizon(input.holdings,s);
   const flow=input.flow;
+  if(flow.taxOverrides!=null)throw new Error('Calculated tax overrides cannot be imported as household inputs.');
   for(const key of ['pay','income','spending','assumptions'])if(!record(flow[key]))throw new Error('This picture is missing monthly inputs.');
   if(!record(flow.pay.primary)||!record(flow.pay.partner)||!Array.isArray(flow.datedEntries)||!Array.isArray(flow.customSpending))throw new Error('This picture has incomplete monthly inputs.');
   computeAllocationWaterfall(flow,input.holdings);

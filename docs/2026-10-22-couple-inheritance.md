@@ -1,0 +1,13 @@
+# Couple inheritance scenarios
+
+Inheritance now offers “Both parents → children” when the household has two people. It supports each parent leaving their own estate directly to the final children/grandchildren, or first to the surviving partner and then to the final recipients. Marriage/civil partnership must be explicitly selected; unmarried partners receive no spouse exemption or automatic allowance transfer.
+
+Two ordered death dates and the first parent are explicit. Simultaneous deaths are unsupported. Both estates use one fixed valuation: current recorded assets, or Planning's closing balances in the first-death month. Values remain fixed between deaths. This does not claim to model the survivor's future earnings, spending, investment growth or pension benefits.
+
+The direct route removes the first parent's assets, pensions and liabilities from the final parent pool, including pensions outside first-death IHT. The partner-first route carries both parents' recorded liabilities and surviving assets to the survivor, reducing the first parent's assets for the first estate's tax and funeral costs (cash/investments first). Ownership/will/survivorship and pension-nomination assumptions must be confirmed. This funding order is illustrative, not a legal executor instruction.
+
+Unused basic and residence band percentages transfer only for married/civil partners. First-death residence taper applies even if the estate is spouse-exempt. The first residence band is used before working out unused basic band. Manual transfers from earlier spouses are not stacked in couple mode. Standard retained DC funds remain pension-type assets, using the relevant inclusion date at each death. Beneficiary pension Income Tax remains excluded. Home eligibility must apply to both parents; descendants are assumed to qualify for both.
+
+Verification:21 inheritance tests, including new couple cases for both routes, married/unmarried treatment, partial unused bands, first-death residence taper, the exact pension inclusion date, costs, original-data immutability and odd-penny ownership conservation. Browser checks exercised both routes using the synthetic example and verified separate estate amounts, combined inheritance, static-value labels and no console errors. No further accountant agent run was performed after the user's instruction.
+
+Sources: [unused basic threshold](https://www.gov.uk/guidance/transferring-unused-basic-threshold-for-inheritance-tax), [unused residence threshold](https://www.gov.uk/guidance/inheritance-tax-transfer-of-threshold), [pension rules](https://www.gov.uk/government/publications/inheritance-tax-on-pensions-technical-note/technical-note-inheritance-tax-on-pensions).

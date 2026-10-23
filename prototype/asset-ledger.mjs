@@ -13,7 +13,7 @@ export const ASSET_TYPES = Object.freeze({
 
 export const DEBT_TYPES = Object.freeze({
   mortgage: Object.freeze({ label: "Mortgage", group: "property" }),
-  loan: Object.freeze({ label: "Loan", group: "other" }),
+  loan: Object.freeze({ label: "Personal loan", group: "other" }),
   "credit-card": Object.freeze({ label: "Credit card", group: "other" }),
   other: Object.freeze({ label: "Other debt", group: "other" }),
 });
@@ -52,11 +52,12 @@ export function createPublicDemoHousehold() {
     name: "Sam", age: 39, partnerName: "Priya", partnerAge: 37,
     assets: [
       { id: "demo-home", kind: "home", label: "Main home", value: 360_000, owner: "shared" },
-      { id: "demo-sam-pension", kind: "dc-pension", label: "Workplace pension", value: 48_000, owner: "primary" },
+      // The fictional example assumes the standard access age; real schemes may differ.
+      { id: "demo-sam-pension", kind: "dc-pension", label: "Workplace pension", value: 48_000, owner: "primary", pensionAccessAge: 57 },
       { id: "demo-sam-isa", kind: "isa", label: "ISA", value: 12_000, owner: "primary" },
       { id: "demo-sam-cash", kind: "cash", label: "Savings", value: 8_000, owner: "primary" },
       { id: "demo-sam-car", kind: "car", label: "Car", value: 6_000, owner: "primary" },
-      { id: "demo-priya-pension", kind: "dc-pension", label: "Workplace pension", value: 35_000, owner: "partner" },
+      { id: "demo-priya-pension", kind: "dc-pension", label: "Workplace pension", value: 35_000, owner: "partner", pensionAccessAge: 57 },
       { id: "demo-priya-isa", kind: "isa", label: "ISA", value: 8_500, owner: "partner" },
       { id: "demo-priya-cash", kind: "cash", label: "Savings", value: 10_000, owner: "partner" },
       { id: "demo-priya-car", kind: "car", label: "Car", value: 5_000, owner: "partner" },
@@ -187,6 +188,7 @@ export function validateDraft(draft) {
         debt.remainingYears > 100)
     )
       error(`${path}.remainingYears`, "Enter more than 0 and up to 100 years remaining.");
+    if (debt.mortgageType && !["repayment", "interest-only"].includes(debt.mortgageType)) error(`${path}.mortgageType`, "Choose repayment or interest-only.");
     if (!isBlank(debt.monthlyPayment) &&
       (debt.kind !== "mortgage" || !isMoney(debt.monthlyPayment)))
       error(`${path}.monthlyPayment`, "Enter an explicit monthly mortgage payment, to the penny.");

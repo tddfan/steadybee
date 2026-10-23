@@ -23,7 +23,7 @@ test('asset withdrawals fund post-work spending and are shown as funding, withou
 
 test('other debt repayments sit alongside household spending and reduce their balances',()=>{const {flow,holdings}=setup();flow.spending.everyday=100;holdings.debts=[{id:'loan',kind:'loan',balance:1200,owner:'primary'}];const p=projectPlan(flow,holdings,{...zero,debtPayments:{loan:{annualRate:0,monthlyPayment:100}}});assert.equal(p.months[0].householdSpending,100);assert.equal(p.months[0].debtPayment,100);assert.equal(p.months[0].spendingTotal,200);assert.equal(p.months.at(-1).debtsTotal,0);});
 
-test('a funding gap does not hide pension assets or prevent later accessible drawdown',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.spending.everyday=100;holdings.age=56;holdings.assets=[{id:'p',kind:'dc-pension',owner:'primary',value:1000}];const p=projectPlan(flow,holdings,{...zero,years:2});assert.equal(p.firstUnfundedMonth,'2026-10');assert.equal(p.months[0].assetsTotal,1000);assert.equal(p.months[11].assetsByType.pension,1000);assert.equal(p.months[12].withdrawalNet,100);assert.equal(p.months[12].assetsTotal,900);});
+test('a funding gap does not hide pension assets or prevent later accessible drawdown',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.spending.everyday=100;holdings.age=56;holdings.assets=[{id:'p',kind:'dc-pension',owner:'primary',value:1000}];const p=projectPlan(flow,holdings,{...zero,years:2,pensionAccessAge:57});assert.equal(p.firstUnfundedMonth,'2026-10');assert.equal(p.months[0].assetsTotal,1000);assert.equal(p.months[11].assetsByType.pension,1000);assert.equal(p.months[12].withdrawalNet,100);assert.equal(p.months[12].assetsTotal,900);});
 test('multiple spending changes replace the original percentage rather than compound it',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=120000;flow.spending.everyday=1000;const p=projectPlan(flow,holdings,{...zero,years:3,spendingChanges:[{year:2027,percent:50},{year:2028,percent:75}]});assert.equal(p.months[0].householdSpending,1000);assert.equal(p.months[3].householdSpending,500);assert.equal(p.months[15].householdSpending,750);});
 test('paying off now uses accessible opening assets and ends mortgage installments',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.includeLinkedMortgage=true;holdings.age=43;holdings.assets=[{id:'c',kind:'cash',value:10000},{id:'i',kind:'isa',value:5000},{id:'p',kind:'dc-pension',value:100000}];holdings.debts=[{id:'m',kind:'mortgage',balance:12000,interestRate:5,remainingYears:2}];const p=projectPlan(flow,holdings,{...zero,mortgagePayoffNow:true});assert.equal(p.mortgagePayoff.paid,12000);assert.equal(p.months[0].debtsTotal,0);assert.equal(p.months[0].assetsByType.isa,3000);assert.equal(p.months[0].assetsByType.pension,100000);assert.equal(p.months[1].mortgagePayment,0);assert.equal(p.months[0].withdrawalNet,12000);});
 test('insufficient accessible assets produce a partial payoff and keep the remaining mortgage',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;holdings.age=43;holdings.assets=[{id:'c',kind:'cash',value:1000},{id:'p',kind:'dc-pension',value:100000}];holdings.debts=[{id:'m',kind:'mortgage',balance:12000,interestRate:0,remainingYears:2}];const p=projectPlan(flow,holdings,{...zero,mortgagePayoffNow:true});assert.equal(p.mortgagePayoff.paid,1000);assert.equal(p.mortgagePayoff.remaining,11000);assert.equal(p.months[0].debtsTotal,11000);});
@@ -54,7 +54,9 @@ test('retiring changes cash-interest tax and annual views expose the deduction',
   const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=null;flow.pay.primary.annualGross=150000;
   holdings.assets=[{id:'c',kind:'cash',owner:'primary',value:100000}];
   const p=projectPlan(flow,holdings,{...zero,growth:{...zero.growth,cash:2},retirementYears:{primary:2026}});
-  assert.ok(p.months[0].cashInterestTax>0);assert.equal(p.months[3].cashInterestTax,0);
+  // January still belongs to the tax year containing the final salary. Its
+  // earned interest remains taxable; the new allowance begins in April.
+  assert.ok(p.months[0].cashInterestTax>0);assert.ok(p.months[3].cashInterestTax>0);assert.equal(p.months[6].cashInterestTax,0);
   const rows=annualPlanView(p,'assets','type',false);
   assert.equal(rows[0].cashInterestTax,p.months.slice(0,3).reduce((sum,m)=>sum+m.cashInterestTax,0));
 });
@@ -69,7 +71,7 @@ test('cash and share payoff sells needs-sale shares, includes CGT, and preserves
   assert.equal(holdings.assets[1].accessBucket,'illiquid');
 });
 test('cash and shares payoff never falls back to ISA or pension when insufficient',()=>{
-  const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;
+  const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.includeLinkedMortgage=false;
   holdings.assets=[{id:'cash',kind:'cash',value:1000},{id:'s',kind:'shares',owner:'primary',value:1000,accessBucket:'illiquid',costBasis:1000},{id:'i',kind:'isa',value:20000}];
   holdings.debts=[{id:'m',kind:'mortgage',balance:10000,interestRate:0,remainingYears:21}];
   const p=projectPlan(flow,holdings,{...zero,mortgagePayoffNow:true,mortgagePayoffSource:'cashShares'});
@@ -107,3 +109,20 @@ test('stress follows earliest household retirement, clamps past retirement to op
 });
 
 test('retirement shock precedes normal monthly investment growth',()=>{const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.pay.primary.endDate='2025-12';holdings.assets=[{id:'i',kind:'isa',owner:'primary',value:10000}];const p=projectPlan(flow,holdings,{...zero,retirementStress:true,growth:{...zero.growth,isa:12}});assert.equal(p.months[0].assetsTotal,Math.round(8000*1.12**(1/12)*100)/100);assert.equal(p.stressTest.loss,2000);});
+
+test('interest-only retains capital until its term ends and then funds the capital payment',()=>{
+ const {flow,holdings}=setup();flow.includeLinkedMortgage=true;flow.pay.primary.annualTakeHome=3600000;
+ holdings.debts=[{id:'io',kind:'mortgage',balance:200000,interestRate:6,remainingYears:1,mortgageType:'interest-only'}];
+ const plan=projectPlan(flow,holdings,{...zero,years:1});
+ assert.equal(plan.months[0].mortgagePayment,1000);assert.equal(plan.months[0].debtsTotal,200000);
+ assert.equal(plan.months[11].mortgagePayment,201000);assert.equal(plan.months[11].debtsTotal,0);
+});
+
+test('cash and shares payoff reports a partial payment when share-labelled assets have another type',()=>{
+ const {flow,holdings}=setup();flow.pay.primary.annualTakeHome=0;flow.includeLinkedMortgage=true;
+ holdings.assets=[{id:'cash',kind:'cash',value:1000},{id:'other',kind:'other',label:'Employee shares',value:5000,accessBucket:'illiquid'}];
+ holdings.debts=[{id:'m',kind:'mortgage',balance:3000,interestRate:0,remainingYears:10}];
+ const plan=projectPlan(flow,holdings,{...zero,mortgagePayoffNow:true,mortgagePayoffSource:'cashShares'});
+ assert.equal(plan.mortgagePayoff.paid,1000);assert.equal(plan.mortgagePayoff.remaining,2000);
+ assert.equal(plan.months[0].assetsByType.other,5000);
+});

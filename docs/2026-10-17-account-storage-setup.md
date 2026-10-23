@@ -1,8 +1,18 @@
 # Account storage setup
 
+> Historical setup notes: email-link sign-in was replaced by Google sign-in. See [Google sign-in setup](google-sign-in-setup.md) for the current provider configuration.
+
 Steadybee runs as a static site. Its existing protected-picture feature encrypts data in the browser and saves it to that browser or to an encrypted backup file. Account saving uses Supabase Auth and its Postgres Data API.
 
-The selected account service is Supabase. The intended first account flow is email sign-in, verified through a link, followed by an explicit **Save picture** action. A signed-in user can then reopen their latest saved household picture from another browser or device. Saved content includes household inputs and named scenarios; calculated charts and simulation samples are regenerated when opened.
+The selected account service is Supabase. Google sign-in opens the account's default household automatically. Changes to that household save automatically; users can also save named versions and choose one as the default. Saved content includes household inputs and named scenarios; calculated charts and simulation samples are regenerated when opened.
+
+Returning signed-in users always reopen their account's default household, replacing the public example. If an account has no default yet, an untouched public example is cleared; a customized example can be adopted as the first personal household. Switching to a different empty account clears the previous account's data. Token refreshes do not repeatedly reload the household, and stale responses from a previous account are ignored. Loading a household does not write it back to the database.
+
+Account pictures open as personal households, including older saves carrying an example flag. The header gives account-save status priority over optional device-save status. Account → Manage people and the visible People action open the household editor. It supports one primary person and one optional partner; either can be renamed. Removing a partner requires reassigning or removing partner/shared assets and debts first. Saving the removal clears their pay, State Pension, ISA subscription input and partner-specific scenario overrides while keeping household costs and the remaining balances.
+
+Starting-picture confirmation is saved as a compact marker of the recorded household and flow. Reloads and scenario changes retain it; changed starting figures require a fresh review. Browsing another month does not invalidate it. Older saves without a marker require one confirmation.
+
+Email-link requests first check for an existing session, block simultaneous sends, and share a resend delay across tabs. A provider rate-limit response gives a five-minute local backoff and guidance to use the most recent email; this does not reset the provider's quota. Signed-in sessions clear obsolete sign-in errors. Supabase's built-in mailer is limited to project-team recipients and two emails per hour; custom SMTP is required for a pilot with external users (https://supabase.com/docs/guides/auth/auth-smtp).
 
 ## Database boundary
 
@@ -20,4 +30,4 @@ The migration stores the picture JSON in the database. Row-level security protec
 4. Supabase Auth URL Configuration is set: Site URL `https://steadybee.netlify.app`; allowed redirects `https://steadybee.netlify.app/app.html` and `http://127.0.0.1:8766/app.html`.
 5. Verify email confirmation, sign-in, saving, reopening from another browser, and deleting the cloud picture with test accounts and fictional data.
 
-The Supabase Auth URL configuration is complete. The first live email-link sign-in and cross-device round trip still need a user mailbox, so no test email has been sent. A self-service account deletion function remains a public-release requirement.
+The Supabase Auth URL configuration is complete. Live email-link sign-in, saved-picture reopening, and automatic restoration after reloading Planning have been verified in the signed-in browser. Independent cross-device testing and a self-service account deletion function remain public-release requirements.

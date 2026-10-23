@@ -8,13 +8,16 @@ import {
   createId,
   summarizeDraft,
   validateDraft,
-} from "./asset-ledger.mjs?v=20261016layout2";
-import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261016layout2";
-import { mountPictureStorage } from './picture-storage-view.mjs?v=20261017save3';
-import { mountAccountStorage } from './account-storage.mjs?v=20261017account1';
-import { mountPlanning } from "./planning-view.mjs?v=20261017save3";
-import { estimateStatePension } from "./state-pension.mjs?v=20261016layout2";
-import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261016layout2";
+} from "./asset-ledger.mjs?v=20261022cashflow2";
+import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261022insights2";
+import { mountAccountStorage } from './account-storage.mjs?v=20261022insights2';
+import {removePartnerFromPicture} from './household-profile.mjs?v=20261022insights2';
+import {mountInsights} from "./insights-view.mjs?v=20261022insights2";
+import { mountInheritance } from "./inheritance-view.mjs?v=20261022insights2";
+import { mountPlanning } from "./planning-view.mjs?v=20261022insights2";
+import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261022insights2";
+import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
+import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -31,6 +34,8 @@ const make = (tag, className, content) => {
 let draft = createPublicDemoHousehold();
 let flowDraft = createExampleMonthlyFlow();
 let planningController = null;
+let inheritanceController = null;
+let insightsController = null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -40,7 +45,7 @@ let editingFlowEntryId = null;
 let flowEntryTrigger = null;
 let flowDatedRequireStart = false;
 let flowChartPath = [];
-let chartView = "owner";
+let chartView = "type";
 let chartSelection = null;
 let holdingsOwner = "all";
 let savingPeriod = "month";
@@ -65,7 +70,7 @@ function setTotals() {
 
 const chartColours = ["#1F7A68", "#7C5CBF", "#C58B3B", "#007AFF", "#60A894", "#A18BCD", "#8E8E93", "#CC6600"];
 const chartViews = {
-  owner: { title: "Assets by person", context: "Shared assets count once. Select a person to open their items below." },
+  owner: { title: "Assets by person", context: "Select a category to view its assets." },
   type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
   access: { title: "Assets by access", context: "Access describes when money may generally be available; account and sale rules still apply." },
 };
@@ -197,7 +202,7 @@ function assetContext(asset) {
   if (asset.monthlyRent !== undefined) notes.push(`${money(asset.monthlyRent)}/month rent`);
   if (asset.interestRate !== undefined) notes.push(`${plain(asset.interestRate)}% cash rate`);
   if (asset.investmentLabel) notes.push(`Invested in ${asset.investmentLabel}`);
-  if (asset.kind === "dc-pension") notes.push(asset.pensionAccessAge ? `Scheme access age ${asset.pensionAccessAge}` : "Check scheme access age");
+  if (asset.kind === "dc-pension") notes.push(asset.pensionAccessAge ? `Scheme access age ${asset.pensionAccessAge}` : "Plan uses 55 through Mar 2028, then 57");
   if (accessBucket(asset) === "review") notes.push("Access rules to confirm");
   return notes.join(" · ");
 }
@@ -207,8 +212,9 @@ function debtContext(debt) {
   if (debt.remainingYears !== undefined) notes.push(`${plain(debt.remainingYears)} years left`);
   if (debt.monthlyPayment !== undefined) notes.push(`${money(debt.monthlyPayment)}/month payment`);
   else if (debt.kind === "mortgage") {
-    const estimate = estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears });
-    if (estimate !== null) notes.push(`Estimated ${money(estimate)}/month repayment`);
+    const estimate = estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, mortgageType: debt.mortgageType });
+    if (estimate !== null) notes.push(`Estimated ${money(estimate)}/month ${debt.mortgageType === "interest-only" ? "interest-only" : "repayment"}`);
+    else notes.push("Add monthly payment details");
   }
   return notes.join(" · ");
 }
@@ -222,7 +228,7 @@ function compactMoney(value) {
   return money(value);
 }
 function needsAccessReview(asset) {
-  return (asset.kind === "dc-pension" && !asset.pensionAccessAge) || accessBucket(asset) === "review";
+  return accessBucket(asset) === "review";
 }
 function renderAccessReview() {
   const items = draft.assets.filter(needsAccessReview);
@@ -235,7 +241,7 @@ function renderAccessReview() {
     const button = make("button", "access-review-item");
     button.type = "button";
     button.dataset.reviewId = asset.id;
-    button.append(icon(asset.kind), make("span", "", `${ownerName(asset.owner)} · ${itemName(asset, ASSET_TYPES)}`), make("small", "", asset.kind === "dc-pension" ? "Confirm scheme access age →" : "Confirm access or sale rules →"));
+    button.append(icon(asset.kind), make("span", "", `${ownerName(asset.owner)} · ${itemName(asset, ASSET_TYPES)}`), make("small", "", "Confirm access or sale rules →"));
     list.append(button);
   }
 }
@@ -268,7 +274,7 @@ function renderOrbit(summary) {
     for(const item of items) {
       const owner=item.owner || "primary",value=type==='asset' ? item.value : item.balance;
       const linkedAsset=type==='debt' ? draft.assets.find(asset=>asset.id===item.linkedAssetId) : null;
-      const access=type==='debt' ? (linkedAsset ? itemName(linkedAsset,ASSET_TYPES) : 'Debt') : item.kind==='dc-pension' ? (item.pensionAccessAge ? `Age ${item.pensionAccessAge}+` : 'Check age') : ({accessible:'Available',pension:'Pension',illiquid:'Needs sale',review:'Check access'})[accessBucket(item)];
+      const access=type==='debt' ? (linkedAsset ? itemName(linkedAsset,ASSET_TYPES) : 'Debt') : item.kind==='dc-pension' ? (item.pensionAccessAge ? `Age ${item.pensionAccessAge}+` : '55 → 57') : ({accessible:'Available',pension:'Pension',illiquid:'Needs sale',review:'Check access'})[accessBucket(item)];
       const review=type==='asset' && needsAccessReview(item);
       const row=make('button',`holding-row asset-row owner-${owner}${type==='debt' ? ' is-debt' : ''}`);row.type='button';row.dataset.orbitType=type;row.dataset.orbitId=item.id;
       row.setAttribute('aria-label',`Edit ${ownerName(owner)} ${itemName(item,types)}, ${money(value)}${review ? `, ${access}` : ''}${item.confidence==='review' ? ', review value' : ''}`);
@@ -758,8 +764,8 @@ function renderDatedEntries(summary) {
       row.addEventListener("click",()=>editFlowEntry(item,side)); column.append(row);
     }
     if (!items.length) column.append(make("p","flow-entry-empty",`No ${title.toLowerCase()} yet.`));
-    const add = make("button","flow-entry-add",`+ Add ${side === "income" ? "income" : "expense"}`); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
-    if(side === "income") { const pay = make("button","flow-entry-add","Pay & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
+    if(side === "income") { const pay = make("button","flow-entry-add","Salary & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
+    const add = make("button","flow-entry-add",side === "income" ? "+ Other income" : "+ Add expense"); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
     if(side === "spending") { const categories = make("button","flow-entry-add","Manage categories"); categories.type="button"; categories.addEventListener("click",()=>openFlowEditor("spending")); column.append(categories); }
     overview.append(column);
   }
@@ -859,6 +865,7 @@ function renderFlowTimeline() {
   $("flow-timeline-now").disabled=flowDraft.asOfMonth===start;
 }
 function renderFlow() {
+  if (!flowDraft.mortgageInclusionConfigured && draft.debts.some(debt => debt.kind === "mortgage")) flowDraft.includeLinkedMortgage = true;
   const summary = summarizeMonthlyFlow(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
   renderCustomSpendingInputs();
   const plan = computeAllocationWaterfall(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
@@ -888,12 +895,26 @@ function renderFlow() {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
     $(`flow-pay-${detail.owner}-monthly`).textContent = !detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
     $(`flow-pay-${detail.owner}-tax`).textContent = detail.annualGross ? `Rough 2026–27 estimate: Income Tax ${money(detail.estimate.incomeTax)}, employee NI ${money(detail.estimate.employeeNI)}, employee pension ${money(detail.employeePension)}${detail.employerPension ? `, employer pension ${money(detail.employerPension)}` : ""} per year. Employer pension is outside take-home pay.` : "";
+    const baseSalary = flowDraft.pay[detail.owner].annualGross || 0;
+    for (const [kind, label] of [["employee", "Your pension"], ["employer", "Employer pension"]]) {
+      const rate = flowDraft.pay[detail.owner][`${kind}PensionRate`] || 0;
+      const amount = flowDraft.pay[detail.owner][`${kind}Pension`] || 0;
+      const amountNote = $(`flow-pay-${detail.owner}-${kind}-amount-equivalent`);
+      const rateNote = $(`flow-pay-${detail.owner}-${kind}-rate-equivalent`);
+      amountNote.textContent = rate ? `Calculated: ${money(baseSalary * rate / 100)} per year` : "";
+      rateNote.textContent = amount ? baseSalary ? `Calculated: ${plain(amount / baseSalary * 100)}% of base pay` : "Enter base salary to calculate the percentage" : "";
+      amountNote.hidden = !rate;
+      rateNote.hidden = !amount;
+      amountNote.setAttribute("aria-label", `${label} yearly amount calculated from percentage`);
+      rateNote.setAttribute("aria-label", `${label} percentage calculated from yearly amount`);
+    }
   }
   $("flow-include-rent").checked = flowDraft.includeLinkedRent;
   $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
-  $("flow-link-panel").hidden = summary.linkedRents.length === 0 && summary.linkedMortgages.length === 0;
+  const missingMortgages = draft.debts.filter(debt => debt.kind === "mortgage" && !summary.linkedMortgages.some(item => item.id === debt.id));
+  $("flow-link-panel").hidden = summary.linkedRents.length === 0 && summary.linkedMortgages.length === 0 && !missingMortgages.length;
   $("flow-rent-toggle-row").hidden = summary.linkedRents.length === 0;
-  $("flow-mortgage-toggle-row").hidden = summary.linkedMortgages.length === 0;
+  $("flow-mortgage-toggle-row").hidden = summary.linkedMortgages.length === 0 && !missingMortgages.length;
   $("flow-link-description").textContent = "Recorded rent and mortgage payments can flow into this picture. A repayment estimate needs the balance, current rate and remaining term; enter your actual payment to replace it.";
   const propertySummary = $("flow-property-summary");
   const rentTotal = summary.linkedRents.reduce((sum,item)=>sum+item.amount,0);
@@ -912,6 +933,12 @@ function renderFlow() {
     row.append(make("span", "", `${mortgage.label} · ${basis}`), make("strong", "", mortgage.active ? `${money(mortgage.amount)}/month${mortgage.estimated ? " est." : ""}` : `Payment ended ${flowMonthLabel(mortgage.endMonth)}`), make("span", "flow-rent-edit", "Edit mortgage →"));
     mortgages.append(row);
   }
+  for (const mortgage of missingMortgages) {
+    const row = make("button", "flow-rent-row"); row.type = "button"; row.dataset.flowDebt = mortgage.id;
+    row.append(make("span", "", mortgage.label || "Mortgage"), make("strong", "", "Payment details needed"), make("span", "flow-rent-edit", "Add payment →"));
+    mortgages.append(row);
+  }
+  if (missingMortgages.length) propertySummary.textContent = `${missingMortgages.length} mortgage payment${missingMortgages.length === 1 ? "" : "s"} to add`;
   const groupRow = (title) => {
     const row = make("tr", "flow-table-group");
     const heading = make("th", "", title); heading.scope = "rowgroup"; heading.colSpan = 3;
@@ -937,23 +964,37 @@ function renderFlow() {
   renderDatedEntries(summary);
   renderStatePensionRecords(summary);
   if (!$("planning-screen").hidden) planningController?.refresh();
+  if (!$("inheritance-screen").hidden) inheritanceController?.refresh();
   document.dispatchEvent(new Event("picture-updated"));
+  formatGroupedNumberInputs();
 }
 function setupFlowInputs() {
   for (const owner of ["primary", "partner"]) {
     const card = make("fieldset", "flow-pay-card");
     const legend = make("legend"); legend.id = `flow-pay-${owner}-name`; legend.textContent = owner === "primary" ? "Your pay" : "Partner's pay";
     card.append(legend);
-    for (const [key, label] of [["annualGross", "Yearly base salary"], ["annualBonus", "Yearly bonus"], ["employeePensionRate", "Your pension (base pay rate)"], ["employeePension", "Your pension (yearly amount)"], ["employerPensionRate", "Employer pension (base pay rate)"], ["employerPension", "Employer pension (yearly amount)"], ["annualTakeHome", "Actual take-home (yearly)"]]) {
+    for (const [key, label] of [["annualGross", "Yearly base salary"], ["annualBonus", "Yearly bonus"], ["employeePensionRate", "Your pension (% of base pay)"], ["employeePension", "Your pension (yearly amount)"], ["employerPensionRate", "Employer pension (% of base pay)"], ["employerPension", "Employer pension (yearly amount)"], ["annualTakeHome", "Actual take-home (yearly)"]]) {
       const row = make("label", "flow-input-row"); row.append(make("span", "", label));
+      if (["employeePensionRate", "employeePension", "employerPensionRate", "employerPension"].includes(key)) row.classList.add("flow-pension-row");
       const wrapper = make("span", "flow-money-input"); const input = make("input");
       const percent = key.endsWith("Rate");
       input.type = "number"; input.min = "0"; input.max = percent ? "100" : "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = key === "annualTakeHome" ? "Use estimate" : "0";
+      if (!percent) enableGroupedNumberInput(input);
       input.dataset.flowPayOwner = owner; input.dataset.flowPayKey = key; input.id = `flow-pay-${owner}-${key}`;
       wrapper.append(make("span", "", percent ? "%" : "£"), input); row.append(wrapper); card.append(row);
+      if (["employeePensionRate", "employeePension", "employerPensionRate", "employerPension"].includes(key)) {
+        const kind = key.startsWith("employee") ? "employee" : "employer";
+        const note = make("small", "flow-pension-equivalent");
+        note.id = `flow-pay-${owner}-${kind}-${key.endsWith("Rate") ? "rate" : "amount"}-equivalent`;
+        note.hidden = true;
+        row.append(note);
+      }
     }
-    const dateRow = make("label", "flow-input-row"); dateRow.append(make("span", "", "Expected pay end month"));
+    const dateRow = make("label", "flow-input-row", ""); dateRow.classList.add("flow-pension-row"); dateRow.append(make("span", "", "Last month you expect to receive pay"));
     const date = make("input", "flow-date-input"); date.type = "month"; date.dataset.flowPayOwner = owner; date.dataset.flowPayKey = "endDate"; date.id = `flow-pay-${owner}-endDate`; dateRow.append(date); card.append(dateRow);
+    dateRow.append(make("small", "flow-pension-equivalent", "Pay is included through this month and stops the following month."));
+    const niDetails=make('details','flow-ni-details'),niLabel=make('label','flow-input-row'),niDate=make('input','flow-date-input');
+    niDetails.append(make('summary','','NI exemption date (optional)'));niLabel.append(make('span','','State Pension age reached in'));niDate.type='month';niDate.id=`flow-pay-${owner}-niExemptFrom`;niDate.dataset.flowPayOwner=owner;niDate.dataset.flowPayKey='niExemptFrom';niLabel.append(niDate);niDetails.append(niLabel,make('small','','Leave blank to estimate from age. This is when you reach State Pension age, even if you claim it later.'));card.append(niDetails);
     card.append(make("p", "flow-pay-monthly", "")); const monthly = card.lastChild; monthly.id = `flow-pay-${owner}-monthly`;
     card.append(make("p", "flow-pay-tax", "")); card.lastChild.id = `flow-pay-${owner}-tax`;
     $("flow-pay-inputs").append(card);
@@ -970,7 +1011,7 @@ function setupFlowInputs() {
         name.setAttribute("aria-label", `Category name for ${label}`);
       }
       const moneyField = make("span", "flow-money-input");
-      const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0";
+      const input = make("input"); input.id = `flow-${side}-${key}`; input.type = "number"; input.min = "0"; input.max = "100000000"; input.step = "0.01"; input.inputMode = "decimal"; input.placeholder = "0"; enableGroupedNumberInput(input);
       input.setAttribute("aria-label", `Monthly amount for ${label}`);
       input.dataset.flowSide = side; input.dataset.flowKey = key;
       moneyField.append(make("span", "", "£"), input);
@@ -987,7 +1028,7 @@ function setupFlowInputs() {
   const customName = make("input"); customName.id = "flow-custom-spending-new-label"; customName.type = "text"; customName.maxLength = 48; customName.placeholder = "e.g. Holidays"; customName.required = true;
   customNameLabel.append(customName);
   const customAmountLabel = make("label", "", "Monthly amount");
-  const customAmount = make("input"); customAmount.id = "flow-custom-spending-new-amount"; customAmount.type = "number"; customAmount.min = "0"; customAmount.max = "100000000"; customAmount.step = "0.01"; customAmount.inputMode = "decimal"; customAmount.value = "0";
+  const customAmount = make("input"); customAmount.id = "flow-custom-spending-new-amount"; customAmount.type = "number"; customAmount.min = "0"; customAmount.max = "100000000"; customAmount.step = "0.01"; customAmount.inputMode = "decimal"; customAmount.value = "0"; enableGroupedNumberInput(customAmount);
   customAmountLabel.append(customAmount);
   const addCategory = make("button", "heading-action heading-action-secondary", "+ Add category"); addCategory.type = "submit";
   customForm.append(customNameLabel, customAmountLabel, addCategory);
@@ -1007,7 +1048,7 @@ function renderCustomSpendingInputs() {
     const name = make("input", "flow-category-name"); name.type = "text"; name.maxLength = 48; name.value = category.label;
     name.dataset.flowCustomSpendingLabel = category.id; name.setAttribute("aria-label", `Category name for ${category.label}`);
     const moneyField = make("span", "flow-money-input");
-    const amount = make("input"); amount.type = "number"; amount.min = "0"; amount.max = "100000000"; amount.step = "0.01"; amount.inputMode = "decimal"; amount.value = category.amount ? String(category.amount) : "";
+    const amount = make("input"); amount.type = "number"; amount.min = "0"; amount.max = "100000000"; amount.step = "0.01"; amount.inputMode = "decimal"; amount.value = category.amount ? String(category.amount) : ""; enableGroupedNumberInput(amount);
     amount.dataset.flowCustomSpendingAmount = category.id; amount.setAttribute("aria-label", `Monthly amount for ${category.label}`);
     moneyField.append(make("span", "", "£"), amount);
     const remove = make("button", "flow-custom-spending-remove", "Remove"); remove.type = "button"; remove.dataset.removeCustomSpending = category.id; remove.setAttribute("aria-label", `Remove ${category.label} category`);
@@ -1051,6 +1092,7 @@ function syncFlowInputs() {
   $("flow-allocation-enabled").checked = flowDraft.assumptions.allocationEnabled === true;
   $("flow-trading-label").value = flowDraft.assumptions.tradingLabel ?? "";
   $("flow-primary-share").value = flowDraft.savings?.primaryShare ?? "";
+  formatGroupedNumberInputs();
 }
 function showScreen(screen, {updateHistory=true} = {}) {
   $("welcome-screen").hidden=true;
@@ -1058,12 +1100,24 @@ function showScreen(screen, {updateHistory=true} = {}) {
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
   $("planning-screen").hidden = screen !== "planning";
+  $("inheritance-screen").hidden = screen !== "inheritance";
+  $("insights-screen").hidden = screen !== "insights";
+  if(screen==="insights")insightsController?.refresh();
+  if(screen==="inheritance")inheritanceController?.refresh();
   if (screen === "flow" || screen === "planning") {
     renderFlow();
   }
-  (screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
+  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
+  revealCurrentSection();
 }
+function revealCurrentSection(){
+  for(const nav of document.querySelectorAll('.picture-steps')){
+    if(!nav.getClientRects().length)continue;const active=nav.querySelector('[aria-current]');
+    if(active)nav.scrollLeft=Math.max(0,active.offsetLeft+active.offsetWidth-nav.clientWidth+8);
+  }
+}
+window.addEventListener('resize',revealCurrentSection);
 
 function populateKinds(type, selected = "") {
   const select = $("item-kind");
@@ -1100,7 +1154,7 @@ function populateLinks(selected = "") {
 }
 
 function updateDialogFields(selectedLink = "") {
-  const placeholders = {home:"Our home","other-property":"Rental property",cash:"Savings account",isa:"ISA account",shares:"Employer shares","dc-pension":"Workplace pension",car:"Family car",mortgage:"Home mortgage",loan:"Bank loan","credit-card":"Credit card"};
+  const placeholders = {home:"Our home","other-property":"Rental property",cash:"Savings account",isa:"ISA account",shares:"Employer shares","dc-pension":"Workplace pension",car:"Family car",mortgage:"Home mortgage",loan:"Personal loan","credit-card":"Credit card"};
   $("item-label").placeholder = placeholders[$("item-kind").value] || "Account or item name";
   const mortgage = dialogType === "debt" && $("item-kind").value === "mortgage";
   $("mortgage-fields").hidden = !mortgage;
@@ -1110,6 +1164,7 @@ function updateDialogFields(selectedLink = "") {
   $("access-bucket-field").hidden = dialogType !== "asset" || !["shares", "other"].includes($("item-kind").value);
   $("share-tax-fields").hidden = dialogType !== "asset" || $("item-kind").value !== "shares";
   $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
+  if (!$("pension-access-field").hidden) $("item-additional").open = true;
   $("item-amount-label").textContent = dialogType === "asset" ? "Current value" : "Balance owed";
 
   if (dialogType === "debt") populateLinks(selectedLink);
@@ -1118,7 +1173,7 @@ function updateDialogFields(selectedLink = "") {
 
 function updateEquityPreview() {
   const debt = editingId && dialogType === "asset" ? draft.debts.filter(item => item.linkedAssetId === editingId).reduce((sum, item) => sum + item.balance, 0) : 0;
-  const note = $("item-equity"), value = Number($("item-amount").value);
+  const note = $("item-equity"), value = groupedNumberValue($("item-amount"));
   note.hidden = !debt || !$("item-amount").value || !Number.isFinite(value);
   note.textContent = note.hidden ? "" : `Linked debt ${money(debt)} · Equity ${money(value - debt)}`;
 }
@@ -1132,7 +1187,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-form").reset();
   $("item-error").hidden = true;
   $("item-error").textContent = "";
-  $("item-additional").open = false;
+  $("item-additional").open = Boolean(item?.kind === "dc-pension" && trigger?.dataset?.reviewId);
   $("item-dialog-title").textContent = `${item ? "Edit" : "Add"} ${type === "asset" ? "an asset" : "a debt"}`;
   $("save-item-button").textContent = item ? "Save changes" : type === "asset" ? "Add asset" : "Add debt";
   $("delete-item-button").hidden = !item;
@@ -1141,6 +1196,7 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-label").value = item?.label || "";
   $("item-amount").value = item ? String(type === "asset" ? item.value : item.balance) : "";
   $("item-interest-rate").value = type === "debt" ? item?.interestRate ?? "" : "";
+  $("item-mortgage-type").value = item?.mortgageType || "repayment";
   $("item-monthly-payment").value = type === "debt" ? item?.monthlyPayment ?? "" : "";
   $("item-monthly-rent").value = item?.monthlyRent ?? "";
   $("item-cash-rate").value = type === "asset" ? item?.interestRate ?? "" : "";
@@ -1151,37 +1207,40 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   $("item-share-cost").value = item?.costBasis ?? "";
   $("item-share-scheme").value = item?.employeeScheme || "";
   $("item-pension-access-age").value = item?.pensionAccessAge ?? "";
-  $("mortgage-fields").open = Boolean(item?.interestRate !== undefined || item?.remainingYears !== undefined || item?.monthlyPayment !== undefined);
+  formatGroupedNumberInputs($("item-form"));
+  $("mortgage-fields").open = true;
   updateDialogFields(item?.linkedAssetId);
   $("item-dialog").showModal();
-  $(item || initialKind ? "item-amount" : "item-kind").focus();
+  $(item?.kind === "dc-pension" && trigger?.dataset?.reviewId ? "item-pension-access-age" : item || initialKind ? "item-amount" : "item-kind").focus();
 }
 
 function itemFromForm() {
   const kind = $("item-kind").value;
   const label = $("item-label").value.trim();
-  const rawAmount = $("item-amount").value.trim();
+  const rawAmount = $("item-amount").value.replace(/,/g, "").trim();
   if (!kind) throw new Error("Choose what kind of item this is.");
   if (!rawAmount) throw new Error(dialogType === "asset" ? "Enter its current value." : "Enter the balance still owed.");
   const amount = Number(rawAmount);
   if (dialogType === "asset") {
     const asset = { id: editingId || createId("asset"), kind, label, value: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
     if (!$("share-tax-fields").hidden) {
-      if ($("item-share-cost").value.trim()) asset.costBasis = Number($("item-share-cost").value);
+      if ($("item-share-cost").value.trim()) asset.costBasis = groupedNumberValue($("item-share-cost"));
       if ($("item-share-scheme").value) asset.employeeScheme = $("item-share-scheme").value;
     }
     if (!$("access-bucket-field").hidden) asset.accessBucket = $("item-access-bucket").value;
     if (!$("pension-access-field").hidden && $("item-pension-access-age").value.trim()) asset.pensionAccessAge = Number($("item-pension-access-age").value);
-    if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = Number($("item-monthly-rent").value);
+    if (!$("rent-field").hidden && $("item-monthly-rent").value.trim()) asset.monthlyRent = groupedNumberValue($("item-monthly-rent"));
     if (!$("cash-rate-field").hidden && $("item-cash-rate").value.trim()) asset.interestRate = Number($("item-cash-rate").value);
     if (!$("investment-field").hidden && $("item-investment-label").value.trim()) asset.investmentLabel = $("item-investment-label").value.trim();
     return asset;
   }
   const debt = { id: editingId || createId("debt"), kind, label, balance: amount, owner: $("item-owner").value || "primary", confidence: $("item-confidence").value };
   if (kind === "mortgage") {
+    debt.mortgageType = $("item-mortgage-type").value;
     if ($("item-interest-rate").value.trim()) debt.interestRate = Number($("item-interest-rate").value);
     if ($("item-remaining-years").value.trim()) debt.remainingYears = Number($("item-remaining-years").value);
-    if ($("item-monthly-payment").value.trim()) debt.monthlyPayment = Number($("item-monthly-payment").value);
+    if ($("item-monthly-payment").value.trim()) debt.monthlyPayment = groupedNumberValue($("item-monthly-payment"));
+    if (debt.monthlyPayment === undefined && (debt.interestRate === undefined || (debt.mortgageType === "repayment" && debt.remainingYears === undefined))) throw new Error("Enter your monthly mortgage payment, or add the interest rate and remaining term so we can calculate it.");
   }
   if (!$("debt-link-field").hidden && $("item-linked-asset").value) debt.linkedAssetId = $("item-linked-asset").value;
   return debt;
@@ -1202,6 +1261,7 @@ $("welcome-form").addEventListener("submit", (event) => {
   const validation = validateDraft(candidate);
   if (!validation.valid) { const field = $(({name:"person-name",age:"person-age",partnerName:"welcome-partner-name",partnerAge:"welcome-partner-age"})[validation.errors[0].path] || "person-age");field.setCustomValidity(validation.errors[0].message);field.reportValidity();return; }
   draft = candidate;
+  const setupUrl=new URL(location.href);setupUrl.searchParams.delete("start");setupUrl.searchParams.delete("example");history.replaceState(null,"",setupUrl);
   mode = "personal";
   $("welcome-screen").hidden = true;
   $("canvas-screen").hidden = false;
@@ -1224,6 +1284,8 @@ $("holdings-owner-filter").addEventListener("click", event => {
 $("first-piece").addEventListener("click", (event) => {
   const choice = event.target.closest("[data-first-kind]");
   if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
+  const debtChoice=event.target.closest("[data-first-debt-kind]");
+  if(debtChoice)showItemDialog("debt",null,debtChoice,debtChoice.dataset.firstDebtKind);
 });
 for (const id of ["step-to-flow", "continue-flow", "planning-to-flow"]) $(id).addEventListener("click", () => showScreen("flow"));
 for (const id of ["step-to-assets", "planning-to-assets"]) $(id).addEventListener("click", () => showScreen("assets"));
@@ -1282,6 +1344,8 @@ function setFlowView(view) {
   $("flow-units").textContent = "£ / month";
 }
 $("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
+$("flow-chart-add-income").addEventListener("click", () => openFlowEditor("income"));
+$("flow-chart-add-expense").addEventListener("click", event => showDatedForm("spending", null, event.currentTarget));
 $("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
 $("flow-view-sunburst").addEventListener("click", () => setFlowView("sunburst"));
 $("flow-view-treemap").addEventListener("click", () => setFlowView("treemap"));
@@ -1303,13 +1367,13 @@ $("flow-editor").addEventListener("input", (event) => {
   }
   if (input.dataset.flowCustomSpendingAmount !== undefined) {
     const category = flowDraft.customSpending.find((row) => row.id === input.dataset.flowCustomSpendingAmount);
-    const value = input.value.trim() ? Number(input.value) : 0;
+    const value = input.value.trim() ? groupedNumberValue(input) : 0;
     if (!category || !Number.isFinite(value) || value < 0 || value > 100_000_000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.001) return;
     category.amount = value;
     renderFlow(); return;
   }
-  if (input.dataset.flowPayKey === "endDate") { flowDraft.pay[input.dataset.flowPayOwner].endDate = input.value; renderFlow(); return; }
-  const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : Number(input.value);
+  if (["endDate","niExemptFrom"].includes(input.dataset.flowPayKey)) { flowDraft.pay[input.dataset.flowPayOwner][input.dataset.flowPayKey] = input.value; renderFlow(); return; }
+  const value = input.value.trim() === "" ? (input.dataset.flowPayKey === "annualTakeHome" ? null : 0) : (input.dataset.flowPayKey?.endsWith("Rate") ? Number(input.value) : groupedNumberValue(input));
   const maximum = input.dataset.flowPayKey?.endsWith("Rate") ? 100 : 100_000_000;
   if (value !== null && (!Number.isFinite(value) || value < 0 || value > maximum || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)) {
     $("flow-input-error").textContent = maximum === 100 ? "Enter a pension contribution rate from 0% to 100%." : "Enter an amount from £0 to £100,000,000, with no more than two decimal places.";
@@ -1321,7 +1385,7 @@ $("flow-editor").addEventListener("input", (event) => {
     const owner=input.dataset.flowPayOwner,key=input.dataset.flowPayKey,card=input.closest('.flow-pay-card');
     if(value && ['employeePension','employeePensionRate','employerPension','employerPensionRate'].includes(key)){const paired=key.endsWith('Rate')?key.slice(0,-4):`${key}Rate`;$(`flow-pay-${owner}-${paired}`).value='';}
     const candidate={...flowDraft.pay[owner]};
-    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=fieldKey==='endDate'?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):Number(field.value);}
+    for(const field of document.querySelectorAll(`[data-flow-pay-owner="${owner}"]`)){const fieldKey=field.dataset.flowPayKey;candidate[fieldKey]=['endDate','niExemptFrom'].includes(fieldKey)?field.value:field.value===''?(fieldKey==='annualTakeHome'?null:0):(fieldKey.endsWith('Rate')?Number(field.value):groupedNumberValue(field));}
     let notice=card.querySelector('.pay-edit-error');if(!notice){notice=make('p','form-error pay-edit-error');notice.setAttribute('role','alert');card.append(notice);}
     try{summarizeMonthlyFlow({...flowDraft,pay:{...flowDraft.pay,[owner]:candidate}},draft);flowDraft.pay[owner]=candidate;notice.hidden=true;for(const field of card.querySelectorAll('[aria-invalid]'))field.removeAttribute('aria-invalid');}
     catch(error){notice.textContent=`Not applied: ${error.message} Correct the pay or pension amount to continue.`;notice.hidden=false;input.setAttribute('aria-invalid','true');return;}
@@ -1344,7 +1408,7 @@ $("flow-editor").addEventListener("submit", (event) => {
   event.preventDefault();
   const label = $("flow-custom-spending-new-label").value.trim();
   const rawAmount = $("flow-custom-spending-new-amount").value.trim();
-  const amount = Number(rawAmount);
+  const amount = groupedNumberValue($("flow-custom-spending-new-amount"));
   try {
     if (!label || !rawAmount || !Number.isFinite(amount) || amount < 0 || amount > 100_000_000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.001) throw new RangeError("Enter a category name and a monthly amount up to £100,000,000.");
     const category = { id: createId("spend"), label, amount };
@@ -1417,8 +1481,8 @@ $("flow-allocation-enabled").addEventListener("change", (event) => updateAllocat
 for (const [id, key, integer] of [["flow-reserve-months", "cashReserveMonths", true], ["flow-isa-allowance", "isaAllowance", false], ["flow-isa-used-primary", "isaUsedPrimary", false], ["flow-isa-used-partner", "isaUsedPartner", false]]) {
   $(id).addEventListener("input", (event) => {
     const raw = event.currentTarget.value.trim();
-    const value = raw === "" ? null : Number(raw);
-    if (raw !== "" && (!Number.isFinite(value) || value < 0 || (integer && !Number.isInteger(value)))) {
+    const value = raw === "" ? null : (integer ? Number(raw) : groupedNumberValue(event.currentTarget));
+    if (raw !== "" && (!Number.isFinite(value) || value < 0 || (integer && (value > 24 || !Number.isInteger(value))) || (!integer && (value > 100000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.001)))) {
       $("flow-allocation-error").textContent = "Enter a valid non-negative amount.";
       $("flow-allocation-error").hidden = false;
       return;
@@ -1429,6 +1493,7 @@ for (const [id, key, integer] of [["flow-reserve-months", "cashReserveMonths", t
 $("flow-trading-label").addEventListener("input", (event) => updateAllocation("tradingLabel", event.currentTarget.value));
 $("flow-include-mortgage").addEventListener("change", (event) => {
   flowDraft.includeLinkedMortgage = event.currentTarget.checked;
+  flowDraft.mortgageInclusionConfigured = true;
   renderFlow();
 });
 function showDatedForm(side, id = null, trigger = null) {
@@ -1442,6 +1507,7 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-side").value = entry?.side || side;
   $("flow-dated-label").value = entry?.label || "";
   $("flow-dated-amount").value = entry?.amount ?? "";
+  formatGroupedNumberInputs($("flow-dated-form"));
   $("flow-dated-frequency").value = entry?.frequency || "monthly";
   $("flow-dated-start").value = entry ? entry.startMonth || "" : flowDraft.asOfMonth;
   $("flow-dated-end").value = entry?.endMonth || "";
@@ -1453,13 +1519,18 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-error").hidden = true;
   $("flow-dated-form").hidden = false;
   if(!$("flow-dated-dialog").open)$("flow-dated-dialog").showModal();
+  syncDatedAmountLabel();
   $("flow-dated-label").focus();
   $("flow-dated-form").scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 $("flow-add-income").addEventListener("click", (event) => showDatedForm("income", null, event.currentTarget));
 $("flow-add-expense").addEventListener("click", (event) => showDatedForm("spending", null, event.currentTarget));
 $("flow-add-state-pension").addEventListener("click",()=>openStatePension("primary"));
+function syncDatedAmountLabel(){
+  $("flow-dated-amount").closest("label").firstChild.textContent=$("flow-dated-side").value==="income"?"Amount received after tax (£)":"Amount paid (£)";
+}
 $("flow-dated-side").addEventListener("change", () => {
+  syncDatedAmountLabel();
   $("flow-dated-form-title").textContent = `${editingFlowEntryId ? "Edit" : "Add"} ${$("flow-dated-side").value === "income" ? "income" : "expense"}`;
 });
 function syncDatedFrequency() {
@@ -1476,9 +1547,9 @@ $("flow-dated-list").addEventListener("click", (event) => {
 $("flow-dated-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
-    const amount = Number($("flow-dated-amount").value);
-    if (!$("flow-dated-label").value.trim() || !$("flow-dated-amount").value.trim() || !Number.isFinite(amount) || amount <= 0)
-      throw new RangeError("Give this entry a name and an amount greater than £0.");
+    const amount = groupedNumberValue($("flow-dated-amount"));
+    if (!$("flow-dated-label").value.trim() || !$("flow-dated-amount").value.trim() || !Number.isFinite(amount) || amount <= 0 || amount > 100_000_000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.001)
+      throw new RangeError("Give this entry a name and an amount from £0.01 to £100,000,000.");
     if (flowDatedRequireStart && !$("flow-dated-start").value) throw new RangeError("Choose the month when State Pension begins.");
     const entry = { id: editingFlowEntryId || createId("entry"), side: $("flow-dated-side").value, label: $("flow-dated-label").value.trim(), amount, frequency: $("flow-dated-frequency").value, startMonth: $("flow-dated-start").value, endMonth: $("flow-dated-end").value };
     if(!$("flow-dated-replaces-row").hidden) {
@@ -1619,6 +1690,7 @@ $("item-form").addEventListener("submit", (event) => {
     const check = validateDraft(next);
     if (!check.valid) throw new Error(check.errors[0].message);
     draft = next;
+    if (item.kind === "mortgage") flowDraft.includeLinkedMortgage = true;
     $("item-dialog").close();
     render();
     announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} ${index >= 0 ? "updated" : "added"}. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1644,14 +1716,28 @@ $("edit-profile-button").addEventListener("click", () => {
   $("profile-age").value = draft.age;
   $("profile-partner").value = draft.partnerName || "";
   $("profile-partner-age").value = draft.partnerAge ?? "";
+  $("profile-partner-fields").hidden=!draft.partnerName;$("profile-add-partner").hidden=Boolean(draft.partnerName);
+  $("profile-remove-partner").hidden=!draft.partnerName;$("profile-error").hidden=true;$("profile-removal-note").hidden=true;
   $("profile-dialog").showModal();
   $("profile-name").focus();
 });
 $("close-profile-button").addEventListener("click", () => $("profile-dialog").close());
+$("profile-add-partner").addEventListener("click",()=>{$("profile-partner-fields").hidden=false;$("profile-add-partner").hidden=true;$("profile-partner").focus();});
+$("profile-remove-partner").addEventListener("click",()=>{
+  try{removePartnerFromPicture(draft,flowDraft,planningController.snapshot());}
+  catch(e){$("profile-error").textContent=e.message;$("profile-error").hidden=false;return;}
+  $("profile-partner").value='';$("profile-partner-age").value='';$("profile-partner-fields").hidden=true;$("profile-remove-partner").hidden=true;$("profile-add-partner").hidden=false;$("profile-removal-note").hidden=false;$("profile-error").hidden=true;
+});
 $("profile-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!event.currentTarget.reportValidity()) return;
   const candidate = { ...draft, name: $("profile-name").value.trim(), age: Number($("profile-age").value), partnerName: $("profile-partner").value.trim(), partnerAge: $("profile-partner").value.trim() && $("profile-partner-age").value!=="" ? Number($("profile-partner-age").value) : null };
+  let removed=null;
+  if(draft.partnerName && !candidate.partnerName){
+    try{removed=removePartnerFromPicture(draft,flowDraft,planningController.snapshot());}
+    catch(e){$("profile-error").textContent=e.message;$("profile-error").hidden=false;return;}
+    if($("profile-removal-note").hidden && !window.confirm('Remove this partner and their pay, State Pension and partner-specific scenario settings? Assets and debts are kept.'))return;
+  }
   if (!candidate.name) {
     $("profile-name").setCustomValidity("Enter a name or nickname.");
     $("profile-name").reportValidity();
@@ -1665,6 +1751,8 @@ $("profile-form").addEventListener("submit", (event) => {
     return;
   }
   draft = candidate;
+  if(removed){flowDraft=removed.flow;planningController.restore(removed.planning);}
+  syncFlowInputs();
   $("profile-dialog").close();
   render();
   announce("People in the picture updated.");
@@ -1692,11 +1780,14 @@ document.addEventListener("keydown", (event) => {
 });
 $("start-own-button").addEventListener("click", startBlankPicture);
 $("reset-example-button").addEventListener("click", () => {
-  storageController.pause();
+  accountController.detach();
+  const sampleUrl=new URL(location.href);sampleUrl.searchParams.delete("start");sampleUrl.searchParams.set("example","1");history.replaceState(null,"",sampleUrl);
   mode="example";
   planningController.restore(null);
   draft = createPublicDemoHousehold();
   flowDraft = createExampleMonthlyFlow();
+  inheritanceController.restore(null);
+  insightsController.restore(null);
   syncFlowInputs();
   chartSelection = null;
   holdingsOwner = "all";
@@ -1705,10 +1796,19 @@ $("reset-example-button").addEventListener("click", () => {
 });
 for (const id of ["close-clear-button", "cancel-clear-button"]) $(id).addEventListener("click", () => $("clear-dialog").close());
 function startBlankPicture() {
-  storageController.pause();
+  accountController.detach();
+  const setupUrl=new URL(location.href);setupUrl.searchParams.delete("example");setupUrl.searchParams.set("start","own");setupUrl.hash="assets";history.replaceState(null,"",setupUrl);
+  showBlankPicture();
+  document.dispatchEvent(new Event("picture-updated"));
+}
+function showBlankPicture() {
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
+  inheritanceController?.restore(null);
+  insightsController?.restore(null);
+  $("insights-screen").hidden=true;
+  $("inheritance-screen").hidden=true;
   syncFlowInputs();
   mode = "personal";
   editingId = null;
@@ -1747,7 +1847,6 @@ function startBlankPicture() {
   $("welcome-screen").hidden = false;
   $("person-name").focus();
   announce("Ready for your household details.");
-  document.dispatchEvent(new Event("picture-updated"));
 }
 $("confirm-clear-button").addEventListener("click", startBlankPicture);
 
@@ -1756,7 +1855,7 @@ function openFlowEditor(side, owner = null) {
   $("flow-pay-detail").hidden = side !== "income";
   $("flow-spending-detail").hidden = side !== "spending";
   $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
-  document.querySelectorAll(".flow-pay-card").forEach((card,index)=>{ card.hidden=Boolean(owner) && index !== (owner === "primary" ? 0 : 1); });
+  document.querySelectorAll(".flow-pay-card").forEach((card,index)=>{ card.hidden=(index === 1 && !draft.partnerName) || (Boolean(owner) && index !== (owner === "primary" ? 0 : 1)); });
   $("flow-income-inputs").closest("fieldset").hidden = Boolean(owner);
   $("flow-pay-detail").querySelector(".flow-input-guidance").hidden = Boolean(owner);
   $("flow-edit-title").textContent = side === "spending" ? "Spending categories" : owner ? `${owner === "primary" ? draft.name : draft.partnerName} · pay and pension` : "Pay and other income";
@@ -1861,10 +1960,10 @@ function organizeFlowInputs() {
 }
 
 function statePensionInput() {
-  return {qualifyingYears:Number($("flow-state-years").value),assessmentMonth:$("flow-state-assessment").value,startMonth:$("flow-state-start").value,qualifyingUntil:$("flow-state-continue").checked ? $("flow-state-until").value : "",mode:$("flow-state-mode").value,weeklyForecast:$("flow-state-weekly").value === "" ? null : Number($("flow-state-weekly").value),otherTaxableIncome:Number($("flow-state-other").value || 0)};
+  return {assumeFutureYears:$("flow-state-continue").checked,qualifyingYears:Number($("flow-state-years").value),assessmentMonth:$("flow-state-assessment").value,startMonth:$("flow-state-start").value,qualifyingUntil:$("flow-state-continue").checked ? $("flow-state-until").value : "",mode:$("flow-state-mode").value,weeklyForecast:$("flow-state-weekly").value === "" ? null : groupedNumberValue($("flow-state-weekly")),otherTaxableIncome:groupedNumberValue($("flow-state-other")) || 0};
 }
 function previewStatePension() {
-  const input=statePensionInput();
+  const input=resolveStatePensionInput(statePensionInput(),flowDraft,draft,$("flow-state-owner").value);
   $("flow-state-until-row").hidden=!$("flow-state-continue").checked;
   $("flow-state-weekly-row").hidden=input.mode !== "official";
   $("flow-state-other-row").hidden=input.mode === "record";
@@ -1879,18 +1978,19 @@ function previewStatePension() {
   } catch(error) { $("flow-state-preview").textContent=error.message; }
 }
 function openStatePension(owner="primary") {
-  const input=flowDraft.statePensions?.[owner];
+  const input=resolveStatePensionInput(flowDraft.statePensions?.[owner],flowDraft,draft,owner);
   $("flow-state-owner").replaceChildren(new Option(draft.name || "You","primary"),...(draft.partnerName ? [new Option(draft.partnerName,"partner")] : []));
   $("flow-state-owner").value=owner;
   $("flow-state-title").textContent=`${owner === "primary" ? draft.name || "Your" : draft.partnerName || "Partner"} · State Pension`;
   $("flow-state-years").value=input?.qualifyingYears ?? "";
   $("flow-state-assessment").value=input?.assessmentMonth || flowDraft.timelineStartMonth;
-  $("flow-state-start").value=input?.startMonth || "";
-  $("flow-state-continue").checked=Boolean(input?.qualifyingUntil);
-  $("flow-state-until").value=input?.qualifyingUntil || flowDraft.pay[owner].endDate || "";
-  $("flow-state-mode").value=input?.mode || "record";
+  $("flow-state-start").value=input?.startMonth || resolveStatePensionInput({qualifyingYears:0},flowDraft,draft,owner).startMonth;
+  $("flow-state-continue").checked=input?.assumeFutureYears !== false && Boolean(input?.qualifyingUntil || flowDraft.pay[owner].endDate || flowDraft.pay[owner].annualGross || flowDraft.pay[owner].annualTakeHome);
+  $("flow-state-until").value=input?.qualifyingUntil || flowDraft.pay[owner].endDate || $("flow-state-start").value;
+  $("flow-state-mode").value=input?.mode || "simplified";
   $("flow-state-weekly").value=input?.weeklyForecast ?? "";
   $("flow-state-other").value=input?.otherTaxableIncome ?? 0;
+  formatGroupedNumberInputs($("flow-state-form"));
   $("flow-state-remove").hidden=!input; $("flow-state-error").hidden=true;
   previewStatePension();
   if(!$("flow-state-dialog").open) $("flow-state-dialog").showModal();
@@ -1902,8 +2002,9 @@ function renderStatePensionRecords(summary) {
     const detail=summary.statePensionDetails.find(item=>item.owner===owner),person=owner==='primary' ? draft.name || 'You' : draft.partnerName;
     const row=make("button","flow-state-record");row.type="button";row.dataset.flowStateOwner=owner;row.setAttribute('aria-label',`Edit ${person} State Pension`);
     row.append(make("span","pension-person",person));
+    if (detail) row.title = `${detail.qualifyingYears} recorded + ${detail.futureYears} assumed future qualifying years${detail.approximateStart ? "; approximate start from age" : ""}. Edit to review assumptions.`;
     const hasForecast=detail?.annualGross!==null && detail?.annualGross!==undefined;
-    row.append(make("span","pension-amount",hasForecast ? `${money(detail.monthlyNet)}/mo${detail.startMonth ? ` · ${flowMonthLabel(detail.startMonth)}` : ''}` : '—'));
+    row.append(make("span","pension-amount",hasForecast ? `${money(detail.annualGross / 12)}/mo gross · ${detail.mode === 'official' ? 'Forecast' : 'NI estimate'}${detail.startMonth ? ` · ${flowMonthLabel(detail.startMonth)}` : ''}` : '—'));
     if(hasForecast && !detail.startMonth) {
       const flag=make('span','pension-flag',hasForecast ? '⚠ Start date needed' : '⚠ Forecast needed · Add estimate');flag.title=hasForecast ? 'Start month missing' : 'Forecast not added; excluded from income';row.append(flag);
     }
@@ -1921,6 +2022,9 @@ $("flow-state-form").addEventListener("change",previewStatePension);
 $("flow-state-form").addEventListener("submit",event=>{
   event.preventDefault();
   try {
+    const weeklyRaw=$("flow-state-weekly").value.trim(),weekly=groupedNumberValue($("flow-state-weekly")),otherIncome=groupedNumberValue($("flow-state-other"));
+    if(weeklyRaw && (!Number.isFinite(weekly) || weekly<0 || weekly>10000 || Math.abs(weekly*100-Math.round(weekly*100))>0.001))throw new RangeError("Enter a weekly forecast from £0 to £10,000, with up to two decimal places.");
+    if(!Number.isFinite(otherIncome)||otherIncome<0||otherIncome>100_000_000||Math.abs(otherIncome*100-Math.round(otherIncome*100))>0.001)throw new RangeError("Enter other taxable income from £0 to £100,000,000, with up to two decimal places.");
     if($("flow-state-mode").value!=="official" && !$("flow-state-years").value) throw new RangeError("Enter qualifying NI years, including zero if none are recorded.");
     if($("flow-state-continue").checked && !$("flow-state-until").value) throw new RangeError("Choose the last month of assumed qualifying years.");
     const owner=$("flow-state-owner").value, input=statePensionInput();
@@ -1948,31 +2052,47 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 });
 
 setupFlowInputs();
+inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
+insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}),{analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
+document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
+$("insights-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
+document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
+$("inheritance-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning'].includes(section))showScreen(section,{updateHistory:false});});
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
 
-if(['flow','planning'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+if(['flow','planning','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
-function clearStoredTab() {
-  for(const input of document.querySelectorAll('form input,form textarea')){if(input.type==='checkbox' || input.type==='radio')input.checked=false;else input.value='';}
-  draft=createPublicDemoHousehold();flowDraft=createExampleMonthlyFlow();mode='example';chartSelection=null;holdingsOwner="all";
-  planningController.restore(null);syncFlowInputs();render();showScreen('assets');
-}
-const storageController=mountPictureStorage({
-  button:$('picture-storage-button'),
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Picture restored. Review your starting figures before planning.');},
-  clearTab:clearStoredTab,
-});
-mountAccountStorage({
+const entryParams=new URLSearchParams(location.search);
+const restoreAccountDefault=entryParams.get('example')!=='1'&&entryParams.get('start')!=='own';
+const accountController=mountAccountStorage({
   button:$('account-button'),
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot()}),
-  restorePicture:picture=>{draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=picture.example ? 'example' : 'personal';chartSelection=null;holdingsOwner="all";planningController.restore(picture.planning);syncFlowInputs();render();showScreen('assets');if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('welcome-screen').hidden=false;}announce('Saved account picture restored. Review your starting figures before planning.');},
+  editPeople:()=>$('edit-profile-button').click(),
+  startHousehold:startBlankPicture,
+  restoreOnLogin:()=>restoreAccountDefault,
+  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot()}),
+  restorePicture:picture=>{
+    const section=location.hash.slice(1);
+    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode='personal';chartSelection=null;holdingsOwner="all";
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets');
+    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
+    announce('Saved account picture restored. Review your starting figures before planning.');
+  },
+  onEmpty:({forceReset=false}={})=>{
+    if(forceReset){showBlankPicture();return;}
+    const untouchedPublicExample=JSON.stringify(draft)===JSON.stringify(createPublicDemoHousehold())&&JSON.stringify(flowDraft)===JSON.stringify(createExampleMonthlyFlow());
+    if(mode==='example'&&untouchedPublicExample)showBlankPicture();
+    else if(mode==='example'){mode='personal';render();}
+  },
 });
 
-if(new URLSearchParams(location.search).get('start')==='own'){startBlankPicture();const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('start');history.replaceState(null,'',cleanUrl);}
+if(entryParams.get('start')==='own')startBlankPicture();
+if(entryParams.get('account')==='1'){
+  const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('account');history.replaceState(history.state,'',cleanUrl);
+  accountController.open();
+}
