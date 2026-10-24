@@ -549,6 +549,7 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
 /* Stronger selectors supersede the legacy timing grid without touching its inputs. */
 .plan-controls .plan-timing .plan-slider { grid-template-columns:minmax(0,1fr) 68px; }
 .plan-controls .plan-timing .plan-slider .plan-slider-label { grid-column:1; grid-row:1; display:block; }
+.plan-timing-year { color:var(--text-secondary); font-size:11px; font-weight:400; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .plan-controls .plan-timing .plan-slider .plan-exact { grid-column:2; grid-row:1; width:68px; min-height:36px; }
 .plan-controls .plan-timing .plan-slider input[type=range] { grid-column:1/-1; grid-row:2; }
 button.picture-step:hover { background:var(--bg-hover); border-color:transparent; }

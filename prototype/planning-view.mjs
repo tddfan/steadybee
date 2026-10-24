@@ -215,9 +215,11 @@ export function mountPlanning(root,getInputs) {
       const ageOffset=Number(flow.pay[owner].endDate?.slice(5) || 12)<Number(startMonth.slice(5)) ? 1 : 0;
       slider($('plan-retirement'),`plan-retire-${owner}`,knownAge ? `${name} retirement age` : `${name} final working year`,knownAge ? age-1 : startYear-1,knownAge ? age+45 : startYear+45,knownAge ? age+year-startYear-ageOffset : year,value=>scenario.retirementYears[owner]=knownAge ? startYear+value-age+ageOffset : value);
       $(`plan-retire-${owner}`).dataset.retirementBasis=knownAge ? 'age' : 'year';
+      if(knownAge){const yearHint=el('small','plan-timing-year',` · ${year}`);yearHint.id=`plan-retirement-year-${owner}`;$(`plan-retire-${owner}`).closest('label').querySelector('.plan-slider-label').append(yearHint);}
       const timing=el('p','plan-retirement-date');timing.id=`plan-retirement-date-${owner}`;$('plan-retirement').append(timing);
     }
     slider($('plan-horizon'),'plan-horizon-slider','Plan to age',70,120,scenario.planToAge ?? 95,value=>scenario.planToAge=value);
+    const horizonYear=el('small','plan-timing-year');horizonYear.id='plan-horizon-year';$('plan-horizon-slider').closest('label').querySelector('.plan-slider-label').append(horizonYear);
     const lastWorkYear=Math.max(...['primary',...(holdings.partnerName ? ['partner'] : [])].map(owner=>scenario.retirementYears[owner] ?? (Number(flow.pay[owner].endDate?.slice(0,4)) || startYear+20)));
     scenario.spendingChanges ??= [{year:lastWorkYear+1,percent:100}];
     renderSpendingChanges(flow);
@@ -527,6 +529,8 @@ export function mountPlanning(root,getInputs) {
       lastSnapshot=snapshot;$('plan-undo').disabled=!history.length;$('plan-undo').hidden=!history.length;$('plan-error').hidden=true;
       if(!selectedYear || !projection.months.some(month=>month.month.startsWith(selectedYear))){const retirement=Object.values(projection.retirementDates).filter(date=>date>=projection.startMonth && date<projection.endMonth).sort()[0];selectedYear=(retirement || projection.startMonth).slice(0,4);}
       for(const owner of ['primary','partner']){const input=$(`plan-retire-${owner}`);if(!input)continue;input.closest('label').querySelector('output').textContent=input.dataset.retirementBasis==='age' ? `Age ${input.value}` : 'Final year';$(`plan-retirement-date-${owner}`).textContent=projection.retirementDates[owner] ? `Final pay: ${monthLabel(projection.retirementDates[owner])}` : 'Set the expected pay end month in Income & spending.';}
+      for(const owner of ['primary','partner']){const hint=$(`plan-retirement-year-${owner}`),date=projection.retirementDates[owner];if(hint){hint.textContent=date ? ` · ${date.slice(0,4)}` : '';hint.title=date ? `Final pay: ${monthLabel(date)}` : '';}}
+      $('plan-horizon-year').textContent=` · ${projection.endMonth.slice(0,4)}`;$('plan-horizon-year').title=`Plan ends ${monthLabel(projection.endMonth)}`;
       const baseHousehold=Object.values(flow.spending).reduce((sum,value)=>sum+value,0)+(flow.customSpending || []).reduce((sum,item)=>sum+item.amount,0);
       $('plan-spending-budget').textContent=`Now: ${currency(baseHousehold)}/month · today’s money`;
       const realPay=((1+projection.assumptions.incomeGrowth/100)/(1+projection.assumptions.inflation/100)-1)*100;
