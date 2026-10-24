@@ -12,7 +12,7 @@ import {
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261024persona1";
 import { mountAccountStorage } from './account-storage.mjs?v=20261024persona1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261024persona1';
-import {mountInsights} from "./insights-view.mjs?v=20261024persona1";
+import {mountInsights} from "./insights-view.mjs?v=20261024groq1";
 import { mountInheritance } from "./inheritance-view.mjs?v=20261024inheritance1";
 import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";
