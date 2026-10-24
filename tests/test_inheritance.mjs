@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calculateEstate,estateDefaults,equalChildren,validateEstateSettings,estateOwnership} from '../prototype/inheritance.mjs';
+import {calculateEstate,createInheritanceIllustration,estateDefaults,equalChildren,validateEstateSettings,estateOwnership} from '../prototype/inheritance.mjs';
 import {projectPlan} from '../prototype/planning.mjs';
 import {createBlankMonthlyFlow,createExampleMonthlyFlow} from '../prototype/monthly-flow.mjs';
 import {createPublicDemoHousehold} from '../prototype/asset-ledger.mjs';
@@ -10,6 +10,27 @@ const home=value=>({id:'home',kind:'home',owner:'primary',value});
 const settings=overrides=>({...estateDefaults(),deathDate:'2028-01-01',beneficiaries:equalChildren(2),ukScopeConfirmed:true,...overrides});
 const estate=(assets,overrides={},debts=[])=>calculateEstate({name:'Test',assets,debts},settings(overrides));
 const total=(items,key)=>Math.round(items.reduce((sum,item)=>sum+item[key],0)*100)/100;
+test('simple starting illustration gives a usable equal split with explicit age-90 couple assumptions',()=>{
+  const holdings=createPublicDemoHousehold(),s=createInheritanceIllustration(holdings,'2026-10');
+  validateEstateSettings(s);
+  assert.equal(s.owner,'couple');assert.equal(s.couple.route,'survivor');assert.equal(s.couple.relationship,'married');
+  assert.equal(s.couple.firstDeathDate,'2077-10-28');assert.equal(s.deathDate,'2079-10-28');
+  assert.equal(s.beneficiaries.length,2);assert.equal(s.beneficiaries[0].percent,50);
+  assert.equal(s.residenceAssetId,holdings.assets.find(a=>a.kind==='home').id);
+  const result=calculateEstate(holdings,s);
+  assert.equal(total(result.beneficiaries,'afterEstateTax'),result.afterEstateTax);
+  assert.equal(result.first.estateTax,0);
+  assert.deepEqual(createPublicDemoHousehold(),holdings);
+});
+test('single-person illustration and equal-age couple keep valid, ordered death dates',()=>{
+  const single={name:'Person',age:60,assets:[cash(500000)],debts:[]};
+  const s=createInheritanceIllustration(single,'2026-10');
+  assert.equal(s.owner,'primary');assert.equal(s.deathDate,'2056-10-28');
+  assert.equal(calculateEstate(single,s).estateTax,70000);
+  const pair={...single,partnerName:'Partner',partnerAge:60};
+  const p=createInheritanceIllustration(pair,'2026-10');
+  assert.ok(p.couple.firstDeathDate<p.deathDate);validateEstateSettings(p);calculateEstate(pair,p);
+});
 test('£500k simple estate pays £70k estate tax, then each of two children receives £215k',()=>{
   const r=estate([cash(500000)]);assert.equal(r.estateTax,70000);assert.equal(r.afterEstateTax,430000);assert.deepEqual(r.beneficiaries.map(p=>p.afterEstateTax),[215000,215000]);assert.equal(r.incomplete,false);
 });

@@ -7,6 +7,21 @@ const percentage=value=>Number.isFinite(value) && value>=0 && value<=100;
 export function estateDefaults(month='2026-10') {
   return {version:1,owner:'primary',basis:'current',deathDate:`${month}-28`,beneficiaries:[],residenceAssetId:'',transferBasicPercent:0,transferResidencePercent:0,costs:0,shares:{primary:{},partner:{}},ukScopeConfirmed:false,standardPensionsConfirmed:false,pensionSplitConfirmed:false,complexEstate:false,couple:{route:'direct',relationship:'unconfirmed',firstOwner:'primary',firstDeathDate:`${month}-27`,primaryCosts:0,partnerCosts:0,routeConfirmed:false,descendantsConfirmed:false}};
 }
+/** Starting illustration, not verified family facts. Existing saved settings stay intact. */
+export function createInheritanceIllustration(holdings,month='2026-10') {
+  const base=estateDefaults(month),year=Number(month.slice(0,4));
+  const deathAt90=age=>`${Math.min(2200,year+Math.max(0,90-(Number.isFinite(age) ? age : 50)))}-${month.slice(5,7)}-28`;
+  const primaryDate=deathAt90(holdings.age),partnerDate=deathAt90(holdings.partnerAge);
+  const firstOwner=primaryDate<=partnerDate ? 'primary' : 'partner';
+  const firstDate=firstOwner==='primary' ? primaryDate : partnerDate;
+  let secondDate=firstOwner==='primary' ? partnerDate : primaryDate;
+  // Approximate ages cannot establish an ordering within the same year.
+  if(secondDate<=firstDate)secondDate=`${Number(firstDate.slice(0,4))+1}${firstDate.slice(4)}`;
+  const home=(holdings.assets || []).find(a=>a.kind==='home' && (holdings.partnerName || (a.owner || 'primary')==='primary' || a.owner==='shared'));
+  return {...base,owner:holdings.partnerName ? 'couple' : 'primary',deathDate:holdings.partnerName ? secondDate : primaryDate,
+    beneficiaries:equalChildren(2),residenceAssetId:home?.id || '',ukScopeConfirmed:true,standardPensionsConfirmed:true,pensionSplitConfirmed:true,
+    couple:{...base.couple,route:'survivor',relationship:'married',firstOwner,firstDeathDate:firstDate,routeConfirmed:true,descendantsConfirmed:true}};
+}
 export function validateEstateSettings(input) {
   if(!record(input))throw new Error('Inheritance settings must be an object.');
   input={...estateDefaults(),...input};
