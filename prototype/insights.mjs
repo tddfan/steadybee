@@ -1,6 +1,6 @@
 /** Deterministic findings and bounded experiments. No AI or account writes. */
-import {projectPlan} from './planning.mjs?v=20261022insights2';
-import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights2';
+import {projectPlan} from './planning.mjs?v=20261024persona1';
+import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
 export const INSIGHT_GOALS=Object.freeze({security:'Spending security',retirement:'Earlier retirement',legacy:'Future assets'});
 export const INSIGHT_RECIPES=Object.freeze({
   spendLess:{title:'Spend 5% less after retirement',tradeoff:'Reduces regular household spending, including existing spending phases. Debt payments and separately scheduled costs stay unchanged.'},
@@ -56,7 +56,11 @@ export function createInsightPreview(flow,holdings,scenario,recipe,baseline=null
   const changed=after.months.some((row,index)=>measures.some(key=>Math.abs((row[key] || 0)-(before.months[index]?.[key] || 0))>=.01));
   const spendingYear=recipe==='spendLess' ? candidate.spendingChanges.find(item=>!scenario.spendingChanges?.some(old=>old.year===item.year && old.percent===item.percent))?.year : null;
   const noChangeReason=changed ? '' : recipe==='spendLess' ? 'No regular spending changes within this plan. Check your regular budget and retirement dates; debt payments and dated costs are excluded.' : 'This experiment has no effect on the modelled monthly results.';
-  return {changed,noChangeReason,spendingYear,recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest};
+  const spendingMonths=spendingYear==null ? [] : after.months.map((row,index)=>({row,before:before.months[index]})).filter(item=>item.row.month.startsWith(`${spendingYear}-`));
+  const monthlySpendingReduction=spendingMonths.length ? Math.max(0,spendingMonths.reduce((sum,item)=>sum+(item.before.householdSpending-item.row.householdSpending)/item.row.deflator,0)/spendingMonths.length) : 0;
+  const resolved=resolveRetirementYears(flow,holdings,scenario.retirementYears);
+  const changedPeople=recipe==='retireLater' || recipe==='retireEarlier' ? Object.entries(candidate.retirementYears).filter(([owner,year])=>year!==resolved[owner]).map(([owner])=>owner==='primary' ? holdings.name || 'You' : owner==='partner' ? holdings.partnerName || 'Partner' : owner) : [];
+  return {changed,noChangeReason,spendingYear,monthlySpendingReduction,changedPeople,recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest};
 }
 export function buildInsights(flow,holdings,scenario,projection,goal='security'){
   if(!Object.hasOwn(INSIGHT_GOALS,goal))throw new Error('Choose a supported goal.');

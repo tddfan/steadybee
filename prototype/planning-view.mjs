@@ -1,13 +1,13 @@
-import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261022insights2';
-import {resolveRetirementYears} from './planning-retirement.mjs?v=20261022insights2';
+import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261024persona1';
+import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from './grouped-number-input.mjs?v=20261022grouped1';
-import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261022insights2';
-import { mountExperiments } from './experiments-view.mjs?v=20261022insights2';
+import { summarizeMonthlyFlow } from './monthly-flow.mjs?v=20261024persona1';
+import { mountExperiments } from './experiments-view.mjs?v=20261024persona1';
 import {startingPictureKey} from './planning-review.mjs?v=20261017review1';
-import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261022insights2';
-import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261022insights2';
+import { mountOutcomes } from './planning-outcomes-view.mjs?v=20261024persona1';
+import { projectPlan, annualPlanView, PLANNING_DEFAULTS } from './planning.mjs?v=20261024persona1';
 import { planHorizon, summarizeCoverage, agesAt } from './coverage.mjs?v=20261016layout2';
-import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261022insights2';
+import { WITHDRAWAL_ORDERS } from './withdrawals.mjs?v=20261024persona1';
 import {saveExperiment} from './scenario-library.mjs?v=20261017save3';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!=null)node.textContent=text;return node;};
@@ -358,7 +358,7 @@ export function mountPlanning(root,getInputs) {
     const row=rows[selected];
     const yearEnd=projection.months.filter(month=>month.month.startsWith(row.year)).at(-1),divisor=real ? yearEnd.deflator : 1;
     let pointSummary=$('plan-point-summary');if(!pointSummary){pointSummary=el('div','plan-point-summary');pointSummary.id='plan-point-summary';root.querySelector('.plan-chart-toolbar').after(pointSummary);}
-    pointSummary.replaceChildren(el('span','',`${row.year} · Net assets`),el('strong','',currency((yearEnd.assetsTotal-yearEnd.debtsTotal)/divisor)),el('small','',real ? 'Today’s money · year end' : 'Future value · year end'));
+    pointSummary.replaceChildren(el('span','',`${row.year} · Selected year closing net assets`),el('strong','',currency((yearEnd.assetsTotal-yearEnd.debtsTotal)/divisor)),el('small','',real ? 'Today’s money · year end' : 'Future value · year end'));
     if(metric==='tax'){const tax=taxRows.find(item=>item.year===row.year);pointSummary.replaceChildren(el('span','',`${row.year} · ${taxCumulative ? 'Cumulative' : 'Annual'} tax & NI`),el('strong','',currency(taxCumulative ? tax.cumulativeTotal : tax.total)),el('small','',`${real ? 'Today’s money' : 'Future value'} · ${taxCumulative ? 'since plan start' : 'calendar year'}`));}
     if(metric==='tax' && taxRows.find(item=>item.year===row.year)?.incomplete)pointSummary.append(el('span','coverage-gap','Partial tax estimate'));
     if(showBaseline){const baseEnd=baseline.months.find(month=>month.month===yearEnd.month);if(baseEnd){const difference=metric==='tax' ? row.total-baseRows[selected].total : (yearEnd.assetsTotal-yearEnd.debtsTotal)/divisor-(baseEnd.assetsTotal-baseEnd.debtsTotal)/(real ? baseEnd.deflator : 1);pointSummary.append(el('span','plan-point-difference',`${difference>=0 ? '+' : '−'}${currency(Math.abs(difference))} vs current plan`));}}
@@ -426,11 +426,12 @@ export function mountPlanning(root,getInputs) {
     const output=$('plan-comparison'),wasOpen=$('plan-baseline-comparison')?.open;output.replaceChildren();
     const caption=el('div',`plan-comparison-caption ${value.covered ? 'is-covered' : 'is-gap'}`);
     caption.title='Illustration under your entered assumptions';
-    caption.append(el('strong',value.covered ? '' : 'coverage-gap',value.covered ? (Object.values(value.endAges).length ? `✓ Covered to age ${Math.min(...Object.values(value.endAges))}` : '✓ Spending covered') : `Gap from ${monthLabel(value.firstGap.month)}`),el('small','',value.covered ? `to ${monthLabel(value.endMonth)} · under assumptions` : `${currency(value.firstGap.amount)} unmet spending · under assumptions`));output.append(caption);
+    caption.append(el('strong',value.covered ? '' : 'coverage-gap',value.covered ? (Object.values(value.endAges).length ? `✓ Modelled spending is covered to age ${Math.min(...Object.values(value.endAges))}` : '✓ Modelled spending is covered') : `Gap from ${monthLabel(value.firstGap.month)}`),el('small','',value.covered ? `to ${monthLabel(value.endMonth)} · under assumptions` : `${currency(value.firstGap.amount)} unmet spending · under assumptions`));output.append(caption);
+    if(value.covered && (projection.taxLimitations.length || projection.unmodelledDebt>0))caption.append(el('span','plan-coverage-caveat','Some tax or debt inputs are incomplete; see assumptions below.'));
     const comparison=el('details','plan-baseline-comparison');comparison.id='plan-baseline-comparison';comparison.open=Boolean(wasOpen);comparison.append(el('summary','','Compare plan'));output.append(comparison);
     const figures=el('div','plan-comparison-figures');
     for(const [label,result] of [['Current plan',current],['Your scenario',value]]) {
-      const box=el('div'),status=result.covered ? 'Covered' : `Gap from ${new Date(`${result.firstGap.month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
+      const box=el('div'),status=result.covered ? 'Modelled coverage' : `Gap from ${new Date(`${result.firstGap.month}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
       box.append(el('span','',label),el('strong',result.covered ? '' : 'coverage-gap',status),el('small','',result.covered ? `To ${ageLabel(result.endMonth,holdings,true,label==='Current plan' ? baseline : projection)}` : ageLabel(result.firstGap.month,holdings,false,label==='Current plan' ? baseline : projection)));figures.append(box);
     }
     const available=el('div');available.append(el('span','',`Accessible investments · ${monthLabel(value.endMonth)}`),el('strong','',currency(value.accessibleAtEnd)),el('small','',Math.round(value.accessibleAtEnd)===Math.round(current.accessibleAtEnd) ? `${real ? 'Today’s money' : 'Future value'} · before withdrawal tax` : `Current plan ${currency(current.accessibleAtEnd)} · before withdrawal tax`));figures.append(available);comparison.append(figures);

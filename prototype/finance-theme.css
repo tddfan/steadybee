@@ -902,3 +902,19 @@ input[type=range]::-moz-range-thumb { width:20px; height:20px; border:1px solid 
  .insights-metric strong { font-size: 19px; }
  .insights-dialog .insights-actions > button { flex: 1; min-height: 44px; }
 }
+
+.plan-comparison-caption .plan-coverage-caveat { flex-basis: 100%; color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
+.outcomes-form label > small { color: var(--text-tertiary); font-size: 12px; line-height: 1.4; }
+.insights-more > summary { cursor: pointer; font-weight: 650; }
+.insights-more > p { margin: 10px 0; font-size: 13px; }
+.insights-more-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 10px; }
+.insights-more-controls label { grid-column: 1 / -1; color: var(--text-secondary); font-size: 13px; }
+.insights-more-controls select { min-width: 0; min-height: 44px; }
+.insights-more-controls button { min-height: 44px; }
+.insights-ai-payload { padding-left: 20px; margin: 10px 0; }
+.insights-ai-payload li { margin: 8px 0; line-height: 1.45; }
+@media(max-width:640px){
+ .insights-more-controls { grid-template-columns: 1fr; }
+ .insights-more-controls label { grid-column: auto; }
+ .insights-more-controls button { width: 100%; }
+}
