@@ -10,7 +10,8 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261022cashflow2";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261024persona1";
-import { mountAccountStorage } from './account-storage.mjs?v=20261024persona1';
+import { mountAccountStorage } from './account-storage.mjs?v=20261024redirect1';
+import {takeSignInDraft} from './sign-in-draft.mjs?v=20261024redirect1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261024persona1';
 import {mountInsights} from "./insights-view.mjs?v=20261024groq1";
 import { mountInheritance } from "./inheritance-view.mjs?v=20261024inheritance1";
@@ -2068,21 +2069,26 @@ if(['flow','planning','inheritance','insights'].includes(location.hash.slice(1))
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
-const entryParams=new URLSearchParams(location.search);
+const signInDraft=takeSignInDraft(sessionStorage,location.href);
+const entryParams=new URLSearchParams(signInDraft?new URL(signInDraft.returnUrl).search:location.search);
 const restoreAccountDefault=entryParams.get('example')!=='1'&&entryParams.get('start')!=='own';
+function restoreAccountPicture(picture,{sectionOverride='',keepExample=false,keepAuthUrl=false}={}){
+    const section=sectionOverride || location.hash.slice(1);
+    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=keepExample&&picture.example?'example':'personal';chartSelection=null;holdingsOwner="all";
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets',{updateHistory:!keepAuthUrl});
+    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
+    announce('Saved account picture restored. Review your starting figures before planning.');
+}
+if(signInDraft)restoreAccountPicture(signInDraft.picture,{sectionOverride:new URL(signInDraft.returnUrl).hash.slice(1),keepExample:true,keepAuthUrl:true});
+let signInReturnPending=Boolean(signInDraft);
 const accountController=mountAccountStorage({
   button:$('account-button'),
   editPeople:()=>$('edit-profile-button').click(),
   startHousehold:startBlankPicture,
   restoreOnLogin:()=>restoreAccountDefault,
   getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot()}),
-  restorePicture:picture=>{
-    const section=location.hash.slice(1);
-    draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode='personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets');
-    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
-    announce('Saved account picture restored. Review your starting figures before planning.');
-  },
+  restorePicture:restoreAccountPicture,
+  finishSignIn:()=>{if(signInReturnPending){signInReturnPending=false;history.replaceState(history.state,'',signInDraft.returnUrl);}},
   onEmpty:({forceReset=false}={})=>{
     if(forceReset){showBlankPicture();return;}
     const untouchedPublicExample=JSON.stringify(draft)===JSON.stringify(createPublicDemoHousehold())&&JSON.stringify(flowDraft)===JSON.stringify(createExampleMonthlyFlow());
@@ -2091,7 +2097,7 @@ const accountController=mountAccountStorage({
   },
 });
 
-if(entryParams.get('start')==='own')startBlankPicture();
+if(entryParams.get('start')==='own'&&!signInDraft)startBlankPicture();
 if(entryParams.get('account')==='1'){
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('account');history.replaceState(history.state,'',cleanUrl);
   accountController.open();

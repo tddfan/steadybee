@@ -1,7 +1,9 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
 import {validatePicture} from './picture-storage.mjs?v=20261024persona1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
-import {startGoogleSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261018google2';
+import {startGoogleRedirectSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261024redirect1';
+
+import {saveSignInDraft} from './sign-in-draft.mjs?v=20261024redirect1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -50,7 +52,7 @@ export async function queryWithSessionRefresh(run,refreshSession){
 }
 
 /** Signed-in cloud storage for named household pictures per account. */
-export function mountAccountStorage({button,getPicture,restorePicture,editPeople,startHousehold,onEmpty,restoreOnLogin=()=>true}) {
+export function mountAccountStorage({button,getPicture,restorePicture,editPeople,startHousehold,onEmpty,restoreOnLogin=()=>true,finishSignIn=()=>{}}) {
   let clientPromise=null,client=null,user=null,cloudEnabled=false,cloudUpdatedAt='',activePictureId=null,activePictureName='',cloudPictures=[],lastSaved='',timer=null,saving=Promise.resolve(),mainCreation=null,errorMessage='',householdGeneration=0;
   const dialog=document.createElement('dialog');dialog.id='account-dialog';dialog.className='form-dialog storage-dialog account-dialog';dialog.setAttribute('aria-labelledby','account-title');
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="account-title">Account</h2><button id="account-close" class="icon-button" type="button" aria-label="Close account options">×</button></div>
@@ -192,6 +194,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       client=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
       completeGoogleOAuthPopup({client,windowRef:window});
       client.auth.onAuthStateChange((event,session)=>{
+        if(event==='SIGNED_IN'||event==='INITIAL_SESSION')finishSignIn();
         setUser(session?.user||null);
       });
       return client;
@@ -228,14 +231,11 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   button.addEventListener('click',openAccount);
   $('account-close').addEventListener('click',()=>dialog.close());
   $('account-google-sign-in').addEventListener('click',async()=>{
-    if(googlePopup && !googlePopup.closed){googlePopup.focus();return;}
     const signIn=$('account-google-sign-in');if(signIn.disabled)return;
-    error('');message('Opening Google sign-in…');signIn.disabled=true;
+    error('');message('Continuing to Google…');signIn.disabled=true;
     try{
-      // The SDK has already initialized before this enabled provider is offered.
-      const result=await startGoogleSignIn({client,redirectTo:new URL('app.html',location.href).toString(),openWindow:()=>window.open('about:blank','steadybee-google-sign-in','popup,width=520,height=720')});
+      const result=await startGoogleRedirectSignIn({client,redirectTo:new URL('app.html',location.href).toString(),beforeNavigate:()=>saveSignInDraft(sessionStorage,getPicture(),location.href),navigate:url=>location.assign(url)});
       if(result.user){setUser(result.user);message('You’re already signed in.');}
-      else{googlePopup=result.popup;if(user){googlePopup.close();googlePopup=null;}message('Complete sign-in in the Google window. Your household stays open here.');}
     }catch(e){error(`Could not start Google sign-in. ${e.message}`);message('');}
     finally{signIn.disabled=false;}
   });

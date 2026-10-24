@@ -45,3 +45,20 @@ export async function googleProviderEnabled({url,key,fetcher=fetch}){
   if(!response.ok)throw new Error('Sign-in options could not be checked.');
   return (await response.json()).external?.google===true;
 }
+
+/** Complete new sign-ins in the current tab, including installed/PWA browsers. */
+export async function startGoogleRedirectSignIn({client,redirectTo,beforeNavigate=()=>{},navigate}){
+  const target=new URL(redirectTo);
+  if(!['http:','https:'].includes(target.protocol))throw new Error('The sign-in return address is invalid.');
+  const {data:session,error:sessionError}=await client.auth.getSession();
+  if(sessionError)throw sessionError;
+  if(session.session?.user)return {user:session.session.user};
+  const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}});
+  if(error)throw error;
+  if(!data?.url || new URL(data.url).protocol!=='https:')throw new Error('Google sign-in could not be opened.');
+  const actualRedirect=new URL(data.url).searchParams.get('redirect_to');
+  if(actualRedirect && actualRedirect!==target.href)throw new Error('The sign-in return address does not match this app. Check Supabase’s allowed return URLs.');
+  await beforeNavigate();
+  navigate(data.url);
+  return {redirecting:true};
+}

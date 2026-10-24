@@ -53,3 +53,16 @@ test('Google is offered only when Supabase explicitly enables it',async()=>{
     assert.equal(result,enabled===true);
   }
 });
+
+test('new sign-in navigates the same tab only after preserving the open household',async()=>{
+ const {startGoogleRedirectSignIn}=await import('../prototype/google-sign-in.mjs');
+ const events=[],redirectTo='https://deploy-preview-8--steadybee.netlify.app/app.html';
+ const client={auth:{getSession:async()=>({data:{session:null}}),signInWithOAuth:async value=>{assert.equal(value.options.redirectTo,redirectTo);return {data:{url:`https://project.supabase.co/auth/v1/authorize?redirect_to=${encodeURIComponent(redirectTo)}`}};}}};
+ await startGoogleRedirectSignIn({client,redirectTo,beforeNavigate:()=>events.push('checkpoint'),navigate:()=>events.push('same-tab')});
+ assert.deepEqual(events,['checkpoint','same-tab']);
+ await assert.rejects(()=>startGoogleRedirectSignIn({client,redirectTo,beforeNavigate:()=>{throw Error('Storage unavailable');},navigate:()=>assert.fail('Must not lose the open draft')}),/Storage unavailable/);
+});
+test('same-tab sign-in reuses an existing session without navigation',async()=>{
+ const {startGoogleRedirectSignIn}=await import('../prototype/google-sign-in.mjs'),user={id:'test'};
+ const result=await startGoogleRedirectSignIn({client:{auth:{getSession:async()=>({data:{session:{user}}})}},redirectTo:'https://steadybee.netlify.app/app.html',navigate:()=>assert.fail()});assert.equal(result.user,user);
+});
