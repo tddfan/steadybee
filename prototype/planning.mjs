@@ -6,6 +6,7 @@ import { createWithdrawalState, withdrawForSpending, WITHDRAWAL_ORDERS, eligible
 import { planHorizon } from './coverage.mjs?v=20261015coverage6';
 import { savingsTax, capitalGainsTax } from './investment-tax.mjs?v=20261015coverage6';
 import { estimateRepaymentMortgagePayment } from './mortgage-payment.mjs?v=20261022cashflow2';
+import {rewindTrackedInputs,applyTrackedFlow,applyTrackedBalances,activeTrackingEntries} from './tracking.mjs?v=20261025tracking1';
 
 export const PLANNING_DEFAULTS = Object.freeze({inflation:2,incomeGrowth:2,growth:Object.freeze({cash:2,isa:4,pension:4,property:2,shares:4}),years:30});
 const round = value => Math.round(value*100)/100;
@@ -25,6 +26,8 @@ function deposit(assets,owner,kind,value) {
 }
 
 export function projectPlan(flow, holdings, options = {}) {
+  const tracking=flow.tracking;
+  if(tracking){const initial=rewindTrackedInputs(flow,holdings);flow={...initial.flow,tracking};holdings=initial.holdings;applyTrackedBalances(holdings,tracking,flow.timelineStartMonth||flow.asOfMonth,{beforeStart:true});}
   const startMonth=flow.timelineStartMonth || flow.asOfMonth;
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth))throw new RangeError('Choose a valid opening month.');
   const years=options.planToAge!=null ? planHorizon(holdings,options).years : options.years ?? PLANNING_DEFAULTS.years;
@@ -127,6 +130,8 @@ export function projectPlan(flow, holdings, options = {}) {
   let interestTaxYear=null,yearInterest={primary:0,partner:0};
   const forecastFor=month=>{const year=taxYearFor(month);if(!taxForecasts.has(year))taxForecasts.set(year,forecastTaxYear(source,statePensions,startMonth,year,{incomeGrowth,inflation,statePensionUprating:options.statePensionUprating!==false}));return taxForecasts.get(year);};
   const taxLimitations=[];
+  if(tracking&&activeTrackingEntries(tracking).some(e=>e.changes.some(c=>c.target.kind==='pay'&&c.target.field==='annualTakeHome'&&c.value!=null)))taxLimitations.push('Tracked take-home receipts are after tax. Their actual deductions are unknown and excluded for those periods.');
+  if(tracking&&activeTrackingEntries(tracking).some(e=>e.changes.some(c=>c.target.kind==='income'&&c.value>0||c.target.kind==='dated'&&c.value?.side==='income'||c.target.kind==='asset'&&c.value?.monthlyRent>0)))taxLimitations.push('Tax on tracked other income, scheduled receipts and rental income is not modelled.');
   if(Object.values(source.pay).some(pay=>pay.annualTakeHome>0))taxLimitations.push('Tax paid within entered take-home pay is unknown and excluded from the reported tax total.');
   if(source.income.pensionIncome>0)taxLimitations.push('Regular private pension income has no recorded person/gross-net basis; its tax is not included.');
   if(source.income.otherIncome>0 || source.datedEntries.some(item=>item.side==='income') || (source.includeLinkedRent && holdings.assets.some(asset=>asset.monthlyRent>0)))taxLimitations.push('Tax on other income, dated income, dividends and rent is not modelled.');
@@ -134,8 +139,26 @@ export function projectPlan(flow, holdings, options = {}) {
   if(!startMonth.endsWith('-04'))taxLimitations.push('Opening tax year: earlier recurring income is assumed at the opening rate. Prior tax paid and earlier interest, withdrawals and gains are unknown.');
   if((holdings.partnerName ? ['primary','partner'] : ['primary']).some(owner=>!Number.isFinite(ages[owner])))taxLimitations.push('NI exemption timing is unknown where age is missing.');
   warnings.push('Pension drawdown and cash-interest tax use cumulative amounts in each April–March tax year, with forecast recurring income. Tax is reserved when the modelled liability increases, rather than predicting future interest. Tax-year boundaries use whole months. NI age inferred from age is approximate; an entered NI exemption month takes precedence.',...taxLimitations);
+  const {tracking:recordedHistory,...sourceFacts}=source;
+  if(tracking)warnings.push('Dated rates apply from the selected month. Recorded balances replace estimates at month end; differences are valuation adjustments, not assumed investment returns or cash receipts. Estimated tax may reconcile within a tax year when recorded income changes.');
   for(let index=0;index<years*12;index++) {
     const month=monthAt(startMonth,index), elapsed=index/12, deflator=(1+inflation/100)**((index+1)/12);
+    if(tracking){
+      applyTrackedBalances(balances,tracking,month);
+      // Refresh debt terms only when a dated record changes the debt's contract.
+      for(const e of activeTrackingEntries(tracking).filter(e=>e.effectiveDate.startsWith(month)))for(const c of e.changes.filter(c=>c.target.kind==='debt'&&c.value)){
+        if(c.before&&['interestRate','monthlyPayment','remainingYears','mortgageType','kind'].every(key=>(key==='mortgageType'?c.before[key]||'repayment':c.before[key])===(key==='mortgageType'?c.value[key]||'repayment':c.value[key])))continue;
+        const debt=balances.debts.find(d=>d.id===c.target.id);if(!debt)continue;
+        let state=[...mortgageStates,...otherDebtStates].find(s=>s.debt.id===debt.id);
+        if(!state){state={debt,modelled:false};(debt.kind==='mortgage'?mortgageStates:otherDebtStates).push(state);}
+        if(debt.kind==='mortgage'){
+          state.annualRate=options.mortgageRate??debt.interestRate;
+          state.termMonths=debt.remainingYears?index+Math.round(debt.remainingYears*12):null;
+          state.payment=debt.monthlyPayment??estimateRepaymentMortgagePayment({balance:c.value.balance,annualRate:state.annualRate,remainingYears:debt.remainingYears,mortgageType:debt.mortgageType});
+          state.modelled=Boolean(flow.includeLinkedMortgage&&state.payment!=null&&state.annualRate!=null);
+        }else {const input=options.debtPayments?.[debt.id];state.annualRate=input?.annualRate??debt.interestRate;state.payment=input?.monthlyPayment??debt.monthlyPayment;state.modelled=state.payment!=null&&state.annualRate!=null;}
+      }
+    }
     if(interestTaxYear!==taxYearFor(month)){interestTaxYear=taxYearFor(month);yearInterest={primary:0,partner:0};}
     if(stressTest && month===stressMonth){
       for(const asset of balances.assets.filter(item=>['isa','general','shares','dc-pension'].includes(item.kind))){const loss=round(asset.value*.2);asset.value=round(asset.value-loss);stressTest.loss=round(stressTest.loss+loss);}
@@ -143,7 +166,7 @@ export function projectPlan(flow, holdings, options = {}) {
     }
     const incomeFactor=(1+incomeGrowth/100)**elapsed, expenseFactor=(1+inflation/100)**elapsed;
     if(index>0 && month.endsWith('-04')) {used.primary=0;used.partner=0;withdrawalState.gains={primary:0,partner:0};}
-    const current=structuredClone(source);current.asOfMonth=month;current.includeLinkedMortgage=false;
+    const current=structuredClone(tracking?sourceFacts:source);current.asOfMonth=month;current.includeLinkedMortgage=false;
     current.assumptions.isaUsedPrimary=used.primary;current.assumptions.isaUsedPartner=used.partner;
     for(const pay of Object.values(current.pay))for(const key of ['annualGross','annualBonus','employeePension','employerPension','annualTakeHome'])if(pay[key]!=null)pay[key]=round(pay[key]*incomeFactor);
     const activeSpending=spendingChanges.filter(change=>change.year<=Number(month.slice(0,4))).at(-1);
@@ -152,6 +175,7 @@ export function projectPlan(flow, holdings, options = {}) {
     current.customSpending=(current.customSpending || []).map(item=>({...item,amount:round(item.amount*expenseFactor*householdFactor)}));
     // Dated future entries are supplied in today's pounds; pensions stay at their entered nominal rate.
     current.datedEntries=(current.datedEntries || []).map(item=>({...item,amount:round(item.amount*(item.side==='spending' ? expenseFactor : incomeFactor))}));
+    if(tracking){applyTrackedFlow(current,tracking,month,{incomeGrowth,inflation,householdFactor});delete current.tracking;for(const owner of ['primary','partner'])if(options.retirementYears?.[owner]!=null)current.pay[owner].endDate=source.pay[owner].endDate;}
     if(oneOff?.amount>0)current.datedEntries.push({id:'planning-one-off',side:'spending',label:'Scenario one-off cost',amount:round(oneOff.amount*expenseFactor),frequency:'once',startMonth:oneOff.month,endMonth:''});
     for(const [owner,pension] of Object.entries(statePensions))current.statePensions[owner]={...current.statePensions[owner],mode:'official',weeklyForecast:round(pension.annualGross/52*(options.statePensionUprating===false ? 1 : expenseFactor))};
     const taxForecast=forecastFor(month);current.taxOverrides={};
@@ -175,7 +199,12 @@ export function projectPlan(flow, holdings, options = {}) {
       for(const state of mortgageStates){const repayment=Math.min(state.debt.balance,available);state.debt.balance=round(state.debt.balance-repayment);available=round(available-repayment);}
       mortgagePayoff={requested,paid:payoffDraw.net,remaining:round(requested-payoffDraw.net),gross:payoffDraw.gross,tax:payoffDraw.tax,items:payoffDraw.items};
     }
-    const workingHoldings={...balances,age:ages.primary,partnerAge:ages.partner,assets:balances.assets.map(asset=>asset.monthlyRent!=null ? {...asset,monthlyRent:round(asset.monthlyRent*incomeFactor)} : asset),debts:[]};
+    const workingHoldings={...balances,age:ages.primary,partnerAge:ages.partner,assets:balances.assets.map(asset=>{
+      if(asset.monthlyRent==null)return asset;
+      const rentChange=tracking?activeTrackingEntries(tracking).filter(e=>e.effectiveDate.slice(0,7)<=month&&e.changes.some(c=>c.target.kind==='asset'&&c.target.id===asset.id&&c.value&&c.value.monthlyRent!==c.before?.monthlyRent)).at(-1):null;
+      const since=rentChange?Math.max(0,(Number(month.slice(0,4))-Number(rentChange.effectiveDate.slice(0,4)))*12+Number(month.slice(5))-Number(rentChange.effectiveDate.slice(5,7)))/12:elapsed;
+      return {...asset,monthlyRent:round(asset.monthlyRent*(1+incomeGrowth/100)**since)};
+    }),debts:[]};
     let mortgagePayment=0;const debtInstallments=[];
     for(const state of mortgageStates) {
       if(!state.modelled || state.debt.balance<=0)continue;
@@ -257,6 +286,8 @@ export function projectPlan(flow, holdings, options = {}) {
     for(const item of withdrawals) {add(incomeByPerson,item.owner,item.net);add(incomeByType,({cash:'withdrawCash',general:'withdrawGeneral',isa:'withdrawIsa',pension:'withdrawPension'})[item.bucket],item.net);}
     if(unfunded>0 && !firstUnfundedMonth)firstUnfundedMonth=month;
     cumulativeUnfunded=round(cumulativeUnfunded+unfunded);
+    const balanceAdjustments=tracking?applyTrackedBalances(balances,tracking,month,{closing:true}):[];
+    if(tracking)for(const e of activeTrackingEntries(tracking).filter(e=>e.effectiveDate.startsWith(month)))for(const c of e.changes)if(c.target.kind==='asset'&&c.value?.costBasis!=null&&c.value.costBasis!==c.before?.costBasis)withdrawalState.basis[c.target.id]=c.value.costBasis;
     const assetsByType=totals(balances.assets,'value',item=>assetGroup(item.kind)),assetsByPerson=totals(balances.assets,'value',ownerOf);
     const debtsByType=totals(balances.debts,'balance',item=>item.kind==='mortgage' ? 'mortgage' : 'otherDebt'),debtsByPerson=totals(balances.debts,'balance',ownerOf);
     const assetsTotal=round(Object.values(assetsByType).reduce((sum,value)=>sum+value,0)),debtsTotal=round(Object.values(debtsByType).reduce((sum,value)=>sum+value,0));
@@ -276,7 +307,7 @@ export function projectPlan(flow, holdings, options = {}) {
     for(const item of withdrawals){add(taxByType,'capitalGainsTax',item.bucket==='general' ? item.tax : item.capitalTax || 0);if(item.bucket==='pension')add(taxByType,'pensionDrawdownTax',item.pensionTax ?? item.tax);add(taxByPerson,item.owner,item.tax);}
     const taxTotal=round(Object.values(taxByType).reduce((sum,value)=>sum+value,0));
     const estateBalances=options.captureEstateBalances ? {estateAssets:balances.assets.map(({id,kind,owner,label,value})=>({id,kind,owner,label,value})),estateDebts:balances.debts.map(({id,kind,owner,label,balance,linkedAssetId})=>({id,kind,owner,label,balance,linkedAssetId}))} : {};
-    months.push({...estateBalances,taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,cashCapitalGainsTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
+    months.push({...estateBalances,...(tracking?{balanceAdjustments}:{}),taxByType,taxByPerson,taxTotal,taxIncomplete:taxLimitations.length>0,month,deflator,withdrawableAssets,lockedPensions,otherAssets,incomeTotal:summary.incomeTotal,spendingTotal:round(summary.spendingTotal+payoffDraw.net),remainder:summary.remainder,householdSpending:round(summary.spendingTotal-debtPayment),cashInterestGross,cashInterestTax,cashCapitalGainsTax,withdrawalNet,withdrawalGross,withdrawalTax,withdrawals,withdrawn:withdrawalNet,incomeByPerson,incomeByType,savingByPerson,savingByType,cashDrawn,unfunded,cumulativeUnfunded,pensionContributions,mortgagePayment,debtPayment:round(debtPayment+payoffDraw.net),assetsTotal,debtsTotal,assetsByType,assetsByPerson,debtsByType,debtsByPerson});
   }
   return {taxLimitations,startMonth,endMonth:months.at(-1).month,stressTest,unmodelledDebt:round([...mortgageStates,...otherDebtStates].filter(state=>!state.modelled).reduce((sum,state)=>sum+state.debt.balance,0)),opening,months,firstUnfundedMonth,mortgagePayoff,spendingChanges,warnings:[...new Set(warnings)],statePensions,pensionAccessAge,statePensionAge,ages,assumptions:{inflation,incomeGrowth,growth,years},retirementDates:Object.fromEntries(Object.entries(source.pay).map(([owner,pay])=>[owner,pay.endDate]))};
 }

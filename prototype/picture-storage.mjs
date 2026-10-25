@@ -5,11 +5,14 @@ import {projectPlan} from './planning.mjs?v=20261024persona1';
 import {planHorizon} from './coverage.mjs?v=20261015coverage6';
 import {validateEstateSettings} from './inheritance.mjs?v=20261024persona1';
 import {validateInsightSettings} from './insights.mjs?v=20261024persona1';
+import {validateBaselineHistory} from './baseline-history.mjs?v=20261025baseline1';
+import {validateTrackingHistory} from './tracking.mjs?v=20261025tracking1';
+import {validateLifelineSettings} from './lifeline.mjs?v=20261025lifeline1';
 export const PICTURE_STORAGE_KEY='steadybee.protected-picture.v1';
 const MAX_BYTES=2_000_000,ITERATIONS=310_000;
 const record=value=>value!==null && typeof value==='object' && !Array.isArray(value);
 function safeTree(value,depth=0) {
-  if(depth>12)throw new Error('This picture is too deeply nested.');
+  if(depth>18)throw new Error('This picture is too deeply nested.');
   if(typeof value==='number' && !Number.isFinite(value))throw new Error('Use finite numbers in a picture.');
   if(typeof value==='string' && value.length>2000)throw new Error('A picture field is too long.');
   if(Array.isArray(value) && value.length>200)throw new Error('A picture contains too many entries.');
@@ -23,6 +26,7 @@ export function validatePicture(input) {
   if(!record(input)||input.version!==1||!record(input.flow)||!record(input.planning))throw new Error('This is not a supported Steadybee picture.');
   if(new TextEncoder().encode(JSON.stringify(input)).length>1_000_000)throw new Error('This picture is too large.');
   if(input.example!=null && typeof input.example!=='boolean')throw new Error('The picture label is invalid.');
+  if(input.lifeline!=null)validateLifelineSettings(input.lifeline);
   if(input.inheritance!=null)validateEstateSettings(input.inheritance);
   if(input.insights!=null)validateInsightSettings(input.insights);
   const validation=validateDraft(input.holdings);if(!validation.valid)throw new Error(validation.errors[0].message);
@@ -35,7 +39,7 @@ export function validatePicture(input) {
   if(p.experiments!=null){
     if(!Array.isArray(p.experiments)||p.experiments.length>12)throw new Error('Keep up to 12 saved scenarios.');
     const ids=new Set(),names=new Set();
-    for(const item of p.experiments){if(!record(item)||typeof item.id!=='string'||!item.id||item.id.length>80||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||names.has(item.name.trim().toLocaleLowerCase())||typeof item.createdAt!=='string'||!Number.isFinite(Date.parse(item.createdAt))||!record(item.state)||item.state.experiments!=null)throw new Error('A saved scenario is invalid.');ids.add(item.id);names.add(item.name.trim().toLocaleLowerCase());validatePicture({...input,planning:item.state});}
+    for(const item of p.experiments){if(!record(item)||typeof item.id!=='string'||!item.id||item.id.length>80||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||names.has(item.name.trim().toLocaleLowerCase())||typeof item.createdAt!=='string'||!Number.isFinite(Date.parse(item.createdAt))||!record(item.state)||item.state.experiments!=null)throw new Error('A saved scenario is invalid.');ids.add(item.id);names.add(item.name.trim().toLocaleLowerCase());const {baselines,...household}=input;validatePicture({...household,planning:item.state});}
   }
   const allowed=new Set(['years','planToAge','retirementYears','mortgageYearsEarlier','inflation','incomeGrowth','growth','mortgageRate','mortgageTermYears','mortgagePayoffNow','mortgagePayoffSource','oneOff','ages','pensionAccessAge','statePensionAge','futureNI','statePensionUprating','spendingChanges','spendingChange','savingsDestination','withdrawalOrder','openingGainPercent','taxFreeRemaining','debtPayments','retirementStress']);
   if(Object.keys(s).some(key=>!allowed.has(key)))throw new Error('This picture has unsupported scenario settings.');
@@ -44,12 +48,14 @@ export function validatePicture(input) {
   if(s.years!=null && (!Number.isInteger(s.years)||s.years<1||s.years>100))throw new Error('The horizon is invalid.');
   if(s.planToAge!=null)planHorizon(input.holdings,s);
   const flow=input.flow;
-  if(flow.taxOverrides!=null)throw new Error('Calculated tax overrides cannot be imported as household inputs.');
+  if(flow.tracking!=null)validateTrackingHistory(flow.tracking);
+  if(flow.taxOverrides!=null||flow.recordedPayReceipts!=null)throw new Error('Calculated tax or receipt overrides cannot be imported as household inputs.');
   for(const key of ['pay','income','spending','assumptions'])if(!record(flow[key]))throw new Error('This picture is missing monthly inputs.');
   if(!record(flow.pay.primary)||!record(flow.pay.partner)||!Array.isArray(flow.datedEntries)||!Array.isArray(flow.customSpending))throw new Error('This picture has incomplete monthly inputs.');
   computeAllocationWaterfall(flow,input.holdings);
   // Validate all scenario options without projecting decades of imported data.
   projectPlan(flow,input.holdings,{...s,planToAge:undefined,years:1});
+  if(input.baselines!=null)validateBaselineHistory(input.baselines,validatePicture);
   return structuredClone(input);
 }
 const encode=bytes=>btoa(String.fromCharCode(...bytes));

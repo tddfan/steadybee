@@ -1,9 +1,9 @@
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
-import {validatePicture} from './picture-storage.mjs?v=20261024persona1';
+import {validatePicture} from './picture-storage.mjs?v=20261025baseline1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
 import {startGoogleRedirectSignIn,googleProviderEnabled,completeGoogleOAuthPopup} from './google-sign-in.mjs?v=20261024redirect1';
 
-import {saveSignInDraft} from './sign-in-draft.mjs?v=20261024redirect1';
+import {saveSignInDraft} from './sign-in-draft.mjs?v=20261025baseline1';
 
 const sdkUrl='https://esm.sh/@supabase/supabase-js@2.118.0?bundle';
 
@@ -304,7 +304,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     catch(e){error(`Could not delete this version. ${e.message}`);}
   });
   $('account-sign-out').addEventListener('click',async()=>{
-    try{await getClient();const {error:authError}=await client.auth.signOut();if(authError)throw authError;user=null;cloudEnabled=false;renderSession();message('Signed out. The open tab remains here.');setStatus('Signed out');}
+    try{await getClient();const {error:authError}=await client.auth.signOut();if(authError)throw authError;setUser(null);message('Signed out. The open tab remains here.');setStatus('Signed out');}
     catch(e){error(`Could not sign out. ${e.message}`);}
   });
   function scheduleCloudSave(){
@@ -318,16 +318,22 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
   }
   async function autoSave(){
     if(!cloudEnabled||!user)return;
+    const userId=user.id,pictureId=activePictureId,requestGeneration=householdGeneration,expectedUpdatedAt=cloudUpdatedAt;
+    const currentRequest=()=>user?.id===userId&&activePictureId===pictureId&&householdGeneration===requestGeneration;
     try{
       const picture=validatePicture(getPicture()),serial=JSON.stringify(picture);if(serial===lastSaved)return;
       const timestamp=new Date().toISOString();
       if(!activePictureId)throw new Error('Choose or save a named version before syncing changes.');
-      const request=()=>client.from('user_pictures').update({picture,updated_at:timestamp}).eq('user_id',user.id).eq('id',activePictureId).eq('updated_at',cloudUpdatedAt).select('updated_at').maybeSingle();
+      const request=()=>{
+        if(!currentRequest())return Promise.resolve({data:null,error:new Error('The open household changed before saving.')});
+        return client.from('user_pictures').update({picture,updated_at:timestamp}).eq('user_id',userId).eq('id',pictureId).eq('updated_at',expectedUpdatedAt).select('updated_at').maybeSingle();
+      };
       const {data,error:dbError}=await accountQuery(request);
+      if(!currentRequest())return;
       if(dbError)throw dbError;
       if(!data){cloudEnabled=false;setStatus('Cloud version changed elsewhere');if(dialog.open)error('Another tab updated this saved version. Reopen it before continuing so you do not overwrite newer changes.');return;}
       cloudUpdatedAt=data.updated_at;lastSaved=serial;setStatus(`Household · ${activePictureName}`);
-    }catch(e){cloudEnabled=false;setStatus('Cloud save needs attention');if(dialog.open)error(`Latest changes were not saved to your account. ${e.message}`);}
+    }catch(e){if(!currentRequest())return;cloudEnabled=false;setStatus('Cloud save needs attention');if(dialog.open)error(`Latest changes were not saved to your account. ${e.message}`);}
   }
   document.addEventListener('picture-updated',scheduleCloudSave);
   getClient().then(async()=>{const {data}=await client.auth.getSession();setUser(data.session?.user||null);}).catch(()=>{});

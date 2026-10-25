@@ -3,6 +3,20 @@ import { estimateStatePension, resolveStatePensionInput } from "./state-pension.
 import { employeeNIExempt } from "./planning-tax.mjs?v=20261024persona1";
 import { estimateUkTakeHome2026 } from "./uk-pay-estimate.mjs?v=20261024persona1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
+import {trackedInputsAt,recordedPayReceipts,rewindTrackedInputs,applyTrackedBalances,activeTrackingEntries} from './tracking.mjs?v=20261025tracking1';
+const trackedMortgageEstimate=Symbol('trackedMortgageEstimate');
+function resolvedMonthlyInputs(flow,holdings){
+ if(!flow.tracking)return {flow,holdings};
+ const current=trackedInputsAt(flow,holdings,flow.asOfMonth),initial=rewindTrackedInputs(flow,holdings),opening=structuredClone(initial.holdings);
+ // Recurring cash flow uses opening balances; a closing statement affects the next month.
+ applyTrackedBalances(opening,flow.tracking,flow.asOfMonth,{beforeStart:true});applyTrackedBalances(opening,flow.tracking,flow.asOfMonth);
+ for(const debt of opening.debts.filter(d=>d.kind==='mortgage'&&d.balance>0&&d.monthlyPayment==null)){
+  let contract=initial.holdings.debts.find(d=>d.id===debt.id),month=flow.timelineStartMonth||flow.asOfMonth;
+  for(const e of activeTrackingEntries(flow.tracking).filter(e=>e.effectiveDate.slice(0,7)<=flow.asOfMonth))for(const c of e.changes)if(c.target.kind==='debt'&&c.target.id===debt.id&&c.value&&(!c.before||['interestRate','monthlyPayment','remainingYears','mortgageType'].some(k=>(k==='mortgageType'?c.before[k]||'repayment':c.before[k])!==(k==='mortgageType'?c.value[k]||'repayment':c.value[k])))){contract=c.value;month=e.effectiveDate.slice(0,7);}
+  if(contract)debt[trackedMortgageEstimate]={amount:estimateRepaymentMortgagePayment({balance:contract.balance,annualRate:contract.interestRate,remainingYears:contract.remainingYears,mortgageType:contract.mortgageType}),month};
+ }
+ current.holdings=opening;current.flow.recordedPayReceipts=recordedPayReceipts(flow.tracking,flow.asOfMonth);return current;
+}
 
 export const INCOME_FIELDS = Object.freeze([
   { key: "pensionIncome", label: "Pension income received now" },
@@ -129,6 +143,7 @@ function summarizeDatedEntries(flow, sources, uses) {
 }
 
 export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
+  if(flow.tracking)({flow,holdings}=resolvedMonthlyInputs(flow,holdings));
   const { assets = [], debts = [] } = holdings;
   for (const [label, rate] of [["Annual inflation", flow.assumptions?.annualInflation], ["Income growth", flow.assumptions?.incomeGrowthRate], ...Object.entries(flow.assumptions?.assetGrowthRates || {}).map(([kind, value]) => [`${kind} growth`, value])]) {
     if (rate !== null && rate !== undefined && (typeof rate !== "number" || !Number.isFinite(rate) || rate < -30 || rate > 30))
@@ -150,8 +165,9 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
     if (pay.endDate && !/^\d{4}-(0[1-9]|1[0-2])$/.test(pay.endDate)) throw new RangeError("Pay end date must be a valid month and year.");
     const person = names[owner] || (owner === "primary" ? "Your" : "Partner");
     const active = !pay.endDate || flow.asOfMonth <= pay.endDate;
-    const monthlyTakeHome = active ? Math.round(annualTakeHome * 100 / 12) / 100 : 0;
-    payDetails.push({ owner, person, annualTakeHome, annualGross: estimate.grossPay, annualBonus: pay.annualBonus, employeePension: estimate.employeePension, employerPension: estimate.employerPension, endDate: pay.endDate, active, monthlyTakeHome, enteredTakeHome, estimate });
+    const receiptRecorded=Object.hasOwn(flow.recordedPayReceipts||{},owner);
+    const monthlyTakeHome = receiptRecorded?flow.recordedPayReceipts[owner]:active ? Math.round(annualTakeHome * 100 / 12) / 100 : 0;
+    payDetails.push({ owner, person, annualTakeHome, annualGross: estimate.grossPay, annualBonus: pay.annualBonus, employeePension: estimate.employeePension, employerPension: estimate.employerPension, endDate: pay.endDate, active, monthlyTakeHome, enteredTakeHome, receiptRecorded, estimate });
     if (monthlyTakeHome) sources.push({ key: `${owner}Pay`, label: `${person}'s ${enteredTakeHome ? "pay received" : "estimated take-home pay"}`, amount: monthlyTakeHome, kind: "income" });
   }
   for (const { key, label } of INCOME_FIELDS) {
@@ -184,9 +200,9 @@ export function summarizeMonthlyFlow(flow, holdings = {}, names = {}) {
   const linkedMortgages = debts.filter((debt) => debt.kind === "mortgage")
     .map((debt) => {
       const entered = debt.monthlyPayment !== undefined;
-      const calculated = entered ? null : estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, mortgageType: debt.mortgageType });
-      const endMonth = debt.remainingYears ? addMonths(timelineStartMonth, Math.round(debt.remainingYears * 12)) : null;
-      return { id: debt.id, label: debt.label?.trim() || "Mortgage", amount: entered ? pennies(debt.monthlyPayment, "Monthly mortgage payment") / 100 : calculated, estimated: !entered, balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, endMonth, active: !endMonth || flow.asOfMonth < endMonth };
+      const calculated = entered ? null : debt[trackedMortgageEstimate]?.amount??estimateRepaymentMortgagePayment({ balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, mortgageType: debt.mortgageType });
+      const endMonth = debt.remainingYears ? addMonths(debt[trackedMortgageEstimate]?.month||timelineStartMonth, Math.round(debt.remainingYears * 12)) : null;
+      return { id: debt.id, label: debt.label?.trim() || "Mortgage", amount: debt.balance===0?0:entered ? pennies(debt.monthlyPayment, "Monthly mortgage payment") / 100 : calculated, estimated: !entered, balance: debt.balance, annualRate: debt.interestRate, remainingYears: debt.remainingYears, endMonth, active: !endMonth || flow.asOfMonth < endMonth };
     }).filter((debt) => debt.amount !== null);
   if (flow.includeLinkedMortgage) {
     for (const mortgage of linkedMortgages) if (mortgage.amount > 0 && mortgage.active)
@@ -247,6 +263,7 @@ export function monthlyFlowEvents(flow, holdings = {}, names = {}) {
 
 /** Reconciled gross-to-destination view. Entered take-home pay stays net because its deductions are unknown. */
 export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
+  if(flow.tracking)({flow,holdings}=resolvedMonthlyInputs(flow,holdings));
   const summary = summarizeMonthlyFlow(flow, holdings, names);
   const sources = summary.sources.map((item) => ({ ...item }));
   const uses = summary.uses.filter((item) => item.kind !== "unallocated").map((item) => ({ ...item }));
@@ -298,6 +315,7 @@ export function buildMonthlyFlowDiagram(flow, holdings = {}, names = {}) {
 
 /** One-month arithmetic for a routing order the user has explicitly chosen. */
 export function computeAllocationWaterfall(flow, holdings = {}, names = {}) {
+  if(flow.tracking)({flow,holdings}=resolvedMonthlyInputs(flow,holdings));
   const summary = summarizeMonthlyFlow(flow, holdings, names);
   const assumptions = flow.assumptions || {};
   const reserveMonths = assumptions.cashReserveMonths ?? DEFAULT_RESERVE_MONTHS;

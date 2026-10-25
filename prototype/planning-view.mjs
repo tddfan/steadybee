@@ -1,3 +1,4 @@
+import {outlookParameters,sameOutlookParameter,baselineOutlookScenario} from './outlook-parameters.mjs?v=20261025outlook1';
 import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261024persona1';
 import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from './grouped-number-input.mjs?v=20261022grouped1';
@@ -19,6 +20,7 @@ const metrics={tax:{title:'Tax & NI',note:'Modelled tax and employee NI. Calenda
 function svgNode(tag,attrs={},text){const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));if(text!=null)node.textContent=text;return node;}
 
 export function mountPlanning(root,getInputs) {
+  let integration=null;
   let taxCumulative=false,metric='income',group='person',style='bars',real=true,selectedYear=null,projection=null,confirmedKey=null;
   let scenario={years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0};
   let restoredNeedsReview=false,showBaseline=false,experiments=[],comparisonCacheKey='',comparisonCache=new Map();
@@ -129,7 +131,7 @@ export function mountPlanning(root,getInputs) {
     for(const note of projection.taxLimitations || [])add('Tax limitations','','Excluded or assumed',note,'');
     add('Method','','Calculation notes','Illustration based on recorded inputs and selected scenario; not a tax-year reconciliation or forecast.','','See the app’s calculation details for full assumptions and exclusions.');
     add('Method','','Tax year','2026–27 rates held fixed for future years.','','Tax estimates are simplified; actual tax may differ.');
-    const escape=value=>`"${String(value ?? '').replaceAll('"','""')}"`;
+    const escape=value=>{const text=String(value??''),safe=typeof value==='string'&&/^[=+@\t\r-]/.test(text)?"'"+text:text;return `"${safe.replaceAll('"','""')}"`;};
     const csv='\uFEFF'+[['Section','Year','Calculation','Value','Units','Notes'],...records].map(row=>row.map(escape).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=el('a');
     link.href=url;link.download=`steadybee-planning-${new Date().toISOString().slice(0,10)}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -152,12 +154,12 @@ export function mountPlanning(root,getInputs) {
   toolbar.append(method);
   const sheetBackdrop=el('div','plan-sheet-backdrop');sheetBackdrop.setAttribute('aria-hidden','true');root.append(sheetBackdrop);
   const sheet=$('plan-controls'),handle=root.querySelector('.plan-sheet-handle');
-  function syncSheetSemantics(){const modal=matchMedia('(max-width:767px)').matches && root.classList.contains('plan-controls-open');if(modal){sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','Your scenario');sheet.setAttribute('aria-modal','true');}else{sheet.removeAttribute('role');sheet.removeAttribute('aria-modal');}}
+  function syncSheetSemantics(){const modal=!integration && matchMedia('(max-width:767px)').matches && root.classList.contains('plan-controls-open');if(modal){sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','Your scenario');sheet.setAttribute('aria-modal','true');}else{sheet.removeAttribute('role');sheet.removeAttribute('aria-modal');}}
   $('plan-sheet-close').addEventListener('click',()=>$('plan-adjust').click());sheetBackdrop.addEventListener('click',()=>$('plan-adjust').click());
   root.addEventListener('keydown',event=>{
     if(!root.classList.contains('plan-controls-open'))return;
     if(event.key==='Escape'){event.preventDefault();$('plan-adjust').click();return;}
-    if(event.key!=='Tab' || !matchMedia('(max-width:767px)').matches)return;
+    if(integration || event.key!=='Tab' || !matchMedia('(max-width:767px)').matches)return;
     const focusable=[...sheet.querySelectorAll('button,input,select,textarea,summary,[tabindex="0"]')].filter(node=>!node.disabled && node.getClientRects().length);
     if(!focusable.length)return;const first=focusable[0],last=focusable.at(-1);
     if(event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
@@ -218,7 +220,7 @@ export function mountPlanning(root,getInputs) {
       if(knownAge){const yearHint=el('small','plan-timing-year',` · ${year}`);yearHint.id=`plan-retirement-year-${owner}`;$(`plan-retire-${owner}`).closest('label').querySelector('.plan-slider-label').append(yearHint);}
       const timing=el('p','plan-retirement-date');timing.id=`plan-retirement-date-${owner}`;$('plan-retirement').append(timing);
     }
-    slider($('plan-horizon'),'plan-horizon-slider','Plan to age',70,120,scenario.planToAge ?? 95,value=>scenario.planToAge=value);
+    if(scenario.planToAge!=null)slider($('plan-horizon'),'plan-horizon-slider','Plan to age',70,120,scenario.planToAge,value=>scenario.planToAge=value);else slider($('plan-horizon'),'plan-horizon-slider','Plan length',1,100,scenario.years??30,value=>scenario.years=value,' years');
     const horizonYear=el('small','plan-timing-year');horizonYear.id='plan-horizon-year';$('plan-horizon-slider').closest('label').querySelector('.plan-slider-label').append(horizonYear);
     const lastWorkYear=Math.max(...['primary',...(holdings.partnerName ? ['partner'] : [])].map(owner=>scenario.retirementYears[owner] ?? (Number(flow.pay[owner].endDate?.slice(0,4)) || startYear+20)));
     scenario.spendingChanges ??= [{year:lastWorkYear+1,percent:100}];
@@ -228,16 +230,16 @@ export function mountPlanning(root,getInputs) {
     slider($('plan-gain-slider'),'plan-opening-gain','Unknown opening cost: gain share',0,100,scenario.openingGainPercent ?? 100,value=>scenario.openingGainPercent=value,'%');
     for(const owner of holdings.partnerName ? ['primary','partner'] : ['primary']) {
       const label=el('label','',`${owner==='primary' ? holdings.name || 'Your' : holdings.partnerName} current age`),input=el('input');
-      input.type='number';input.min=18;input.max=100;input.value=scenario.ages?.[owner] ?? (owner==='primary' ? holdings.age ?? '' : holdings.partnerAge ?? '');input.setAttribute('aria-label',label.textContent);
+      input.dataset.planParam=`ages.${owner}`;input.type='number';input.min=18;input.max=100;input.value=scenario.ages?.[owner] ?? (owner==='primary' ? holdings.age ?? '' : holdings.partnerAge ?? '');input.setAttribute('aria-label',label.textContent);
       input.addEventListener('change',()=>{scenario.ages ||= {};scenario.ages[owner]=input.value==='' ? null : Number(input.value);refresh();});label.append(input);$('plan-age-inputs').append(label);
-      const freeLabel=el('label','',`${owner==='primary' ? holdings.name || 'Your' : holdings.partnerName} remaining pension tax-free allowance (£)`),free=el('input');free.type='number';free.min=0;free.max=268275;free.value=scenario.taxFreeRemaining?.[owner] ?? 268275;free.setAttribute('aria-label',freeLabel.textContent);
+      const freeLabel=el('label','',`${owner==='primary' ? holdings.name || 'Your' : holdings.partnerName} remaining pension tax-free allowance (£)`),free=el('input');free.dataset.planParam=`taxFreeRemaining.${owner}`;free.type='number';free.min=0;free.max=268275;free.value=scenario.taxFreeRemaining?.[owner] ?? 268275;free.setAttribute('aria-label',freeLabel.textContent);
       free.addEventListener('change',()=>{scenario.taxFreeRemaining ||= {};const value=groupedNumberValue(free);if(!Number.isFinite(value)||value<0||value>268275||Math.abs(value*100-Math.round(value*100))>0.001){free.setCustomValidity('Enter an amount from £0 to £268,275, with up to two decimal places.');free.reportValidity();return;}free.setCustomValidity('');scenario.taxFreeRemaining[owner]=value;refresh();});freeLabel.append(free);$('plan-tax-free-inputs').append(freeLabel);
     }
     $('plan-other-debt-controls').replaceChildren();
     for(const debt of (holdings.debts || []).filter(item=>item.kind!=='mortgage')) {
       const card=el('div','plan-other-debt');card.append(el('h3','',debt.label || debt.kind));
       for(const [key,title,initial] of [['monthlyPayment','Monthly repayment (£)',scenario.debtPayments?.[debt.id]?.monthlyPayment],['annualRate','Interest rate (%)',scenario.debtPayments?.[debt.id]?.annualRate ?? debt.interestRate]]) {
-        const label=el('label','',title),input=el('input');input.type='number';input.min=0;input.max=key==='annualRate' ? 100 : 1000000;input.step='.01';input.value=initial ?? '';if(key==='monthlyPayment')enableGroupedNumberInput(input);input.setAttribute('aria-label',`${debt.label || debt.kind} ${title}`);label.append(input);card.append(label);
+        const label=el('label','',title),input=el('input');input.dataset.planParam=`debtPayments.${debt.id}.${key}`;input.type='number';input.min=0;input.max=key==='annualRate' ? 100 : 1000000;input.step='.01';input.value=initial ?? '';if(key==='monthlyPayment')enableGroupedNumberInput(input);input.setAttribute('aria-label',`${debt.label || debt.kind} ${title}`);label.append(input);card.append(label);
         input.addEventListener('change',()=>{scenario.debtPayments ||= {};scenario.debtPayments[debt.id] ||= {};const value=input.value==='' ? undefined : (key==='monthlyPayment' ? groupedNumberValue(input) : Number(input.value));if(value!==undefined&&(!Number.isFinite(value)||value<0||(key==='monthlyPayment'&&value>1000000)||(key==='annualRate'&&value>100)||(key==='monthlyPayment'&&Math.abs(value*100-Math.round(value*100))>0.001))){input.setCustomValidity('Enter a valid amount or rate.');input.reportValidity();return;}input.setCustomValidity('');scenario.debtPayments[debt.id][key]=value;refresh();});
       }
       card.append(el('p','plan-control-help','Enter both figures. Avoid also recording this repayment as household spending.'));$('plan-other-debt-controls').append(card);
@@ -268,7 +270,7 @@ export function mountPlanning(root,getInputs) {
   function name(key,holdings) {return key==='primary' ? holdings.name || 'You' : key==='partner' ? holdings.partnerName || 'Partner' : key==='shared' ? 'Shared / other' : labels[key] || key;}
   function ageLabel(month,holdings,closing=true,source=projection) {return Object.entries(agesAt(source,month,{closing})).filter(([owner])=>owner==='primary'||holdings.partnerName).map(([owner,age])=>`${name(owner,holdings)} ${age}`).join(' · ');}
   function renderChart(holdings) {
-    if(!projection)return;
+    if(!projection || integration)return;
     const rows=annualPlanView(projection,metric,group,real),meta=metrics[metric];
     const taxRows=taxPeriodView(projection,{real});
     const makeCumulative=list=>{const running={};for(const row of list){for(const [key,value] of Object.entries(row.values))running[key]=(running[key] || 0)+value;row.values={...running};row.total=Object.values(row.values).reduce((sum,value)=>sum+value,0);}};
@@ -506,7 +508,7 @@ export function mountPlanning(root,getInputs) {
     if(!confirmedKey && cachedReviewKey()===reviewKey)confirmedKey=reviewKey;
     $('plan-source-text').textContent=`From ${new Date(`${flow.timelineStartMonth || flow.asOfMonth}-01T12:00:00`).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`;
     $('plan-comparison').hidden=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
-    const needsConfirmation=(mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
+    const needsConfirmation=!integration && (mode!=='example' || restoredNeedsReview) && confirmedKey!==reviewKey;
     $('plan-confirm').hidden=!needsConfirmation;$('plan-workspace').hidden=needsConfirmation;root.querySelector('.plan-adjust-row').hidden=needsConfirmation;
     $('plan-key-assumptions').hidden=needsConfirmation;
     root.querySelector('.plan-timing-note').hidden=needsConfirmation;
@@ -521,8 +523,8 @@ export function mountPlanning(root,getInputs) {
     }
     try {
       if(sourceKey!==baselineKey){baselineKey=sourceKey;baselineOptions={inflation:flow.assumptions.annualInflation ?? PLANNING_DEFAULTS.inflation,incomeGrowth:flow.assumptions.incomeGrowthRate ?? PLANNING_DEFAULTS.incomeGrowth,growth:Object.fromEntries(Object.keys(PLANNING_DEFAULTS.growth).map(key=>[key,flow.assumptions.assetGrowthRates?.[key] ?? PLANNING_DEFAULTS.growth[key]]))};history=[];lastSnapshot=null;}
-      scenario.years=planHorizon(holdings,scenario).years;
-      baseline=projectPlan(flow,holdings,{...baselineOptions,years:scenario.years});
+      if(scenario.planToAge!=null)scenario.years=planHorizon(holdings,scenario).years;
+      baseline=integration?null:projectPlan(flow,holdings,{...baselineOptions,years:scenario.years});
       projection=projectPlan(flow,holdings,scenario);$('plan-export-calculations').disabled=false;outcomes.update(true);
       const snapshot=JSON.stringify(scenario);
       if(lastSnapshot && snapshot!==lastSnapshot){if(lastHistoryGroup!==editGroup){history.push(lastSnapshot);if(history.length>40)history.shift();lastHistoryGroup=editGroup;}}
@@ -548,6 +550,7 @@ export function mountPlanning(root,getInputs) {
       $('plan-state-summary').replaceChildren();
       for(const [owner,pension] of Object.entries(projection.statePensions))$('plan-state-summary').append(el('p','plan-control-help',`${name(owner,holdings)}: ${pension.qualifyingYears} recorded + ${pension.futureYears} assumed NI years; ${pension.totalYears} used. ${currency(pension.annualGross)}/year in today’s terms from ${pension.startMonth} (${pension.mode==='official' ? 'entered forecast' : 'simplified 35-year estimate'}).`));
       renderChart(holdings);
+      if(integration){updateReferenceNotes();if(integration.tools.open)renderComparison(holdings);}
       const method=$('plan-method-body');method.replaceChildren();
       const end=projection.months.at(-1);
       const methodNotes=[`Opening assets ${currency(projection.opening.assetsTotal)}; opening debt ${currency(projection.opening.debtsTotal)}. Monthly calculations run from ${projection.startMonth} to ${projection.endMonth}.`, 'Pay and rent rise with the pay-growth assumption; spending and dated future costs rise with inflation. State Pension keeps pace with inflation unless switched off; this is an assumption rather than a triple-lock forecast. Other fixed pension receipts stay nominal. Household spending changes affect regular categories; debt, one-off and separately scheduled costs retain their own schedules. Today’s pounds discount future values using the inflation slider.', 'Growth is compounded monthly before new deposits. Investment fees are not deducted. Cash return is treated as taxable interest; estimated interest tax is reserved from cash monthly. Other investment growth is capital appreciation, not dividend income. DC pension contributions stop with pay. Spending gaps use the selected account order, with pension access tested separately for each person. Income charts distinguish asset withdrawals from recurring income.', `Saving destination: ${scenario.savingsDestination==='general' ? 'all future surplus to general accounts, keeping the existing owner split' : 'existing cash → own ISA → general order when enabled; otherwise cash'}. ISA allowance resets in April, without splitting the month at 6 April. Existing ISA subscriptions are counted in the opening tax year; the entered allowance is held constant in future years.`, 'Mortgage rates and payment terms stay constant unless changed here. Dividend tax, pension contribution limits and rental income tax are not calculated. Drawdown tax uses cumulative pension withdrawals in April–March years and forecast recurring taxable income. Earlier recurring income in a partial opening year is assumed at the opening rate; earlier tax paid, interest, gains and withdrawals are unknown. Pension withdrawals use up to 25% tax-free with the entered remaining lump-sum allowance. General-account realised gains use 18% / 24% bands based on forecast recurring income, cumulative pension withdrawals and accrued interest after the £3,000 annual allowance; new deposits track their cost, while the opening gain percentage is assumed. Cash interest uses the Personal Allowance, savings starting rate and Personal Savings Allowance across all cash accounts per person; joint interest is split equally. Cash-interest tax is reserved only as cumulative earned interest increases the tax-year liability. Pension withdrawals share the same tax-year bands. Later interest can also increase CGT on earlier gains; that adjustment is reserved from cash and reported as CGT. Unclassified private pension income and other manually entered taxable income retain a simplified annualised basis for pay/State Pension tax. Income changes and later pension withdrawals can change the actual tax due. Current tax rates and thresholds are held fixed for all future years. No other gains/losses or pension protections are modelled. Any balance remaining at the mortgage term is paid in its final month. Other debt balances use the repayment and rate entered in the planning debt controls. Excluded mortgages and debts without repayment details stay unchanged. Balances continue through funding gaps, including inaccessible pensions. Unmet household spending is reported separately, not assumed borrowed or paid later. Debt servicing is funded first; any unpaid installment remains in the debt balance. Mortgage payoff now uses the selected opening assets. Cash + shares preserves ISAs and pensions, and explicitly permits sale of needs-sale shares for this payoff only. Standard CGT applies to assumed gains; employee-scheme relief, employment tax and lender charges are excluded. Partial repayment leaves the remainder outstanding.', 'State Pension starts at the selected scenario age, or a later recorded start month. The simplified estimate uses NI years/35 with a ten-year minimum and assumed future qualifying years while working. Records before 2016 can differ: a GOV.UK forecast is preferable. Ages imply an approximate birth month matching the opening month; these are not verified eligibility dates.', ...projection.warnings, `End of period: ${end.assetsTotal===null ? 'unavailable' : `${currency(end.assetsTotal)} assets and ${currency(end.debtsTotal)} debt before inflation adjustment`}.`];
@@ -609,14 +612,14 @@ export function mountPlanning(root,getInputs) {
   for(const [id,key] of [['plan-future-ni','futureNI'],['plan-state-uprating','statePensionUprating']])$(id).addEventListener('change',event=>{scenario[key]=event.target.checked;refresh();});
   $('plan-savings-destination').addEventListener('change',event=>{scenario.savingsDestination=event.target.value;refresh();});
   $('plan-withdrawal-order').addEventListener('change',event=>{scenario.withdrawalOrder=event.target.value;refresh();});
-  $('plan-adjust').addEventListener('click',()=>{const open=root.classList.toggle('plan-controls-open');$('plan-adjust').setAttribute('aria-expanded',String(open));$('plan-adjust').textContent=open ? 'Done' : 'Adjust scenario';syncSheetSemantics();renderChart(getInputs().holdings);if(open){if(matchMedia('(max-width:767px)').matches)window.scrollTo({top:window.scrollY+$('plan-chart').getBoundingClientRect().top-150,behavior:'instant'});else $('plan-controls').scrollIntoView({block:'nearest'});$('plan-controls').querySelector('input')?.focus({preventScroll:true});}else{$('plan-comparison').scrollIntoView({block:'nearest'});$('plan-adjust').focus({preventScroll:true});}});
+  $('plan-adjust').addEventListener('click',()=>{if(integration){setAdjustmentsOpen(integration.aside.hidden);return;}const open=root.classList.toggle('plan-controls-open');$('plan-adjust').setAttribute('aria-expanded',String(open));$('plan-adjust').textContent=open ? 'Done' : 'Adjust scenario';syncSheetSemantics();renderChart(getInputs().holdings);if(open){if(matchMedia('(max-width:767px)').matches)window.scrollTo({top:window.scrollY+$('plan-chart').getBoundingClientRect().top-150,behavior:'instant'});else $('plan-controls').scrollIntoView({block:'nearest'});$('plan-controls').querySelector('input')?.focus({preventScroll:true});}else{$('plan-comparison').scrollIntoView({block:'nearest'});$('plan-adjust').focus({preventScroll:true});}});
   function undoScenario(){if(!history.length)return;scenario=JSON.parse(history.pop());lastSnapshot=JSON.stringify(scenario);lastHistoryGroup=-1;syncControls();refresh();}
   $('plan-undo').addEventListener('click',undoScenario);
-  $('plan-reset').addEventListener('click',()=>{editGroup++;scenario={years:scenario.years,planToAge:scenario.planToAge ?? 95,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
+  $('plan-reset').addEventListener('click',()=>{if(integration?.reference){applyScenario(baselineOutlookScenario(integration.reference));return;}editGroup++;scenario={years:scenario.years,planToAge:scenario.planToAge ?? 95,retirementYears:{},mortgageYearsEarlier:0};syncControls();refresh();});
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(projection && !root.closest('[hidden]'))renderChart(getInputs().holdings);},100);});
   function workingState(){const {flow,holdings}=getInputs();const resolved={...scenario,retirementYears:resolveRetirementYears(flow,holdings,scenario.retirementYears)};return structuredClone({scenario:resolved,metric,group,style,real,taxCumulative,selectedYear,reviewedInputs:confirmedKey,outcomes:outcomes.snapshot()});}
   function snapshot(){return {...workingState(),experiments:structuredClone(experiments)};}
-  function restore(value,{review=true}={}){experiments=structuredClone(value?.experiments || []);outcomes.restore(value?.outcomes);savedExperiments.refresh();showBaseline=false;$('plan-show-baseline').checked=false;root.classList.remove('plan-controls-open');syncSheetSemantics();$('plan-adjust').setAttribute('aria-expanded','false');$('plan-adjust').textContent='Adjust scenario';restoredNeedsReview=Boolean(value)&&review;scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});taxCumulative=value?.taxCumulative ?? false;metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=review?(value?.reviewedInputs||null):confirmedKey;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
+  function restore(value,{review=true}={}){experiments=structuredClone(value?.experiments || []);outcomes.restore(value?.outcomes);savedExperiments.refresh();showBaseline=false;$('plan-show-baseline').checked=false;root.classList.remove('plan-controls-open');syncSheetSemantics();$('plan-adjust').setAttribute('aria-expanded','false');$('plan-adjust').textContent='Adjust scenario';if(integration){integration.reference=null;integration.aside.hidden=true;integration.layout.classList.remove('has-adjustments');document.getElementById('lifeline-adjust').setAttribute('aria-expanded','false');}restoredNeedsReview=Boolean(value)&&review;scenario=structuredClone(value?.scenario || {years:30,planToAge:95,retirementYears:{},mortgageYearsEarlier:0});taxCumulative=value?.taxCumulative ?? false;metric=value?.metric || 'income';group=value?.group || 'person';style=value?.style || 'bars';real=value?.real ?? true;selectedYear=value?.selectedYear ?? null;confirmedKey=review?(value?.reviewedInputs||null):confirmedKey;baselineKey='';history=[];lastSnapshot=null;syncControls();refresh();}
   function applyScenario(value){
     const input=getInputs();projectPlan(input.flow,input.holdings,value);
     const previous=JSON.stringify(scenario),earlier=[...history];scenario=structuredClone(value);syncControls();
@@ -627,5 +630,49 @@ export function mountPlanning(root,getInputs) {
     const input=getInputs();projectPlan(input.flow,input.holdings,value);
     experiments=saveExperiment(experiments,name,{...workingState(),scenario:structuredClone(value)});savedExperiments.refresh();document.dispatchEvent(new Event('picture-updated'));
   }
-  return {refresh,snapshot,restore,applyScenario,undoScenario,saveScenario};
+  function setAdjustmentsOpen(open){
+    if(!integration)return;integration.aside.hidden=!open;integration.layout.classList.toggle('has-adjustments',open);root.classList.toggle('plan-controls-open',open);
+    const trigger=document.getElementById('lifeline-adjust');trigger.setAttribute('aria-expanded',String(open));
+    if(open){refresh();if(matchMedia('(max-width:767px)').matches){const chart=document.getElementById('lifeline-chart');window.scrollTo({top:Math.max(0,window.scrollY+chart.getBoundingClientRect().top-95),behavior:'instant'});}$('plan-controls').querySelector('input')?.focus({preventScroll:true});}else trigger.focus({preventScroll:true});
+  }
+  function updateReference(reference){if(!integration)return;integration.reference=reference;updateReferenceNotes();}
+  function updateReferenceNotes(){
+    if(!integration)return;
+    const {flow,holdings}=getInputs(),reference=integration.reference,current=outlookParameters({flow,holdings,planning:{scenario}}),saved=reference?outlookParameters(reference.inputs,{forecast:reference.forecast}):{};
+    const ids={'plan-retire-primary':'retirement.primary','plan-retire-partner':'retirement.partner','plan-horizon-slider':'horizon','plan-state-age':'statePensionAge','plan-personal-age':'pensionAccessAge','plan-opening-gain':'openingGainPercent','plan-mortgage-rate':'mortgageRate','plan-mortgage-term':'mortgageTermYears','plan-future-ni':'futureNI','plan-state-uprating':'statePensionUprating','plan-stress-test':'retirementStress','plan-payoff-now':'mortgagePayoffNow','plan-payoff-source':'mortgagePayoffSource','plan-savings-destination':'savingsDestination','plan-withdrawal-order':'withdrawalOrder','plan-cost':'oneOff.amount','plan-cost-month':'oneOff.month','flow-inflation-rate':'inflation','flow-income-growth':'incomeGrowth',...Object.fromEntries(Object.keys(PLANNING_DEFAULTS.growth).map(k=>[`flow-growth-${k}`,`growth.${k}`]))};
+    for(const [id,key] of Object.entries(ids)){const input=document.getElementById(id);if(input)input.dataset.planParam=key;}
+    root.querySelector('.plan-spending-card').dataset.planParam='spendingChanges';
+    let count=0;
+    for(const input of $('plan-controls').querySelectorAll('[data-plan-param]')){
+      const key=input.dataset.planParam,base=saved[key],now=current[key],changed=Boolean(base&&now&&!sameOutlookParameter(now.value,base.value));if(changed)count++;
+      const container=input.matches('details')?input:input.closest('label')||root.querySelector(`label[for="${input.id}"]`);if(!container)continue;container.classList.toggle('is-baseline-changed',changed);
+      let note=container.querySelector(':scope > .plan-baseline-note');if(!note){note=el('small','plan-baseline-note');container.append(note);}
+      note.hidden=!reference;note.id=`baseline-param-${key.replace(/[^a-zA-Z0-9_-]/g,'-')}`;note.textContent=base?`Baseline ${base.label}${changed?' · changed':''}`:reference?'Not in this baseline':'';
+      if(!input.matches('details')){input.setAttribute('aria-describedby',note.id);container.querySelector('.plan-exact')?.setAttribute('aria-describedby',note.id);}
+      if(input.type==='range'){
+        const span=Number(input.max)-Number(input.min),progress=span>0?(Number(input.value)-Number(input.min))/span*100:0;input.style.setProperty('--range-progress',`${Math.max(0,Math.min(100,progress))}%`);
+        let slot=input.closest('.plan-range-slot');if(!slot){slot=el('span','plan-range-slot');input.before(slot);slot.append(input);}
+        let marker=slot.querySelector('.plan-baseline-marker');if(!marker){marker=el('i','plan-baseline-marker');marker.setAttribute('aria-hidden','true');slot.append(marker);}
+        let value=base?.inputValue;
+        if(key.startsWith('retirement.')&&base&&input.dataset.retirementBasis==='age'){const owner=key.split('.')[1],age=scenario.ages?.[owner]??(owner==='primary'?holdings.age:holdings.partnerAge),start=flow.timelineStartMonth||flow.asOfMonth,offset=Number(flow.pay[owner].endDate?.slice(5)||12)<Number(start.slice(5))?1:0;value=age+base.value-Number(start.slice(0,4))-offset;}
+        const compatible=key!=='horizon'||base?.value.mode===now?.value.mode;marker.hidden=!base||!compatible||!Number.isFinite(value)||value<Number(input.min)||value>Number(input.max);if(!marker.hidden){const fraction=(value-Number(input.min))/(Number(input.max)-Number(input.min));marker.style.left=`calc(${fraction*100}% + ${10-20*fraction}px)`;marker.title=`Baseline ${base.label}`;}
+      }
+    }
+    integration.referenceLabel.textContent=reference?reference.number?`Compared with ${reference.name} · v${reference.number}`:'Compared with the example starting outlook':'Set a baseline to compare assumptions';
+    integration.count.textContent=count?`${count} changed assumption${count===1?'':'s'}`:reference?'Matches baseline assumptions':'';
+    $('plan-reset').disabled=!reference||count===0;$('plan-reset').textContent='Use baseline assumptions';
+    for(const section of $('plan-controls').querySelectorAll('details.plan-control-card,details.flow-growth-panel')){let badge=section.querySelector(':scope > summary > .plan-section-changes');if(!badge){badge=el('small','plan-section-changes');section.querySelector('summary')?.append(badge);}const changed=section.querySelectorAll('.is-baseline-changed').length+(section.classList.contains('is-baseline-changed')?1:0);badge.textContent=changed?String(changed):'';badge.hidden=!changed;}
+  }
+  function integrateLifeline({workspace,layout,main,aside,tools,toolsHost,actions}){
+    const controls=$('plan-controls'),outcomePanel=$('plan-outcomes'),comparison=root.querySelector('.plan-funding-comparison'),saved=$('plan-saved-scenarios'),undo=$('plan-undo'),reset=$('plan-reset');
+    const legacy=el('div','plan-compatibility-shell');legacy.hidden=true;legacy.append(...root.childNodes);root.append(legacy);root.classList.add('plan-lifeline');
+    workspace.append(root);root.append(layout,tools);aside.append(controls);toolsHost.append(outcomePanel,comparison);actions.append(saved);root.append(methodDialog);
+    const actionRow=el('div','lifeline-adjustment-actions');actionRow.append(undo,reset);controls.querySelector('.plan-controls-heading').after(actionRow);
+    controls.querySelector('.plan-controls-heading h2').textContent='Adjust outlook';
+    const referenceLabel=el('p','lifeline-adjustment-reference');referenceLabel.id='lifeline-adjustment-reference';const count=el('p','lifeline-adjustment-count');count.id='lifeline-adjustment-count';count.setAttribute('aria-live','polite');actionRow.after(referenceLabel,count);
+    integration={layout,main,aside,tools,reference:null,referenceLabel,count};
+    controls.querySelector('.plan-sheet-handle').hidden=true;syncSheetSemantics();
+    tools.addEventListener('toggle',()=>{if(tools.open&&projection)renderComparison(getInputs().holdings);});
+  }
+  return {refresh,snapshot,restore,applyScenario,undoScenario,saveScenario,integrateLifeline,updateReference,openAdjustments:()=>setAdjustmentsOpen(true),exportLedger:()=>{const original=real;real=false;try{exportCalculations();}finally{real=original;}}};
 }

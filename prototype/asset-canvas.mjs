@@ -10,10 +10,15 @@ import {
   validateDraft,
 } from "./asset-ledger.mjs?v=20261022cashflow2";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261024persona1";
-import { mountAccountStorage } from './account-storage.mjs?v=20261024redirect1';
-import {takeSignInDraft} from './sign-in-draft.mjs?v=20261024redirect1';
+import { mountAccountStorage } from './account-storage.mjs?v=20261025baseline1';
+import {mountLifeline} from './lifeline-view.mjs?v=20261025lifeline1';
+import {mountBaselines} from './baseline-view.mjs?v=20261025baseline1';
+import {appendTrackingUpdate,trackedInputsAt,diffTrackedInputs} from './tracking.mjs?v=20261025tracking1';
+import {trackingControls,mountTrackingHistory,trackingToday} from './tracking-view.mjs?v=20261025tracking1';
+import {validatePicture} from './picture-storage.mjs?v=20261025tracking1';
+import {takeSignInDraft} from './sign-in-draft.mjs?v=20261025baseline1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261024persona1';
-import {mountInsights} from "./insights-view.mjs?v=20261024context4";
+import {mountInsights} from "./insights-view.mjs?v=20261025localai1";
 import { mountInheritance } from "./inheritance-view.mjs?v=20261024inheritance1";
 import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";
@@ -37,6 +42,9 @@ let flowDraft = createExampleMonthlyFlow();
 let planningController = null;
 let inheritanceController = null;
 let insightsController = null;
+let baselineHistory = null;
+let lifelineController = null;
+let flowEditSession=null,itemTrackingControls=null,flowTrackingControls=null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -54,6 +62,10 @@ let savingPeriod = "month";
 function announce(message) { $("live-message").textContent = message; }
 function itemName(item, types) { return item.label?.trim() || types[item.kind].label; }
 function countLabel(count) { return `(${count})`; }
+function trackingEnabled(){return mode==='personal'&&Boolean(baselineHistory?.entries.length||flowDraft.tracking);}
+function trackingStartMonth(){return flowEditSession?.before.flow.tracking?.startMonth||flowDraft.tracking?.startMonth||[flowDraft.timelineStartMonth||flowDraft.asOfMonth,baselineHistory?.entries[0]?.startDate.slice(0,7)].filter(Boolean).sort()[0];}
+function applyTrackedPicture(picture){const valid=validatePicture(picture);draft=valid.holdings;flowDraft=valid.flow;syncFlowInputs();render();}
+function datedTrackingDate(entry){const today=trackingToday().slice(0,7),month=entry?.frequency==='once'||!editingFlowEntryId?[entry?.startMonth||today,today].sort()[0]:today;return `${[month,trackingStartMonth()].sort().at(-1)}-01`;}
 
 function setTotals() {
   const summary = summarizeDraft(draft);
@@ -894,7 +906,7 @@ function renderFlow() {
   $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
   for (const detail of summary.payDetails) {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
-    $(`flow-pay-${detail.owner}-monthly`).textContent = !detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
+    $(`flow-pay-${detail.owner}-monthly`).textContent = detail.receiptRecorded?`Entered take-home ${money(detail.monthlyTakeHome)} for this month`:!detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
     $(`flow-pay-${detail.owner}-tax`).textContent = detail.annualGross ? `Rough 2026–27 estimate: Income Tax ${money(detail.estimate.incomeTax)}, employee NI ${money(detail.estimate.employeeNI)}, employee pension ${money(detail.employeePension)}${detail.employerPension ? `, employer pension ${money(detail.employerPension)}` : ""} per year. Employer pension is outside take-home pay.` : "";
     const baseSalary = flowDraft.pay[detail.owner].annualGross || 0;
     for (const [kind, label] of [["employee", "Your pension"], ["employer", "Employer pension"]]) {
@@ -1096,19 +1108,23 @@ function syncFlowInputs() {
   formatGroupedNumberInputs();
 }
 function showScreen(screen, {updateHistory=true} = {}) {
+  if(screen==="lifeline")screen="planning";
+  const route=screen==="planning"?"lifeline":screen;
+  if(!updateHistory && location.hash==='#planning')history.replaceState(history.state,'','#lifeline');
   $("welcome-screen").hidden=true;
-  if(updateHistory && location.hash!==`#${screen}`)history.pushState(null,"",`#${screen}`);
+  if(updateHistory && location.hash!==`#${route}`)history.pushState(null,"",`#${route}`);
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
   $("planning-screen").hidden = screen !== "planning";
   $("inheritance-screen").hidden = screen !== "inheritance";
   $("insights-screen").hidden = screen !== "insights";
+  if(screen==="planning")lifelineController?.refresh();
   if(screen==="insights")insightsController?.refresh();
   if(screen==="inheritance")inheritanceController?.refresh();
   if (screen === "flow" || screen === "planning") {
     renderFlow();
   }
-  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
+  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("lifeline-title") : $("canvas-title")).focus();
   window.scrollTo({ top: 0, behavior: "instant" });
   revealCurrentSection();
 }
@@ -1186,11 +1202,14 @@ function showItemDialog(type, id = null, trigger = null, initialKind = "", initi
   lastTrigger = trigger;
   const item = id ? draft[type === "asset" ? "assets" : "debts"].find((entry) => entry.id === id) : null;
   $("item-form").reset();
+  itemTrackingControls ||= trackingControls($('item-form'),'item',{balance:true});
+  itemTrackingControls.reset({enabled:trackingEnabled(),startMonth:trackingStartMonth()});
   $("item-error").hidden = true;
   $("item-error").textContent = "";
   $("item-additional").open = Boolean(item?.kind === "dc-pension" && trigger?.dataset?.reviewId);
   $("item-dialog-title").textContent = `${item ? "Edit" : "Add"} ${type === "asset" ? "an asset" : "a debt"}`;
   $("save-item-button").textContent = item ? "Save changes" : type === "asset" ? "Add asset" : "Add debt";
+  if(trackingEnabled())$('save-item-button').textContent='Log update';
   $("delete-item-button").hidden = !item;
   populateKinds(type, item?.kind || initialKind);
   populateOwners(type, item?.owner || initialOwner);
@@ -1559,7 +1578,9 @@ $("flow-dated-form").addEventListener("submit", (event) => {
     }
     const entries = flowDraft.datedEntries.filter((item) => item.id !== editingFlowEntryId).concat(entry);
     summarizeMonthlyFlow({ ...flowDraft, datedEntries: entries }, draft);
-    flowDraft.datedEntries = entries;
+    if(trackingEnabled()){
+      const before=currentHousehold(),candidate=validatePicture(appendTrackingUpdate(before,{...before,flow:{...before.flow,datedEntries:entries}},{effectiveDate:datedTrackingDate(entry),label:entry.label,startMonth:trackingStartMonth()}));draft=candidate.holdings;flowDraft=candidate.flow;
+    }else flowDraft.datedEntries = entries;
     editingFlowEntryId = null;
     $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
     renderFlow();
@@ -1576,7 +1597,9 @@ $("flow-dated-cancel").addEventListener("click", () => {
 });
 $("flow-dated-delete").addEventListener("click", () => {
   if (!editingFlowEntryId) return;
-  flowDraft.datedEntries = flowDraft.datedEntries.filter((entry) => entry.id !== editingFlowEntryId);
+  const before=currentHousehold(),entry=flowDraft.datedEntries.find(entry=>entry.id===editingFlowEntryId),entries=flowDraft.datedEntries.filter(entry=>entry.id!==editingFlowEntryId);
+  try{if(trackingEnabled()){const candidate=validatePicture(appendTrackingUpdate(before,{...before,flow:{...before.flow,datedEntries:entries}},{effectiveDate:datedTrackingDate(entry),label:`Removed ${entry.label}`,startMonth:trackingStartMonth()}));draft=candidate.holdings;flowDraft=candidate.flow;}else flowDraft.datedEntries=entries;}
+  catch(e){$('flow-dated-error').textContent=e.message;$('flow-dated-error').hidden=false;return;}
   editingFlowEntryId = null;
   $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
   renderFlow();
@@ -1690,8 +1713,11 @@ $("item-form").addEventListener("submit", (event) => {
     }
     const check = validateDraft(next);
     if (!check.valid) throw new Error(check.errors[0].message);
-    draft = next;
-    if (item.kind === "mortgage") flowDraft.includeLinkedMortgage = true;
+    if(trackingEnabled()){
+      const before=currentHousehold(),after={...before,holdings:next,flow:{...before.flow,...(item.kind==='mortgage'?{includeLinkedMortgage:true}:{})}};
+      const candidate=validatePicture(appendTrackingUpdate(before,after,{...itemTrackingControls.read(),label:itemName(item,dialogType==='asset'?ASSET_TYPES:DEBT_TYPES),startMonth:trackingStartMonth(),observedTarget:{kind:dialogType,id:item.id,field:'item'}}));
+      draft=candidate.holdings;flowDraft=candidate.flow;
+    }else {draft = next;if (item.kind === "mortgage") flowDraft.includeLinkedMortgage = true;}
     $("item-dialog").close();
     render();
     announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} ${index >= 0 ? "updated" : "added"}. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1705,8 +1731,10 @@ $("delete-item-button").addEventListener("click", () => {
   const key = dialogType === "asset" ? "assets" : "debts";
   const item = draft[key].find((entry) => entry.id === editingId);
   if (!item) return;
-  draft[key] = draft[key].filter((entry) => entry.id !== editingId);
-  if (key === "assets") draft.debts = draft.debts.map((debt) => debt.linkedAssetId === editingId ? { ...debt, linkedAssetId: undefined } : debt);
+  const before=currentHousehold(),next=structuredClone(draft);next[key]=next[key].filter(entry=>entry.id!==editingId);
+  if(key==='assets')next.debts=next.debts.map(debt=>debt.linkedAssetId===editingId?{...debt,linkedAssetId:undefined}:debt);
+  try{if(trackingEnabled()){const candidate=validatePicture(appendTrackingUpdate(before,{...before,holdings:next},{...itemTrackingControls.read(),label:`Removed ${itemName(item,dialogType==='asset'?ASSET_TYPES:DEBT_TYPES)}`,startMonth:trackingStartMonth()}));draft=candidate.holdings;flowDraft=candidate.flow;}else draft=next;}
+  catch(e){$('item-error').textContent=e.message;$('item-error').hidden=false;return;}
   $("item-dialog").close();
   render();
   announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} removed. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1784,6 +1812,8 @@ $("reset-example-button").addEventListener("click", () => {
   accountController.detach();
   const sampleUrl=new URL(location.href);sampleUrl.searchParams.delete("start");sampleUrl.searchParams.set("example","1");history.replaceState(null,"",sampleUrl);
   mode="example";
+  baselineHistory=null;
+  lifelineController?.restore(null);
   planningController.restore(null);
   draft = createPublicDemoHousehold();
   flowDraft = createExampleMonthlyFlow();
@@ -1803,6 +1833,9 @@ function startBlankPicture() {
   document.dispatchEvent(new Event("picture-updated"));
 }
 function showBlankPicture() {
+  flowEditSession=null;
+  baselineHistory=null;
+  lifelineController?.restore(null);
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
@@ -1853,6 +1886,16 @@ $("confirm-clear-button").addEventListener("click", startBlankPicture);
 
 function openFlowEditor(side, owner = null) {
   const dialog = $("flow-edit-dialog");
+  if(!dialog.open){
+    if(trackingEnabled()){
+      const before=currentHousehold(),current=trackedInputsAt(before.flow,before.holdings,trackingToday().slice(0,7),{includePeriods:false});
+      flowEditSession={before,reference:{...before,flow:structuredClone(current.flow)},owner,side};flowDraft=structuredClone(current.flow);syncFlowInputs();
+    }
+    flowTrackingControls.reset({enabled:Boolean(flowEditSession),startMonth:trackingStartMonth()});
+    const period=flowTrackingControls.mode.querySelector('[value=period]');if(period)period.disabled=side==='income'&&!owner;
+    $('flow-tracking-receipt').value='';syncFlowTrackingMode();
+    $('flow-edit-done').textContent=flowEditSession?'Log update':'Done';
+  }
   $("flow-pay-detail").hidden = side !== "income";
   $("flow-spending-detail").hidden = side !== "spending";
   $(side === "income" ? "flow-pay-detail" : "flow-spending-detail").open = true;
@@ -1861,6 +1904,25 @@ function openFlowEditor(side, owner = null) {
   $("flow-pay-detail").querySelector(".flow-input-guidance").hidden = Boolean(owner);
   $("flow-edit-title").textContent = side === "spending" ? "Spending categories" : owner ? `${owner === "primary" ? draft.name : draft.partnerName} · pay and pension` : "Pay and other income";
   if (!dialog.open) dialog.showModal();
+}
+function syncFlowTrackingMode(){
+  const receipt=Boolean(flowEditSession?.owner&&flowEditSession.side==='income'&&flowTrackingControls.mode.value==='period');
+  $('flow-tracking-receipt-row').hidden=!receipt;$('flow-tracking-receipt').disabled=!receipt;$('flow-tracking-receipt').required=receipt;
+  if(flowEditSession?.side==='income')$('flow-pay-detail').hidden=receipt;
+}
+function finishFlowEdit(){
+  const dialog=$('flow-edit-dialog'),invalid=dialog.querySelector('[aria-invalid="true"]');if(invalid){invalid.focus();return;}
+  if(flowEditSession){
+    try{
+      const metadata=flowTrackingControls.read();
+      if(!$('flow-tracking-receipt-row').hidden){const input=$('flow-tracking-receipt'),amount=groupedNumberValue(input);if(!input.value.trim()||!Number.isFinite(amount)||amount<0||amount*12>100_000_000)throw new Error('Enter the actual take-home amount received for this month.');flowDraft.pay[flowEditSession.owner].annualTakeHome=Math.round(amount*1200)/100;}
+      const before=flowEditSession.before,after={...before,flow:structuredClone(flowDraft)},changeSet=diffTrackedInputs(flowEditSession.reference,after);
+      if(!$('flow-tracking-receipt-row').hidden&&!changeSet.some(c=>c.target.kind==='pay'&&c.target.id===flowEditSession.owner&&c.target.field==='annualTakeHome'))changeSet.push({target:{kind:'pay',id:flowEditSession.owner,field:'annualTakeHome'},before:flowEditSession.reference.flow.pay[flowEditSession.owner].annualTakeHome,value:flowDraft.pay[flowEditSession.owner].annualTakeHome});
+      const candidate=validatePicture(appendTrackingUpdate(before,after,{...metadata,changeSet,label:flowEditSession.side==='spending'?'Regular spending':flowEditSession.owner?`${flowEditSession.owner==='primary'?draft.name:draft.partnerName} · pay and pension`:'Income update',startMonth:trackingStartMonth()}));
+      flowEditSession=null;draft=candidate.holdings;flowDraft=candidate.flow;syncFlowInputs();render();announce('Dated update saved. Earlier figures and baselines stay unchanged.');
+    }catch(e){$('flow-input-error').textContent=e.message;$('flow-input-error').hidden=false;return;}
+  }
+  dialog.close();
 }
 function organizeFlowInputs() {
   const panel = $("flow-dated-panel");
@@ -1917,9 +1979,11 @@ function organizeFlowInputs() {
   inputPanel.querySelector(".flow-input-heading").innerHTML = '<div><h2 id="flow-input-title">Entries</h2></div>';
   const dialog = document.createElement("dialog"); dialog.id="flow-edit-dialog"; dialog.className="flow-edit-dialog"; dialog.setAttribute("aria-labelledby","flow-edit-title");
   const dialogHeading = make("div","flow-dialog-heading"); const dialogTitle = make("h2","","Edit entry"); dialogTitle.id="flow-edit-title";
-  const done = make("button","heading-action heading-action-secondary","Done"); done.type="button"; done.addEventListener("click",()=>{const invalid=dialog.querySelector('[aria-invalid="true"]');if(invalid){invalid.focus();return;}dialog.close();}); dialogHeading.append(dialogTitle,done);
+  const done = make("button","heading-action heading-action-secondary","Done");done.id='flow-edit-done'; done.type="button"; done.addEventListener("click",finishFlowEdit); dialogHeading.append(dialogTitle,done);
   dialog.append(dialogHeading,editor); document.body.append(dialog); editorHeading.remove();
-  dialog.addEventListener("close",()=>{payDetail.open=false;spendingDetail.open=false;syncFlowInputs();for(const x of dialog.querySelectorAll('[aria-invalid]'))x.removeAttribute('aria-invalid');for(const x of dialog.querySelectorAll('.pay-edit-error'))x.hidden=true;});
+  flowTrackingControls=trackingControls(editor,'flow-change');
+  const receiptRow=make('label','','Take-home received this month · £');receiptRow.id='flow-tracking-receipt-row';receiptRow.hidden=true;const receipt=make('input');receipt.id='flow-tracking-receipt';receipt.type='number';receipt.min='0';receipt.step='.01';enableGroupedNumberInput(receipt);receiptRow.append(receipt);flowTrackingControls.root.append(receiptRow);flowTrackingControls.mode.addEventListener('change',syncFlowTrackingMode);
+  dialog.addEventListener("close",()=>{if(flowEditSession){const before=flowEditSession.before;flowEditSession=null;flowDraft=before.flow;draft=before.holdings;render();}payDetail.open=false;spendingDetail.open=false;syncFlowInputs();for(const x of dialog.querySelectorAll('[aria-invalid]'))x.removeAttribute('aria-invalid');for(const x of dialog.querySelectorAll('.pay-edit-error'))x.hidden=true;});
   for (const [detail,side] of [[payDetail,"income"],[spendingDetail,"spending"]]) detail.addEventListener("toggle",()=>{if(detail.open && !dialog.open)openFlowEditor(side);});
   const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Scheduled"));
   const planFuture=make("button","flow-entry-add","+ Add future entry"); planFuture.type="button";
@@ -1957,7 +2021,10 @@ function organizeFlowInputs() {
   allocationPanel.append(settings); inputPanel.after(allocationPanel);
   $("flow-split").classList.add("flow-routing-split");
   $("planning-content").append($("flow-growth-panel"));
-  planningController = mountPlanning($("planning-content"), () => ({flow: flowDraft, holdings: draft, mode, editPension: (owner) => { showScreen("flow"); openStatePension(owner); }}));
+  planningController = mountPlanning($("planning-content"), () => {
+    const first=baselineHistory?.entries[0],anchor=flowDraft.tracking?.startMonth||(first&&first.startDate<=trackingToday()?first.forecast.startMonth:flowDraft.timelineStartMonth||flowDraft.asOfMonth);
+    return {flow:{...flowDraft,timelineStartMonth:anchor},holdings:draft,mode,editPension:owner=>{showScreen("flow");openStatePension(owner);}};
+  });
 }
 
 function statePensionInput() {
@@ -2053,6 +2120,8 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 });
 
 setupFlowInputs();
+lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
+planningController.integrateLifeline(lifelineController.hosts);
 inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
 insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}),{analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
 document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
@@ -2063,9 +2132,10 @@ syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','lifeline','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
 
-if(['flow','planning','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+if(['flow','planning','lifeline','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+else if(!location.hash)showScreen('lifeline');
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
@@ -2073,20 +2143,26 @@ const signInDraft=takeSignInDraft(sessionStorage,location.href);
 const entryParams=new URLSearchParams(signInDraft?new URL(signInDraft.returnUrl).search:location.search);
 const restoreAccountDefault=entryParams.get('example')!=='1'&&entryParams.get('start')!=='own';
 function restoreAccountPicture(picture,{sectionOverride='',keepExample=false,keepAuthUrl=false}={}){
+    flowEditSession=null;if($('flow-edit-dialog').open)$('flow-edit-dialog').close();
     const section=sectionOverride || location.hash.slice(1);
+    baselineHistory=picture.baselines?structuredClone(picture.baselines):null;
+    lifelineController.restore(picture.lifeline);
     draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=keepExample&&picture.example?'example':'personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets',{updateHistory:!keepAuthUrl});
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','lifeline','inheritance','insights'].includes(section)?section:'lifeline',{updateHistory:!keepAuthUrl});
     if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
-    announce('Saved account picture restored. Review your starting figures before planning.');
+    announce('Your saved household is open.');
 }
 if(signInDraft)restoreAccountPicture(signInDraft.picture,{sectionOverride:new URL(signInDraft.returnUrl).hash.slice(1),keepExample:true,keepAuthUrl:true});
 let signInReturnPending=Boolean(signInDraft);
+function currentHousehold(){if(flowEditSession)return structuredClone(flowEditSession.before);return {version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot(),...(lifelineController?{lifeline:lifelineController.snapshot()}:{}),...(baselineHistory?{baselines:structuredClone(baselineHistory)}:{})};}
+mountBaselines({getPicture:currentHousehold,commitHistory:history=>{baselineHistory=structuredClone(history);document.dispatchEvent(new Event('picture-updated'));},announce});
+mountTrackingHistory({getPicture:currentHousehold,commitFlow:flow=>{const before=currentHousehold(),current=trackedInputsAt(flow,before.holdings,trackingToday().slice(0,7));applyTrackedPicture({...before,holdings:current.holdings,flow:{...current.flow,asOfMonth:flow.asOfMonth,tracking:flow.tracking}});},announce});
 const accountController=mountAccountStorage({
   button:$('account-button'),
   editPeople:()=>$('edit-profile-button').click(),
   startHousehold:startBlankPicture,
   restoreOnLogin:()=>restoreAccountDefault,
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot()}),
+  getPicture:currentHousehold,
   restorePicture:restoreAccountPicture,
   finishSignIn:()=>{if(signInReturnPending){signInReturnPending=false;history.replaceState(history.state,'',signInDraft.returnUrl);}},
   onEmpty:({forceReset=false}={})=>{

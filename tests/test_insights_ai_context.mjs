@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildContextualAnalysis,reviewObservations,candidateEffects,AI_LIMITATIONS} from '../prototype/insights-ai-context.mjs';
-import {validateAnalysisBrief,validateAnalysisResult,analysisResponseSchema} from '../prototype/insights-ai.mjs';
+import {validateAnalysisBrief,validateAnalysisResult,analysisResponseSchema,AI_SCENARIO_COPY} from '../prototype/insights-ai.mjs';
 import {createPublicDemoHousehold} from '../prototype/asset-ledger.mjs';
 import {createExampleMonthlyFlow} from '../prototype/monthly-flow.mjs';
 import {projectPlan} from '../prototype/planning.mjs';
@@ -44,7 +44,7 @@ test('the protected server forwards reviewed context unchanged and accepts the s
   const payload=JSON.parse(options.body);assert.deepEqual(JSON.parse(payload.messages[1].content),brief);assert.ok(payload.messages[0].content.includes('WITHOUT numeric claims'));
   return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(answer)}}]});
  }});
- const response=await handler(new Request('https://app.example/.netlify/functions/planning-analysis',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(brief)}));assert.equal(response.status,200);assert.deepEqual(await response.json(),answer);
+ const response=await handler(new Request('https://app.example/.netlify/functions/planning-analysis',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(brief)}));assert.equal(response.status,200);assert.deepEqual(await response.json(),{...answer,recommendations:[{candidateId:answer.recommendations[0].candidateId,...AI_SCENARIO_COPY[brief.candidates[0].recipe]}]});
 });
 test('retired people have no ongoing pay or workplace contributions in the context; partial payoff remains explicit',()=>{
  const {h,f,planning}=fixture();planning.scenario.retirementYears.primary=2025;

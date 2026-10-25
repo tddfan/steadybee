@@ -1,5 +1,6 @@
 /** Shared tax reporting and recurring-income forecast. April is treated as the start of a tax year. */
 import {incomeTaxWithSavings} from './investment-tax.mjs';
+import {rewindTrackedInputs,applyTrackedFlow} from './tracking.mjs?v=20261025tracking1';
 const round=value=>Math.round(value*100)/100;
 export const TAX_COMPONENTS=Object.freeze({employmentTax:'Employment Income Tax',statePensionTax:'State Pension Income Tax',pensionDrawdownTax:'Pension withdrawal Income Tax',capitalGainsTax:'Capital Gains Tax',savingsInterestTax:'Savings-interest tax',employeeNI:'Employee National Insurance'});
 export const taxYearFor=month=>Number(month.slice(0,4))-(Number(month.slice(5))<4 ? 1 : 0);
@@ -20,7 +21,13 @@ export function forecastTaxYear(flow,pensions,startMonth,year,{incomeGrowth=0,in
    const date=new Date(Date.UTC(year,3+i,1)).toISOString().slice(0,7);
    const elapsed=Math.max(0,(Number(date.slice(0,4))-Number(startMonth.slice(0,4)))*12+Number(date.slice(5))-Number(startMonth.slice(5)))/12;
    const factor=(1+incomeGrowth/100)**elapsed;
-   if(!pay.endDate || date<=pay.endDate)employment+=Math.max(0,(pay.annualGross+pay.annualBonus-(pay.employeePensionRate ? pay.annualGross*pay.employeePensionRate/100 : pay.employeePension))*factor)/12;
+   if(flow.tracking){
+    const current=rewindTrackedInputs(flow,{assets:[],debts:[]}).flow;
+    for(const p of Object.values(current.pay))for(const k of ['annualGross','annualBonus','employeePension','employerPension','annualTakeHome'])if(p[k]!=null)p[k]*=factor;
+    applyTrackedFlow(current,flow.tracking,date,{incomeGrowth,inflation});
+    const recorded=current.pay[owner];
+    if(!pay.endDate||date<=pay.endDate)employment+=Math.max(0,recorded.annualGross+recorded.annualBonus-(recorded.employeePensionRate?recorded.annualGross*recorded.employeePensionRate/100:recorded.employeePension))/12;
+   }else if(!pay.endDate || date<=pay.endDate)employment+=Math.max(0,(pay.annualGross+pay.annualBonus-(pay.employeePensionRate ? pay.annualGross*pay.employeePensionRate/100 : pay.employeePension))*factor)/12;
    if(pension && date>=pension.startMonth)state+=pension.annualGross*(statePensionUprating ? (1+inflation/100)**elapsed : 1)/12;
   }
   const other=(flow.statePensions?.[owner]?.otherTaxableIncome || 0)+(flow.income.pensionIncome || 0)*12/(flow.pay.partner && flow.hasPartner ? 2 : 1);

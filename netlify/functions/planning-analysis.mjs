@@ -1,4 +1,4 @@
-import {validateAnalysisBrief,validateAnalysisResult,analysisResponseSchema} from '../../prototype/insights-ai.mjs';
+import {validateAnalysisBrief,validateAnalysisResult,analysisResponseSchema,AI_SCENARIO_COPY} from '../../prototype/insights-ai.mjs';
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from '../../prototype/cloud-config.mjs';
 const json=(status,value)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const instructions='Prioritise supplied calculation facts for a retirement planning review. Return one to three fact IDs with flag=true, placing incomplete inputs and spending gaps first. Choose up to two relevant experiments from the supplied recipe IDs, considering the goal. These are illustrative client-computed facts, not independently verified financial advice. Do not calculate or invent anything. Return only the requested structure.';
@@ -28,7 +28,9 @@ export function createHandler({env=process.env,fetcher=fetch,now=Date.now}={}){
    if(!response.ok)return json(502,{error:'AI review is unavailable. Your calculated insights are unchanged.'});
    const body=await response.json(),choice=body.choices?.[0];
    if(choice?.finish_reason!=='stop' || choice.message?.refusal || typeof choice.message?.content!=='string')throw Error('Incomplete response');
-   const result=validateAnalysisResult(JSON.parse(choice.message.content),brief);reviews.set(user.id,{key,time:now(),result});
+   const result=validateAnalysisResult(JSON.parse(choice.message.content),brief);
+   if(brief.version===2)result.recommendations=result.recommendations.map(item=>({candidateId:item.candidateId,...AI_SCENARIO_COPY[brief.candidates.find(c=>c.id===item.candidateId).recipe]}));
+   reviews.set(user.id,{key,time:now(),result});
    return json(200,result);
   }catch{return json(502,{error:'Could not complete AI review. Try again later; calculated insights remain available.'});}
  };

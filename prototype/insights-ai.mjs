@@ -6,6 +6,15 @@ export const AI_REASONS={
  uncertainty:'Some inputs or tax treatments are incomplete. Resolve these before relying on a comparison.',
  resilience:'These balances depend on the selected assumptions. A market-fall experiment helps explore sensitivity, without assigning a probability.'
 };
+// AI ranks bounded comparisons; reviewed copy prevents invented causal explanations.
+export const AI_SCENARIO_COPY=Object.freeze({
+ spendLess:{why:'Tests how lower regular spending changes your funding and future balances.',tradeoff:'Requires a lower regular budget. Debt repayments and separately scheduled costs stay unchanged.'},
+ retireEarlier:{why:'Tests trading a year of earnings and workplace pension contributions for earlier retirement.',tradeoff:'Less time earning and saving can reduce future balances. Lower tax may simply reflect lost income.'},
+ retireLater:{why:'Tests how an extra year of recorded pay and workplace contributions changes your plan.',tradeoff:'Requires working longer. Compare spending gaps and accessible money as well as the final balance.'},
+ stress:{why:'Tests how an investment fall at retirement affects the same spending plan.',tradeoff:'This is a sensitivity test, not an estimated likelihood or a proposed investment change.'},
+ withdrawalOrder:{why:'Compares using eligible accounts in a different order to fund the same spending.',tradeoff:'Tax and later balances can change. A lower tax total alone does not make an order suitable.'},
+ mortgagePayoff:{why:'Tests using eligible cash and shares to repay mortgage debt now.',tradeoff:'Reduces the liquid reserve immediately and may repay only part of the mortgage. Share sale tax may apply.'}
+});
 export function buildAnalysisBrief(summary,goal,recipes){
  return {version:1,goal,endMonth:summary.endMonth,moneyBasis:'today',facts:[
   {id:'gap',value:Math.round(summary.unfunded),flag:!!summary.firstGap},

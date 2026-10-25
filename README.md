@@ -30,6 +30,8 @@ Starting a blank household is under More. Edit People sits beside the owner filt
 
 ## Run locally
 
+The current baseline/tracking increment keeps the existing input screens. In a personal household, set a starting baseline, then use **Log update** with an effective/statement date. Pay and spending edits can be ongoing or for one month; the person's monthly-pay option records actual take-home. **History** shows earlier rates and corrections while baseline versions remain frozen. Values save through the existing account document. See [Phase 2 behaviour, calculation conventions and limits](docs/2026-10-25-phase2-tracking-delivery.md). Phase 3 adds the default Lifeline comparison workspace. See below.
+
 No npm application dependencies or frontend framework are required.
 
 ```sh
@@ -39,7 +41,21 @@ python3 -m http.server 8765 --directory dist
 
 Open `http://127.0.0.1:8765/`. During source editing, serve `prototype/` instead of `dist/`.
 
+To use the private AI review from the local app served on port `8766` (use this local URL instead of the production origin), start the local-only bridge in a second terminal:
+
+```sh
+node scripts/local-ai-bridge.mjs
+```
+
+The bridge listens only on `127.0.0.1:8888` and forwards the review endpoint to the authenticated Steadybee deploy preview. The Groq key stays in Netlify; no API key or `.env` entry is needed locally. Sign in to the local app with an account enabled for the AI pilot. The review still shows the exact summary before it can be sent. If the preview is unavailable, local AI review is unavailable too; deterministic planning insights continue to work.
+
 The existing GitHub → Netlify pipeline builds with `node scripts/build-prototype.mjs` and publishes only `dist/`. This consolidation does not deploy automatically from the local checkout; no push/deployment is implied by editing it.
+
+## Lifeline workspace · Phase 3
+
+Lifeline opens by default and keeps Assets & debt and Income & spending directly accessible. Compare the current monthly projection with a frozen baseline version; changing the reference never rewrites its archived results. Life shows annual flows and closing balances, Year shows months (calendar or April–March), and Month inspects actual event dates within the monthly model. Both paths share one selected purchasing-power basis. Recorded updates are marked separately; unobserved values stay estimated.
+
+The period inspector separates net assets, accessible investments, income after tax, withdrawals, spending and tax. A small information control provides calculation notes, current tax components and a local monthly CSV export. **Adjust outlook** opens controls beside the same Lifeline chart, with baseline values and slider markers highlighting changes; inheritance, saved scenarios, outcome ranges and AI remain available. Saving/funding and person/source breakdowns, cumulative tax detail, full Excel ledger export, saved scenarios and alternative withdrawal comparisons now live in Lifeline. The duplicate annual chart workspace is retired. Goals/Plan consolidation is the next phase, not part of this delivery. See [Phase 3 scope and verification](docs/2026-10-25-phase3-lifeline-delivery.md).
 
 ## Verification
 
