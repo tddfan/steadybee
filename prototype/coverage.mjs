@@ -6,7 +6,7 @@ export function planHorizon(holdings,options={}) {
   const targetAge=options.planToAge ?? 95;
   if(!Number.isInteger(targetAge)||targetAge<70||targetAge>120)throw new RangeError('Choose a plan age from 70 to 120.');
   const youngestAge=known.length ? Math.min(...known) : null;
-  const years=youngestAge==null ? options.years ?? 30 : Math.max(1,targetAge-youngestAge);
+  const years=youngestAge==null ? options.years ?? 30 : Math.max(1,Math.ceil(targetAge-youngestAge));
   if(!Number.isInteger(years)||years<1||years>100)throw new RangeError('The plan horizon must be from 1 to 100 years.');
   return {years,targetAge,youngestAge,missingOwners};
 }

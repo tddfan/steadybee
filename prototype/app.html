@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="steadybee-version" content="development" />
     <meta name="theme-color" content="#f4f1ea" />
-    <title>Your household · Steadybee</title>
+    <title>Your life, your plan · Steadybee</title>
     <meta name="description" content="Explore a fictional UK household example, then build a picture of what you own and owe." />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=4" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=4" />
     <link rel="manifest" href="./manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./asset-canvas.css?v=20261022pension-equivalent1" />
     <link rel="stylesheet" href="./finance-theme.css?v=20261024context4" />
+    <link rel="stylesheet" href="./journey.css?v=20261025lifeline1" />
+    <link rel="stylesheet" href="./lifeline.css?v=20261025lifeline1" />
     <script type="module" src="./asset-canvas.mjs?v=20261024context4"></script>
   </head>
   <body>
@@ -22,11 +24,19 @@
         <div class="header-saving"><span id="picture-save-status" class="picture-save-status" role="status">Example · not saved</span><button id="account-button" class="storage-button account-button" type="button">Sign in</button></div>
       </header>
 
+      <nav id="journey-nav" class="journey-nav" aria-label="Main navigation"><button type="button" data-journey-section="overview" aria-current="page">Overview</button><button type="button" data-journey-section="lifeline">Lifeline</button><button type="button" data-journey-section="assets">Household</button></nav>
       <main id="main">
+        <section id="overview-screen" class="journey" aria-label="Your plan overview" hidden><div id="overview-content"></div></section>
+        <section id="lifeline-screen" aria-label="Your financial lifeline" hidden><div id="lifeline-content"></div></section>
         <section id="welcome-screen" class="welcome-screen" aria-labelledby="welcome-title" hidden>
           <div class="welcome-copy">
-            <h1 id="welcome-title">Your household</h1>
+            <p class="eyebrow">A plan that keeps up with your life</p>
+            <h1 id="welcome-title">What are you working towards?</h1>
+            <p class="muted">Choose a starting goal. Add your household, then review and save a baseline you can track over time.</p>
             <form id="welcome-form" class="welcome-form">
+              <div class="form-field"><label for="welcome-goal">My main priority</label><select id="welcome-goal"><option value="retirement">Maintain my retirement lifestyle</option><option value="independence">Make work optional earlier</option><option value="legacy">Leave something to my family</option></select></div>
+              <div class="form-field"><label for="welcome-goal-age">Age to make work optional <span class="optional">Optional</span></label><input id="welcome-goal-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="e.g. 60" /></div>
+              <div class="form-field"><label for="welcome-budget">Regular household spending (£ / month) <span class="optional">You can add this later</span></label><input id="welcome-budget" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" placeholder="e.g. 2500" /></div>
               <div class="form-field">
                 <label for="person-name">Name or nickname</label>
                 <input id="person-name" name="person-name" type="text" maxlength="60" autocomplete="given-name" placeholder="Sam" required />
@@ -36,7 +46,7 @@
                 <input id="person-age" name="person-age" type="number" min="18" max="120" step="1" inputmode="numeric" placeholder="54" required />
               </div>
               <details id="welcome-partner" class="welcome-partner"><summary>Add a partner</summary><div class="welcome-partner-fields"><div class="form-field"><label for="welcome-partner-name">Partner’s name</label><input id="welcome-partner-name" type="text" maxlength="60" /></div><div class="form-field"><label for="welcome-partner-age">Partner’s age <span class="optional">Optional</span></label><input id="welcome-partner-age" type="number" min="18" max="120" step="1" inputmode="numeric" /></div></div></details>
-              <button id="start-button" class="button button-primary" type="submit">Continue <span aria-hidden="true">→</span></button>
+              <button id="start-button" class="button button-primary" type="submit">Add my household <span aria-hidden="true">→</span></button>
             </form>
             <p class="privacy-note">Sign in to save your household and return on another device.</p>
           </div>

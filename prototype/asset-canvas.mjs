@@ -19,6 +19,12 @@ import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
+import {createJourney,createGoal,validateJourney} from './journey-state.mjs';
+import {goalScenario} from './goal-outlook.mjs';
+import {mountOverview} from './overview-view.mjs';
+import {mountLifeline} from './lifeline-view.mjs';
+import {mountJourneyControls} from './journey-controls.mjs';
+import {mountPictureStorage} from './picture-storage-view.mjs';
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -37,6 +43,8 @@ let flowDraft = createExampleMonthlyFlow();
 let planningController = null;
 let inheritanceController = null;
 let insightsController = null;
+let journeyState=createJourney();
+let overviewController=null,lifelineController=null,journeyControls=null;
 let mode = "example";
 let dialogType = null;
 let editingId = null;
@@ -1096,19 +1104,31 @@ function syncFlowInputs() {
   formatGroupedNumberInputs();
 }
 function showScreen(screen, {updateHistory=true} = {}) {
+  const advanced=screen==='planning';
+  if(screen==='planning'||screen==='insights')screen='explore';
+  if(!['overview','lifeline','assets','flow','explore','inheritance'].includes(screen))screen='overview';
   $("welcome-screen").hidden=true;
+  $('journey-nav').hidden=false;
   if(updateHistory && location.hash!==`#${screen}`)history.pushState(null,"",`#${screen}`);
+  $('overview-screen').hidden=screen!=='overview';
+  $('lifeline-screen').hidden=screen!=='lifeline';
   $("canvas-screen").hidden = screen !== "assets";
   $("flow-screen").hidden = screen !== "flow";
-  $("planning-screen").hidden = screen !== "planning";
+  $("planning-screen").hidden = screen !== "explore";
+  $('journey-advanced') && ($('journey-advanced').hidden=screen!=='explore');
+  if(advanced && $('journey-advanced'))$('journey-advanced').open=true;
   $("inheritance-screen").hidden = screen !== "inheritance";
-  $("insights-screen").hidden = screen !== "insights";
-  if(screen==="insights")insightsController?.refresh();
+  $("insights-screen").hidden = screen !== "explore";
+  if(screen==='overview')overviewController?.refresh();
+  if(screen==='lifeline')lifelineController?.refresh();
+  if(screen==="explore")insightsController?.refresh();
   if(screen==="inheritance")inheritanceController?.refresh();
-  if (screen === "flow" || screen === "planning") {
+  if (screen === "flow" || screen === "explore") {
     renderFlow();
   }
-  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("planning-title") : $("canvas-title")).focus();
+  for(const button of $('journey-nav').querySelectorAll('button')){const active=button.dataset.journeySection===(['assets','flow'].includes(screen)?'assets':screen==='overview'?'overview':'lifeline');if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');}
+  const title=screen==='overview'?$('overview-content').querySelector('h1'):screen==='lifeline'?$('lifeline-content').querySelector('h1'):screen==='explore'?$('insights-title'):screen==='inheritance'?$('inheritance-title'):screen==='flow'?$('flow-title'):$('canvas-title');
+  title?.setAttribute('tabindex','-1');title?.focus({preventScroll:true});
   window.scrollTo({ top: 0, behavior: "instant" });
   revealCurrentSection();
 }
@@ -1262,12 +1282,15 @@ $("welcome-form").addEventListener("submit", (event) => {
   const validation = validateDraft(candidate);
   if (!validation.valid) { const field = $(({name:"person-name",age:"person-age",partnerName:"welcome-partner-name",partnerAge:"welcome-partner-age"})[validation.errors[0].path] || "person-age");field.setCustomValidity(validation.errors[0].message);field.reportValidity();return; }
   draft = candidate;
+  journeyState=createJourney(createGoal({type:$('welcome-goal').value,retirementAge:$('welcome-goal-age').value?Number($('welcome-goal-age').value):null,monthlySpending:$('welcome-budget').value?Number($('welcome-budget').value):null}));
+  if(journeyState.goal.monthlySpending!=null)flowDraft.spending.everyday=journeyState.goal.monthlySpending;
+  planningController.applyScenario(goalScenario(currentPicture(),journeyState.goal));
   const setupUrl=new URL(location.href);setupUrl.searchParams.delete("start");setupUrl.searchParams.delete("example");history.replaceState(null,"",setupUrl);
   mode = "personal";
   $("welcome-screen").hidden = true;
   $("canvas-screen").hidden = false;
   render();
-  $("canvas-title").focus?.();
+  showScreen('assets');
   announce(`${draft.name}’s picture is ready. No assets or debts entered yet.`);
 });
 for (const id of ["person-name", "person-age", "welcome-partner-name", "welcome-partner-age"]) $(id).addEventListener("input", () => $(id).setCustomValidity(""));
@@ -1784,6 +1807,7 @@ $("reset-example-button").addEventListener("click", () => {
   accountController.detach();
   const sampleUrl=new URL(location.href);sampleUrl.searchParams.delete("start");sampleUrl.searchParams.set("example","1");history.replaceState(null,"",sampleUrl);
   mode="example";
+  journeyState=createJourney();
   planningController.restore(null);
   draft = createPublicDemoHousehold();
   flowDraft = createExampleMonthlyFlow();
@@ -1803,6 +1827,9 @@ function startBlankPicture() {
   document.dispatchEvent(new Event("picture-updated"));
 }
 function showBlankPicture() {
+  journeyState=createJourney();
+  $('overview-screen').hidden=true;$('lifeline-screen').hidden=true;$('journey-nav').hidden=true;
+  if($('journey-advanced'))$('journey-advanced').hidden=true;
   draft = createBlankDraft();
   flowDraft = createBlankMonthlyFlow();
   planningController.restore(null);
@@ -2054,7 +2081,7 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 
 setupFlowInputs();
 inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
-insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}),{analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
+insightsController=mountInsights($("insights-content"),currentPicture,{analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
 document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
 $("insights-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
@@ -2063,9 +2090,25 @@ syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
-
-if(['flow','planning','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+function currentPicture(){return {version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController?.snapshot(),insights:insightsController?.snapshot(),journey:structuredClone(journeyState)};}
+function journeyChanged(){document.dispatchEvent(new Event('picture-updated'));overviewController?.refresh();if(!$('lifeline-screen').hidden)lifelineController?.refresh();}
+const advanced=document.createElement('details');advanced.id='journey-advanced';advanced.className='journey-advanced';advanced.hidden=true;
+const advancedSummary=make('summary','','Adjust assumptions & saved alternatives');advanced.append(advancedSummary);$('insights-screen').after(advanced);advanced.append($('planning-screen'));
+const backupButton=make('button','heading-action','Encrypted backup');backupButton.type='button';backupButton.id='journey-backup';backupButton.hidden=true;document.body.append(backupButton);
+journeyControls=mountJourneyControls({getPicture:currentPicture,setJourney:value=>{journeyState=validateJourney(value);},applyScenario:value=>planningController.applyScenario(value),replacePicture:picture=>restoreAccountPicture(picture,{sectionOverride:'overview'}),showSection:showScreen,onChange:journeyChanged});
+overviewController=mountOverview($('overview-content'),currentPicture,{onGoal:()=>journeyControls.openGoal(),onBaseline:()=>journeyControls.openBaseline(),onNewBaseline:()=>journeyControls.openBaseline({replace:true}),onUpdate:()=>journeyControls.openUpdate(),onExplore:()=>showScreen('explore'),onHousehold:section=>showScreen(section==='flow'?'flow':'assets'),onLifeline:()=>showScreen('lifeline'),onExport:()=>backupButton.click()});
+lifelineController=mountLifeline($('lifeline-content'),currentPicture,{onExplore:()=>showScreen('explore'),onEdit:()=>showScreen('assets'),onUpdate:()=>journeyControls.openUpdate()});
+const localStorageController=mountPictureStorage({button:backupButton,getPicture:currentPicture,restorePicture:picture=>restoreAccountPicture(picture,{sectionOverride:'overview'}),clearTab:()=>{accountController.detach();showBlankPicture();}});
+for(const [screen,active] of [['canvas-screen','assets'],['flow-screen','flow']]){
+  const nav=make('nav','journey-household-nav');nav.setAttribute('aria-label','Household information');
+  for(const [section,label] of [['assets','Assets & debt'],['flow','Income & spending']]){const button=make('button','',label);button.type='button';button.dataset.journeySection=section;if(section===active)button.setAttribute('aria-current','page');nav.append(button);}
+  const complete=make('button','journey-complete','Review starting plan');complete.type='button';complete.addEventListener('click',()=>journeyState.baseline?showScreen('overview'):journeyControls.openBaseline());nav.append(complete);$(screen).prepend(nav);
+}
+document.addEventListener('click',event=>{const button=event.target.closest('[data-journey-section]');if(button)showScreen(button.dataset.journeySection);});
+let journeyRefreshTimer;
+document.addEventListener('picture-updated',()=>{clearTimeout(journeyRefreshTimer);journeyRefreshTimer=setTimeout(()=>{if(!$('overview-screen').hidden)overviewController.refresh();if(!$('lifeline-screen').hidden)lifelineController.refresh();},100);});
+window.addEventListener('popstate',()=>showScreen(location.hash.slice(1)||'overview',{updateHistory:false}));
+showScreen(location.hash.slice(1)||'overview',{updateHistory:false});
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
 
@@ -2075,8 +2118,9 @@ const restoreAccountDefault=entryParams.get('example')!=='1'&&entryParams.get('s
 function restoreAccountPicture(picture,{sectionOverride='',keepExample=false,keepAuthUrl=false}={}){
     const section=sectionOverride || location.hash.slice(1);
     draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=keepExample&&picture.example?'example':'personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','inheritance','insights'].includes(section)?section:'assets',{updateHistory:!keepAuthUrl});
-    if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
+    journeyState=picture.journey?validateJourney(picture.journey):createJourney();
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(section||'overview',{updateHistory:!keepAuthUrl});
+    if(!draft.name.trim() || draft.age==null){for(const id of ['canvas-screen','flow-screen','planning-screen','inheritance-screen','insights-screen','overview-screen','lifeline-screen','journey-advanced','journey-nav'])$(id).hidden=true;$('welcome-screen').hidden=false;}
     announce('Saved account picture restored. Review your starting figures before planning.');
 }
 if(signInDraft)restoreAccountPicture(signInDraft.picture,{sectionOverride:new URL(signInDraft.returnUrl).hash.slice(1),keepExample:true,keepAuthUrl:true});
@@ -2086,7 +2130,7 @@ const accountController=mountAccountStorage({
   editPeople:()=>$('edit-profile-button').click(),
   startHousehold:startBlankPicture,
   restoreOnLogin:()=>restoreAccountDefault,
-  getPicture:()=>({version:1,example:mode==='example',holdings:structuredClone(draft),flow:structuredClone(flowDraft),planning:planningController.snapshot(),inheritance:inheritanceController.snapshot(),insights:insightsController.snapshot()}),
+  getPicture:currentPicture,
   restorePicture:restoreAccountPicture,
   finishSignIn:()=>{if(signInReturnPending){signInReturnPending=false;history.replaceState(history.state,'',signInDraft.returnUrl);}},
   onEmpty:({forceReset=false}={})=>{
