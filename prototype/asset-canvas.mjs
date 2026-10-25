@@ -13,7 +13,7 @@ import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMo
 import { mountAccountStorage } from './account-storage.mjs?v=20261024redirect1';
 import {takeSignInDraft} from './sign-in-draft.mjs?v=20261024redirect1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261024persona1';
-import {mountInsights} from "./insights-view.mjs?v=20261024groq1";
+import {mountInsights} from "./insights-view.mjs?v=20261024context4";
 import { mountInheritance } from "./inheritance-view.mjs?v=20261024inheritance1";
 import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";

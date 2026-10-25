@@ -19,13 +19,14 @@ export function insightSummary(projection){
   const end=projection.months.at(-1);
   return {endMonth:projection.endMonth,firstGap:projection.firstUnfundedMonth,unfunded:projection.months.reduce((sum,row)=>sum+row.unfunded/row.deflator,0),tax:projection.months.reduce((sum,row)=>sum+row.taxTotal/row.deflator,0),netAssets:(end.assetsTotal-end.debtsTotal)/end.deflator,accessible:end.withdrawableAssets/end.deflator,cash:(end.assetsByType.cash || 0)/end.deflator,incomplete:projection.unmodelledDebt>0 || projection.taxLimitations.length>0,unmodelledDebt:projection.unmodelledDebt};
 }
-export function insightScenario(flow,holdings,current,recipe){
+export function insightScenario(flow,holdings,current,recipe,options={}){
   if(!Object.hasOwn(INSIGHT_RECIPES,recipe))throw new Error('Choose a supported experiment.');
   const next=structuredClone(current),startYear=Number((flow.timelineStartMonth || flow.asOfMonth).slice(0,4));
   next.retirementYears=resolveRetirementYears(flow,holdings,next.retirementYears);
   if(recipe==='retireLater' || recipe==='retireEarlier'){
     let changed=false;const delta=recipe==='retireLater' ? 1 : -1;
-    for(const owner of Object.keys(next.retirementYears)){
+    if(Object.keys(options).some(key=>key!=='retirementOwner') || (options.retirementOwner && !['primary','partner'].includes(options.retirementOwner)))throw new Error('Choose a recorded person for this retirement experiment.');
+    for(const owner of Object.keys(next.retirementYears).filter(owner=>!options.retirementOwner || owner===options.retirementOwner)){
       const pay=flow.pay[owner],year=next.retirementYears[owner];
       if((pay.annualGross || pay.annualTakeHome) && year>=startYear){const target=year+delta;if(target<startYear-1 || target>startYear+60)throw new Error('That retirement date is outside the supported range.');next.retirementYears[owner]=target;changed=true;}
     }
@@ -47,8 +48,8 @@ export function insightScenario(flow,holdings,current,recipe){
   }
   return next;
 }
-export function createInsightPreview(flow,holdings,scenario,recipe,baseline=null){
-  const candidate=insightScenario(flow,holdings,scenario,recipe),before=baseline || projectPlan(flow,holdings,scenario),after=projectPlan(flow,holdings,candidate);
+export function createInsightPreview(flow,holdings,scenario,recipe,baseline=null,options={}){
+  const candidate=insightScenario(flow,holdings,scenario,recipe,options),before=baseline || projectPlan(flow,holdings,scenario),after=projectPlan(flow,holdings,candidate);
   if(before.endMonth!==after.endMonth)throw new Error('The experiment must use the same comparison horizon.');
   const summary=insightSummary(before),trial=insightSummary(after);
   // Compare the whole path: identical end balances can conceal earlier changes.

@@ -17,7 +17,7 @@ test('model may only select available facts and supported experiments, without a
 });
 test('service fails closed before configuration and rejects unauthenticated or invalid summaries',async()=>{
  assert.equal((await createHandler({env:{}})(request())).status,503);
- const handler=createHandler({env,fetcher:()=>{throw Error('must not call');}});
+ const handler=createHandler({env,fetcher:async()=>Response.json({id:'test-user'})});
  assert.equal((await handler(request(brief(),''))).status,401);assert.equal((await handler(request({email:'private'}))).status,400);
 });
 test('verified private pilot only, server key stays at provider and output is validated',async()=>{
@@ -63,4 +63,18 @@ test('identical reviews reuse a short-lived cache only after user verification',
  time=59000;assert.equal((await handler(request())).status,200);assert.equal(providerCalls,1);assert.equal(authCalls,2);
  validSession=false;assert.equal((await handler(request())).status,401);assert.equal(providerCalls,1);
  validSession=true;time=300001;assert.equal((await handler(request())).status,200);assert.equal(providerCalls,2);
+});
+
+test('availability checks verify pilot eligibility without reading a financial body or contacting Groq',async()=>{
+ for(const [id,status] of [['test-user',200],['other',403]]){
+  let read=false;const urls=[];
+  const handler=createHandler({env,fetcher:async url=>{urls.push(url);return Response.json({id});}});
+  const req={method:'GET',headers:new Headers({Authorization:'Bearer test'}),text:async()=>{read=true;throw Error('No body may be read');}};
+  const response=await handler(req);assert.equal(response.status,status);assert.equal(read,false);assert.equal(urls.length,1);assert.ok(urls[0].includes('/auth/'));
+  if(status===200)assert.deepEqual(await response.json(),{available:true});
+ }
+ let read=false;
+ const handler=createHandler({env,fetcher:async()=>Response.json({id:'other'})});
+ const response=await handler({method:'POST',headers:new Headers({Authorization:'Bearer test'}),text:async()=>{read=true;return '{}';}});
+ assert.equal(response.status,403);assert.equal(read,false);
 });
