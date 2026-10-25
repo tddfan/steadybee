@@ -43,6 +43,7 @@ for (const path of files.filter((path) => path.endsWith(".html"))) {
       .replace(/asset-canvas\.css\?v=[^"]+/, `asset-canvas.css?v=${version}`)
       .replace(/finance-theme\.css\?v=[^"]+/, `finance-theme.css?v=${version}`);
   if (path === 'index.html') html=html.replace(/welcome-view\.mjs\?v=[^"]+/,`welcome-view.mjs?v=${version}`).replace(/landing\.css\?v=[^"]+/,`landing.css?v=${version}`);
+  html=html.replace(/((?:src|href)="\.\/[^"?]+\.(?:mjs|css))(?:\?v=[^"]+)?"/g,`$1?v=${version}"`);
   await writeFile(
     join(output, path),
     html.replace(marker, (match) =>

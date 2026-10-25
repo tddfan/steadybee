@@ -49,11 +49,11 @@ export function projectPlan(flow, holdings, options = {}) {
   const pensionAccessAge=options.pensionAccessAge ?? 55,statePensionAge=options.statePensionAge ?? 67;
   for(const [label,value,min] of [['Personal pension access age',pensionAccessAge,55],['State Pension scenario age',statePensionAge,67]])if(!Number.isInteger(value)||value<min||value>75)throw new RangeError(`${label} must be from ${min} to 75.`);
   const ages={primary:options.ages?.primary ?? holdings.age,partner:options.ages?.partner ?? holdings.partnerAge};
-  for(const age of Object.values(ages))if(age!=null && (!Number.isInteger(age)||age<18||age>120))throw new RangeError('Enter current ages as whole years from 18 to 120.');
+  for(const age of Object.values(ages))if(age!=null && (!Number.isFinite(age)||age<18||age>120))throw new RangeError('Enter current ages from 18 to 120.');
   const spendingChanges=structuredClone(options.spendingChanges ?? (options.spendingChange ? [options.spendingChange] : [])).sort((a,b)=>a.year-b.year);
   const seenYears=new Set();
   for(const change of spendingChanges) {
-    if(!Number.isInteger(change.year)||change.year<Number(startMonth.slice(0,4))||!Number.isFinite(change.percent)||change.percent<0||change.percent>200)throw new RangeError('Spending changes need a future year and a percentage from 0% to 200%.');
+    if(!Number.isInteger(change.year)||change.year<1900||change.year>Number(startMonth.slice(0,4))+100||!Number.isFinite(change.percent)||change.percent<0||change.percent>200)throw new RangeError('Spending changes need a valid year and a percentage from 0% to 200%.');
     if(seenYears.has(change.year))throw new RangeError('Use one household spending change per year.');seenYears.add(change.year);
   }
   const source=structuredClone(flow), balances=structuredClone(holdings);
@@ -61,7 +61,7 @@ export function projectPlan(flow, holdings, options = {}) {
   for(const owner of ['primary','partner']) {
     const year=options.retirementYears?.[owner];
     if(year!=null) {
-      if(!Number.isInteger(year)||year<Number(startMonth.slice(0,4))-1||year>Number(startMonth.slice(0,4))+60)throw new RangeError('Choose a valid final working year.');
+      if(!Number.isInteger(year)||year<1900||year>Number(startMonth.slice(0,4))+60)throw new RangeError('Choose a valid final working year.');
       source.pay[owner].endDate=`${year}-${source.pay[owner].endDate?.slice(5) || '12'}`;
     }
   }
@@ -134,7 +134,9 @@ export function projectPlan(flow, holdings, options = {}) {
   if(!startMonth.endsWith('-04'))taxLimitations.push('Opening tax year: earlier recurring income is assumed at the opening rate. Prior tax paid and earlier interest, withdrawals and gains are unknown.');
   if((holdings.partnerName ? ['primary','partner'] : ['primary']).some(owner=>!Number.isFinite(ages[owner])))taxLimitations.push('NI exemption timing is unknown where age is missing.');
   warnings.push('Pension drawdown and cash-interest tax use cumulative amounts in each April–March tax year, with forecast recurring income. Tax is reserved when the modelled liability increases, rather than predicting future interest. Tax-year boundaries use whole months. NI age inferred from age is approximate; an entered NI exemption month takes precedence.',...taxLimitations);
-  for(let index=0;index<years*12;index++) {
+  const knownAges=Object.values(ages).filter(Number.isFinite);
+  const totalMonths=options.planToAge!=null && knownAges.length ? Math.max(12,Math.round((options.planToAge-Math.min(...knownAges))*12)) : years*12;
+  for(let index=0;index<totalMonths;index++) {
     const month=monthAt(startMonth,index), elapsed=index/12, deflator=(1+inflation/100)**((index+1)/12);
     if(interestTaxYear!==taxYearFor(month)){interestTaxYear=taxYearFor(month);yearInterest={primary:0,partner:0};}
     if(stressTest && month===stressMonth){

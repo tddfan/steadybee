@@ -5,11 +5,12 @@ import {projectPlan} from './planning.mjs?v=20261024persona1';
 import {planHorizon} from './coverage.mjs?v=20261015coverage6';
 import {validateEstateSettings} from './inheritance.mjs?v=20261024persona1';
 import {validateInsightSettings} from './insights.mjs?v=20261024persona1';
+import {validateJourney} from './journey-state.mjs';
 export const PICTURE_STORAGE_KEY='steadybee.protected-picture.v1';
 const MAX_BYTES=2_000_000,ITERATIONS=310_000;
 const record=value=>value!==null && typeof value==='object' && !Array.isArray(value);
 function safeTree(value,depth=0) {
-  if(depth>12)throw new Error('This picture is too deeply nested.');
+  if(depth>22)throw new Error('This picture is too deeply nested.');
   if(typeof value==='number' && !Number.isFinite(value))throw new Error('Use finite numbers in a picture.');
   if(typeof value==='string' && value.length>2000)throw new Error('A picture field is too long.');
   if(Array.isArray(value) && value.length>200)throw new Error('A picture contains too many entries.');
@@ -25,6 +26,7 @@ export function validatePicture(input) {
   if(input.example!=null && typeof input.example!=='boolean')throw new Error('The picture label is invalid.');
   if(input.inheritance!=null)validateEstateSettings(input.inheritance);
   if(input.insights!=null)validateInsightSettings(input.insights);
+  if(input.journey!=null)validateJourney(input.journey,{validatePicture});
   const validation=validateDraft(input.holdings);if(!validation.valid)throw new Error(validation.errors[0].message);
   if(input.holdings.partnerAge!=null && (!Number.isInteger(input.holdings.partnerAge)||input.holdings.partnerAge<18||input.holdings.partnerAge>120))throw new Error('Enter a partner age from 18 to 120.');
   const p=input.planning,s=p.scenario;
