@@ -1,3 +1,4 @@
+import {completedAction,hasMeaningfulSaveChange} from './ui-motion.mjs?v=20261027motion1';
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './cloud-config.mjs?v=20261017account1';
 import {validatePicture} from './picture-storage.mjs?v=20261025baseline1';
 import {updateSaveStatus} from './save-status.mjs?v=20261017profile1';
@@ -130,7 +131,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       if(insertError){await refreshPicture();if(!cloudPictures.some(item=>item.is_main))throw insertError;return;}
       if(user?.id!==userId||requestGeneration!==householdGeneration)return;
       activePictureId=id;activePictureName='My household';cloudUpdatedAt=now;lastSaved=JSON.stringify(picture);cloudEnabled=true;
-      await refreshPicture();setStatus('Default household · saved');message('Your default household is saved. Future changes save automatically.');
+      await refreshPicture();setStatus('Default household · saved');if(user?.id===userId&&JSON.stringify(getPicture())===lastSaved)completedAction('Saved to your account',{kind:'cloud',spoken:true});message('Your default household is saved. Future changes save automatically.');
       if(JSON.stringify(validatePicture(getPicture()))!==lastSaved)scheduleCloudSave();
     })().catch(e=>{setStatus('Default household could not save');if(dialog.open)error(`Your default household could not be saved. ${e.message}`);}).finally(()=>{mainCreation=null;});
     return mainCreation;
@@ -282,6 +283,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     if(cloudPictures.some(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()&&item.id!==form.dataset.pictureId)){error('A saved version already uses that name. Choose a different name.');return;}
     try{
       if(!user)throw new Error('Sign in before saving.');
+      const savedForUser=user.id,completedMessage=form.dataset.mode==='rename'?'Version renamed in your account':'Version saved to your account';
       if(form.dataset.mode==='rename'){
         const id=form.dataset.pictureId,{error:renameError}=await accountQuery(()=>client.from('user_pictures').update({name}).eq('user_id',user.id).eq('id',id));if(renameError)throw renameError;
         if(activePictureId===id)activePictureName=name;
@@ -293,7 +295,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
         cloudEnabled=false;restorePicture(picture);activePictureId=id;activePictureName=name;cloudUpdatedAt=now;lastSaved=JSON.stringify(validatePicture(getPicture()));cloudEnabled=true;
         await refreshPicture();$('account-picture-select').value=id;renderPictureList();setStatus(`Household · ${name}`);message(`“${name}” saved. Changes now sync to this version.`);
       }
-      form.hidden=true;form.reset();
+      if(user?.id===savedForUser)completedAction(completedMessage,{kind:'cloud'});form.hidden=true;form.reset();
     }catch(e){error(`Your household version was not saved. ${e.message}`);}
   });
   $('account-delete-picture').addEventListener('click',async()=>{
@@ -322,6 +324,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
     const currentRequest=()=>user?.id===userId&&activePictureId===pictureId&&householdGeneration===requestGeneration;
     try{
       const picture=validatePicture(getPicture()),serial=JSON.stringify(picture);if(serial===lastSaved)return;
+      const meaningful=hasMeaningfulSaveChange(lastSaved?JSON.parse(lastSaved):null,picture);
       const timestamp=new Date().toISOString();
       if(!activePictureId)throw new Error('Choose or save a named version before syncing changes.');
       const request=()=>{
@@ -332,7 +335,7 @@ export function mountAccountStorage({button,getPicture,restorePicture,editPeople
       if(!currentRequest())return;
       if(dbError)throw dbError;
       if(!data){cloudEnabled=false;setStatus('Cloud version changed elsewhere');if(dialog.open)error('Another tab updated this saved version. Reopen it before continuing so you do not overwrite newer changes.');return;}
-      cloudUpdatedAt=data.updated_at;lastSaved=serial;setStatus(`Household · ${activePictureName}`);
+      cloudUpdatedAt=data.updated_at;lastSaved=serial;setStatus(`Household · ${activePictureName}`);if(meaningful&&JSON.stringify(getPicture())===serial)completedAction('Saved to your account',{kind:'cloud',spoken:true});
     }catch(e){if(!currentRequest())return;cloudEnabled=false;setStatus('Cloud save needs attention');if(dialog.open)error(`Latest changes were not saved to your account. ${e.message}`);}
   }
   document.addEventListener('picture-updated',scheduleCloudSave);

@@ -8,7 +8,7 @@ const sdk=`
 export function createClient(){
  const user=new URLSearchParams(location.search).has('fixture_guest')?null:{id:new URLSearchParams(location.search).get('fixture_user')||'fixture-user',email:'journey@example.invalid'};
  let current=user;
- const session=()=>current?{user:current}:null;
+ const session=()=>current?{user:current,access_token:'synthetic-browser-token'}:null;
  return {auth:{
   onAuthStateChange(fn){let active=true;queueMicrotask(()=>{if(active)fn('INITIAL_SESSION',session());});return {data:{subscription:{unsubscribe(){active=false;}}}};},
   async getSession(){return {data:{session:session()}};},

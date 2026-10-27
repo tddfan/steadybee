@@ -1,3 +1,4 @@
+import {mountActionFeedback,revealAddedItem,completedAction} from './ui-motion.mjs?v=20261027motion1';
 import {
   ASSET_TYPES,
   ACCESS_BUCKETS,
@@ -52,6 +53,7 @@ let lifelineController = null;
 let flowEditSession=null,itemTrackingControls=null,flowTrackingControls=null;
 let mode = "example";
 let dialogType = null;
+let pendingAddedItem=null;
 let editingId = null;
 let lastTrigger = null;
 let returnToFlowAssetId = null;
@@ -1354,6 +1356,7 @@ $("chart-drilldown").addEventListener("click", (event) => {
 $("item-kind").addEventListener("change", () => updateDialogFields());
 $("close-item-button").addEventListener("click", () => $("item-dialog").close());
 $("item-dialog").addEventListener("close", () => {
+  if(pendingAddedItem){const added=pendingAddedItem;pendingAddedItem=null;revealAddedItem(document.querySelector(`[data-orbit-id="${added.id}"]`));completedAction(added.type==='asset'?'Asset added':'Debt added');return;}
   if (returnToFlowAssetId) {
     const itemId = returnToFlowAssetId;
     returnToFlowAssetId = null;
@@ -1380,6 +1383,7 @@ $("item-form").addEventListener("submit", (event) => {
       const candidate=validatePicture(appendTrackingUpdate(before,after,{...itemTrackingControls.read(),label:itemName(item,dialogType==='asset'?ASSET_TYPES:DEBT_TYPES),startMonth:trackingStartMonth(),observedTarget:{kind:dialogType,id:item.id,field:'item'}}));
       draft=candidate.holdings;flowDraft=candidate.flow;
     }else {draft = next;if (item.kind === "mortgage") flowDraft.includeLinkedMortgage = true;}
+    if(index<0){pendingAddedItem={id:item.id,type:dialogType};chartSelection=null;holdingsOwner="all";}
     $("item-dialog").close();
     render();
     announce(`${itemName(item, dialogType === "asset" ? ASSET_TYPES : DEBT_TYPES)} ${index >= 0 ? "updated" : "added"}. Net worth from entries ${money(summarizeDraft(draft).netWorth)}.`);
@@ -1799,10 +1803,10 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 
 setupFlowInputs();
 document.querySelector('.flow-map-panel').after($('flow-input-shortcuts'));
-lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),applyScenario:value=>planningController.applyScenario(value),onPreviewApply:()=>insightsController?.markApplied(),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
+lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,analysisToken:()=>accountController.analysisToken(),showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),applyScenario:value=>planningController.applyScenario(value),onPreviewApply:()=>insightsController?.markApplied(),onPreviewBack:()=>insightsController?.resumePreview(),onPreviewDiscard:()=>insightsController?.clearPreview('Comparison discarded. Your outlook is unchanged.'),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
 planningController.integrateLifeline(lifelineController.hosts);
 inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}));
-insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}),{getPicture:currentHousehold,analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value),previewOnLifeline:(value,label)=>lifelineController.previewScenario(value,label)});
+insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}),{getPicture:currentHousehold,analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value),discardLifelinePreview:()=>lifelineController.discardPreview(),previewOnLifeline:(value,label,month)=>lifelineController.previewScenario(value,label,month)});
 document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
 $("insights-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
@@ -1858,3 +1862,4 @@ if(entryParams.get('account')==='1'){
   accountController.open();
 }
 mountBentoErgonomics();
+mountActionFeedback();

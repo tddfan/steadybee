@@ -1,3 +1,4 @@
+import {scenarioEvidence} from './plan-evidence.mjs?v=20261027explain1';
 /** Deterministic findings and bounded experiments. No AI or account writes. */
 import {projectPlan} from './planning.mjs?v=20261024persona1';
 import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
@@ -103,7 +104,7 @@ export function createInsightPreview(flow,holdings,scenario,recipe,baseline=null
   const monthlySpendingReduction=spendingMonths.length ? Math.max(0,spendingMonths.reduce((sum,item)=>sum+(item.before.householdSpending-item.row.householdSpending)/item.row.deflator,0)/spendingMonths.length) : 0;
   const resolved=resolveRetirementYears(flow,holdings,scenario.retirementYears);
   const changedPeople=recipe==='retireLater' || recipe==='retireEarlier' ? Object.entries(candidate.retirementYears).filter(([owner,year])=>year!==resolved[owner]).map(([owner])=>owner==='primary' ? holdings.name || 'You' : owner==='partner' ? holdings.partnerName || 'Partner' : owner) : [];
-  return {changed,noChangeReason,spendingYear,monthlySpendingReduction,changedPeople,recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest,...(goalContext?{goalBefore:goalCheckpoint(goalContext.goal,before,goalContext),goalAfter:goalCheckpoint(goalContext.goal,after,goalContext)}:{})};
+  return {explanation:scenarioEvidence(before,after,{real:true,basisMonth:goalContext?.basisMonth||before.startMonth,inflation:goalContext?.inflation??before.assumptions.inflation,recipe}),changed,noChangeReason,spendingYear,monthlySpendingReduction,changedPeople,recipe,scenario:candidate,sourceKey:insightSourceKey(flow,holdings,scenario),before:summary,after:trial,delta:Object.fromEntries(['unfunded','tax','netAssets','accessible','cash'].map(key=>[key,trial[key]-summary[key]])),warnings:[...new Set([...before.taxLimitations,...after.taxLimitations,...(after.unmodelledDebt>0 ? ['Some debt repayments are unmodelled. Coverage is incomplete.'] : [])])],payoff:after.mortgagePayoff,stress:after.stressTest,...(goalContext?{goalBefore:goalCheckpoint(goalContext.goal,before,goalContext),goalAfter:goalCheckpoint(goalContext.goal,after,goalContext)}:{})};
 }
 export function buildInsights(flow,holdings,scenario,projection,goal='security'){
   if(!Object.hasOwn(INSIGHT_GOALS,goal))throw new Error('Choose a supported goal.');

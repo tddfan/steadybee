@@ -71,7 +71,7 @@ test('availability checks verify pilot eligibility without reading a financial b
   const handler=createHandler({env,fetcher:async url=>{urls.push(url);return Response.json({id});}});
   const req={method:'GET',headers:new Headers({Authorization:'Bearer test'}),text:async()=>{read=true;throw Error('No body may be read');}};
   const response=await handler(req);assert.equal(response.status,status);assert.equal(read,false);assert.equal(urls.length,1);assert.ok(urls[0].includes('/auth/'));
-  if(status===200)assert.deepEqual(await response.json(),{available:true,supportedVersions:[1,2,3]});
+  if(status===200)assert.deepEqual(await response.json(),{available:true,supportedVersions:[1,2,3,4]});
  }
  let read=false;
  const handler=createHandler({env,fetcher:async()=>Response.json({id:'other'})});

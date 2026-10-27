@@ -13,11 +13,11 @@ export function appendLifelineFlags(svg,events,{x,top,bottom,onEvent}){
   g.addEventListener('pointerdown',e=>e.stopPropagation());g.addEventListener('pointermove',e=>e.stopPropagation());g.addEventListener('click',()=>onEvent(event));g.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();onEvent(event);}});svg.append(g);
  }
 }
-export function drawLifelineFlowChart(host,{groups,series=[],cashflow=true,view,selectedMonth,events=[],onInspect,onEvent}){
+export function drawLifelineFlowChart(host,{groups,series=[],cashflow=true,comparisonGroups=[],view,selectedMonth,events=[],onInspect,onEvent}){
  host.replaceChildren();host.classList.remove('lifeline-month-bars');host.classList.add('lifeline-flow-chart');
  if(!groups.length){const message=document.createElement('p');message.textContent='No current forecast for this period.';host.append(message);return;}
  const width=Math.max(host.clientWidth,Math.min(760,groups.length*18+72),320),height=320,left=52,right=18,top=50,bottom=46,plot=width-left-right,slot=plot/groups.length;
- const values=cashflow?groups.flatMap(r=>[r.moneyIn,r.costs]):series.flatMap(s=>s.rows.map(r=>r.value).filter(Number.isFinite));
+ const values=cashflow?[...groups,...comparisonGroups].flatMap(r=>[r.moneyIn,r.costs]):series.flatMap(s=>s.rows.map(r=>r.value).filter(Number.isFinite));
  const min=Math.min(0,...values),max=Math.max(1,...values),span=max-min,y=v=>height-bottom-(v-min)/span*(height-top-bottom),x=i=>left+(i+.5)*slot;
  const svg=make('svg',{viewBox:`0 0 ${width} ${height}`,width,role:'img','aria-label':cashflow?'Money in and costs, paired bars. Green: income received; purple: assets used; charcoal: costs paid; red: unpaid costs. Drag to inspect a period.':'Period totals. Use the month control or drag to inspect.'});
  svg.style.minWidth=`${width}px`;
@@ -26,11 +26,13 @@ export function drawLifelineFlowChart(host,{groups,series=[],cashflow=true,view,
  const selected=view==='life'?selectedMonth.slice(0,4):selectedMonth;
  function select(key){svg.querySelector('.lifeline-selection-band')?.remove();const i=groups.findIndex(r=>r.key===key);if(i>=0)svg.prepend(make('rect',{x:left+i*slot,y:top-18,width:slot,height:height-bottom-top+18,class:'lifeline-selection-band'}));}
  select(selected);
- const bar=(i,dx,w,value,base,kind,title)=>{if(!Number.isFinite(value)||Math.abs(value)<.001)return;const rect=make('rect',{x:x(i)+dx,y:y(Math.max(base,base+value)),width:w,height:Math.max(.5,Math.abs(y(base)-y(base+value))),rx:2,class:`lifeline-bar is-${kind}`});rect.append(make('title',{},title));svg.append(rect);};
+ const bands=make('g'),outlines=make('g',{class:'lifeline-before-layer'}),layer=make('g',{class:comparisonGroups.length?'lifeline-scenario-layer':'lifeline-flow-layer'});svg.append(bands,outlines,layer);
+ const bar=(i,dx,w,value,base,kind,title)=>{if(!Number.isFinite(value)||Math.abs(value)<.001)return;const rect=make('rect',{x:x(i)+dx,y:y(Math.max(base,base+value)),width:w,height:Math.max(.5,Math.abs(y(base)-y(base+value))),rx:2,class:`lifeline-bar is-${kind}`});rect.append(make('title',{},title));layer.append(rect);};
  groups.forEach((r,i)=>{
   if(cashflow){
    const w=Math.max(1,Math.min(28,slot*.32)),gap=Math.max(1,slot*.06),title=`${r.key} · ${r.months} modelled month${r.months===1?'':'s'}`;
-   if(r.shortfall>.01)svg.append(make('rect',{x:left+i*slot,y:top-8,width:slot,height:height-bottom-top+8,class:'lifeline-shortfall-band'}));
+   if(r.shortfall>.01)bands.append(make('rect',{x:left+i*slot,y:top-8,width:slot,height:height-bottom-top+8,class:'lifeline-shortfall-band'}));
+   const before=comparisonGroups.find(p=>p.key===r.key&&p.startMonth===r.startMonth&&p.endMonth===r.endMonth);if(before)for(const [kind,total,dx] of [['moneyIn',before.moneyIn,-w-gap],['costs',before.costs,gap]]){const outline=make('rect',{x:x(i)+dx-1,y:y(total),width:w+2,height:Math.max(0,y(0)-y(total)),rx:2,class:'lifeline-current-outline','data-kind':kind,'data-key':r.key,'data-total':total});outline.append(make('title',{},`Current outlook ${r.key} · ${kind==='costs'?'costs':'money in'} ${money(total)}`));outlines.append(outline);}
    bar(i,-w-gap,w,r.income,0,'income',`${title}: income received ${money(r.income)}`);bar(i,-w-gap,w,r.withdrawals,r.income,'withdrawals',`${title}: taken from assets ${money(r.withdrawals)}`);
    bar(i,gap,w,r.paid,0,'paid',`${title}: costs paid ${money(r.paid)}`);bar(i,gap,w,r.shortfall,r.paid,'unpaid',`${title}: unpaid costs ${money(r.shortfall)} in ${r.shortMonths} month(s)`);
   }else{const count=series.length,w=Math.min(25,slot*.8/count);series.forEach((s,j)=>{const point=s.rows.find(p=>p.key===r.key);bar(i,-count*w/2+j*w,w*.88,point?.value,0,s.kind,`${r.key} · ${s.label}: ${point?.value==null?'Not available':money(point.value)}`);});}
