@@ -1,3 +1,4 @@
+import {enableGroupedNumberInput,groupedNumberValue} from './grouped-number-input.mjs?v=20261027bento1';
 import {AI_REASONS,AI_SCENARIO_COPY,validateAnalysisResult} from './insights-ai.mjs?v=20261024context4';
 import {INSIGHT_GOALS,INSIGHT_RECIPES,PLAN_GOALS,buildInsights,createInsightPreview,evaluatePlanGoal,insightSourceKey,insightSummary,validateInsightSettings} from './insights.mjs?v=20261024context4';
 import {buildContextualAnalysis,AI_FOLLOW_UPS,reviewObservations,candidateEffects,AI_LIMITATIONS} from './insights-ai-context.mjs?v=20261024context4';
@@ -32,7 +33,7 @@ export function mountInsights(root,getInputs,{analysisToken,showSection,applySce
       const select=document.createElement('select');select.id='plan-goal-person';select.add(new Option(ownerLabel,'primary'));if(hasPartner){select.add(new Option(input.holdings.partnerName,'partner'));select.add(new Option('Both people','household'));}select.value=goal.person||'primary';owner.append(select);host.append(owner);
     }
     if(goal.type!=='retireBy'){
-      const label=el('label','insights-goal',goal.type==='spending'?'Target monthly household costs':'Target amount');const amount=document.createElement('input');amount.id='plan-goal-amount';amount.type='number';amount.min='0';amount.max='100000000';amount.step='100';amount.inputMode='decimal';amount.value=String(goal.type==='spending'?(goal.targetMonthly??''):(goal.targetAmount??''));amount.setAttribute('aria-label',label.textContent);label.append(amount,el('small','muted',goal.type==='spending'?'£ per month · today’s prices · excluding debt payments':'£ · today’s money'));host.append(label);
+      const label=el('label','insights-goal',goal.type==='spending'?'Target monthly household costs':'Target amount');const amount=document.createElement('input');amount.id='plan-goal-amount';amount.type='number';amount.min='0';amount.max='100000000';amount.step='100';amount.inputMode='decimal';amount.value=String(goal.type==='spending'?(goal.targetMonthly??''):(goal.targetAmount??''));amount.setAttribute('aria-label',label.textContent);enableGroupedNumberInput(amount);label.append(amount,el('small','muted',goal.type==='spending'?'£ per month · today’s prices · excluding debt payments':'£ · today’s money'));host.append(label);
     }
     if(goal.type!=='legacy'){
       const label=el('label','insights-goal',goal.type==='retireBy'?'Target date':'When do you need it?'),date=document.createElement('input');date.id='plan-goal-month';date.type='month';date.value=goal.targetMonth||'';label.append(date);host.append(label);
@@ -42,7 +43,7 @@ export function mountInsights(root,getInputs,{analysisToken,showSection,applySce
     host.querySelectorAll('input,select').forEach(control=>control.addEventListener('change',()=>{
       const next={...settings.planGoal};if(control.id==='plan-goal-person')next.person=control.value;
       if(control.id==='plan-goal-month')next.targetMonth=control.value||null;
-      if(control.id==='plan-goal-amount'){if(next.type==='spending')next.targetMonthly=control.value===''?null:Number(control.value);else next.targetAmount=control.value===''?null:Number(control.value);}
+      if(control.id==='plan-goal-amount'){if(next.type==='spending')next.targetMonthly=control.value===''?null:groupedNumberValue(control);else next.targetAmount=control.value===''?null:groupedNumberValue(control);}
       try{settings.planGoal=validateInsightSettings({...settings,planGoal:next}).planGoal;refresh();document.dispatchEvent(new Event('picture-updated'));}catch(error){control.setAttribute('aria-invalid','true');message(error.message);}
     }));
     const result=evaluatePlanGoal(goal,input.flow,input.holdings,baseline,goalContext()||{});if(!result)return;

@@ -1,0 +1,159 @@
+/* App-wide design contract. Controllers retain their existing IDs and state. */
+:root {
+ --bg-canvas:#F2F2F7; --bg-card:#FFFFFF; --bg-subtle:#E5E5EA; --bg-hover:#F8F8FA;
+ --border-card:rgba(60,60,67,.08); --border-hairline:rgba(60,60,67,.12);
+ --primary:#007AFF; --primary-tint:#E5F1FF;
+ --liquid:#1F8A5B; --liquid-tint:#E6F5EE; --locked:#7C5CBF; --locked-tint:#F1ECFA;
+ --property:#C58B3B; --property-tint:#FDF4E7; --debt:#FF3B30; --debt-tint:#FFECEB;
+ --warning:#CC6600; --warning-tint:#FFF4E5;
+ --text-primary:#1C1C1E; --text-secondary:#6C6C70;
+ --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter",system-ui,sans-serif;
+ --radius-bento:18px; --radius-control:10px; --radius-pill:999px;
+ --shadow-bento:0 4px 20px rgba(0,0,0,.04);
+ --type-hero:clamp(1.85rem,3vw,2.5rem); --type-kpi:clamp(1.3rem,2vw,1.65rem);
+ --type-heading:1.15rem; --type-row:.95rem; --type-meta:.8rem;
+ --accent-primary:var(--primary); --accent-primary-tint:var(--primary-tint);
+ --accent-alex:var(--liquid); --accent-alex-tint:var(--liquid-tint);
+ --accent-gemma:var(--locked); --accent-gemma-tint:var(--locked-tint);
+ --accent-shared:var(--property); --accent-shared-tint:var(--property-tint);
+ --accent-debt:var(--debt); --accent-debt-tint:var(--debt-tint);
+ --accent-warn:var(--warning); --accent-warn-tint:var(--warning-tint);
+}
+.bento-app { background:var(--bg-canvas); font-family:var(--font-sans); color:var(--text-primary); }
+.bento-app [hidden] { display:none!important; }
+.bento-app h2 { font-size:var(--type-heading); font-weight:700; letter-spacing:-.02em; }
+.bento-app button { min-height:44px!important; min-width:44px; }
+.bento-app summary { min-height:44px!important; }
+.bento-app .flow-payroll-note>summary,.bento-app .saving-settings-info>summary,.bento-app .flow-route-note>summary { width:44px; height:44px; min-width:44px; }
+.bento-app input,.bento-app select,.bento-app summary[role=button] { min-height:44px; }
+.bento-app input:not([type=checkbox]):not([type=range]),.bento-app select,.bento-app .button,.bento-app .heading-action { border-radius:var(--radius-control); }
+.bento-app input,.bento-app output,.bento-app svg text,.bento-app strong,.bento-app .asset-status { font-variant-numeric:tabular-nums; }
+.bento-app :focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
+.bento-app h1:focus-visible { outline:none; }
+.bento-app .picture-steps { display:flex; overflow-x:auto; gap:4px; border-radius:18px; margin-bottom:18px; }
+.bento-app .picture-steps .picture-step { flex:1; white-space:nowrap; min-width:0; font-size:.88rem; padding:10px 14px; }
+.bento-module-switch { display:flex; width:fit-content; padding:3px; gap:3px; margin:0 0 20px; background:var(--bg-subtle); border-radius:10px; }
+.bento-module-switch > * { display:flex; align-items:center; justify-content:center; border:0; border-radius:8px; min-height:44px; padding:8px 18px; background:transparent; color:var(--text-secondary); font:600 .84rem var(--font-sans); }
+.bento-module-switch > [aria-current] { background:white; color:var(--text-primary); box-shadow:0 1px 4px rgba(0,0,0,.12); }
+.bento-app .explore-tabs button,.bento-app .flow-view-switch button,.bento-app .lifeline-zoom button { min-height:44px; }
+.bento-app .holdings-owner-button { min-height:44px; border-radius:999px; }
+.bento-app .bento-outcome { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:20px; padding:24px; margin:0 0 14px; text-align:left; background:var(--bg-card); border:1px solid var(--border-card); border-radius:18px; box-shadow:var(--shadow-bento); }
+.bento-outcome > div { min-width:0; display:grid; gap:8px; }
+.bento-eyebrow { color:var(--text-secondary); font:500 var(--type-meta) var(--font-sans); }
+.bento-hero-number,.bento-app #net-worth { font-size:var(--type-hero)!important; font-weight:800; line-height:1.1; letter-spacing:-.035em; color:var(--text-primary); overflow-wrap:anywhere; }
+.bento-outcome small { font-size:var(--type-meta); color:var(--text-secondary); }
+.bento-status { display:inline-flex; align-items:center; justify-content:center; gap:6px; align-self:center; width:fit-content; background:var(--primary-tint); color:var(--primary); border-radius:999px; font-size:var(--type-meta); font-weight:600; padding:7px 12px; text-align:center; }
+.bento-status.is-covered { color:var(--liquid); background:var(--liquid-tint); }
+.bento-status.is-warning,.bento-warning { color:var(--warning); background:var(--warning-tint); }
+.bento-status.is-shortfall { color:var(--debt); background:var(--debt-tint); }
+.bento-warning { display:inline-flex; align-items:center; gap:8px; border:0; border-radius:6px; padding:8px 12px; font-size:var(--type-meta); font-weight:500; text-align:left; }
+.bento-app #canvas-screen .asset-totals,.bento-app .flow-kpi-grid,.bento-kpi-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:0; margin:0 0 20px; border:0; background:none; box-shadow:none; }
+.bento-app .asset-totals > div,.bento-app .bento-kpi:not(.bento-outcome),.bento-kpi-grid > div { display:grid; align-content:start; gap:8px; min-width:0; background:white; border:1px solid var(--border-card); border-radius:18px; padding:20px; box-shadow:var(--shadow-bento); }
+.bento-app .asset-totals > div > strong,.bento-app .bento-kpi:not(.bento-outcome)>strong,.bento-kpi-grid strong { font-size:var(--type-kpi); font-weight:700; line-height:1.15; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.bento-app .asset-totals > div > span,.bento-app .asset-totals small,.bento-kpi-grid span,.bento-kpi-grid small { font-size:var(--type-meta); color:var(--text-secondary); }
+.bento-app .flow-kpi-grid .is-outflow strong { color:var(--debt); }
+.bento-app #flow-outcome.is-shortfall .bento-hero-number { color:var(--debt); }
+.bento-app #flow-outcome:not(.is-shortfall) .bento-hero-number { color:var(--liquid); }
+.bento-app #asset-breakdown,.bento-app #asset-records,.bento-app .flow-map-panel,.bento-app .flow-entry-column,.bento-app .lifeline-card,.bento-app .estate-card { border:1px solid var(--border-card); border-radius:18px; box-shadow:var(--shadow-bento); background:white; }
+.bento-app .asset-row { display:grid; grid-template-columns:minmax(0,1fr) auto; min-height:72px; gap:16px; padding:14px 20px; }
+.asset-row-leading { display:grid; grid-template-columns:38px minmax(0,1fr); gap:12px; min-width:0; align-items:center; }
+.bento-app .asset-row-content { display:grid; gap:6px; min-width:0; }
+.bento-app .asset-name-line { display:flex; flex-wrap:wrap; grid-column:auto; grid-row:auto; gap:6px; }
+.bento-app .asset-name-line .holding-name { font-size:var(--type-row); font-weight:600; }
+.bento-app .asset-row-figures { display:grid; justify-items:end; grid-column:2; grid-row:auto; gap:6px; min-width:0; max-width:230px; }
+.bento-app .asset-row-value { font-size:var(--type-row); font-weight:700; }
+.bento-app .asset-icon { grid-row:auto; grid-column:auto; width:38px; height:38px; border-radius:10px; }
+.bento-app [data-wealth=liquid] .asset-icon { background:var(--liquid-tint); color:var(--liquid); }
+.bento-app [data-wealth=locked] .asset-icon { background:var(--locked-tint); color:var(--locked); }
+.bento-app [data-wealth=property] .asset-icon { background:var(--property-tint); color:var(--property); }
+.bento-app [data-wealth=debt] .asset-icon { background:var(--debt-tint); color:var(--debt); }
+.bento-app [data-wealth=neutral] .asset-icon { background:var(--bg-canvas); color:var(--text-secondary); }
+.bento-app .asset-equity-pill { display:block; grid-column:auto; grid-row:auto; padding:0; background:none; border-radius:0; font-size:var(--type-meta); color:var(--text-secondary); }
+.bento-app .asset-status { font-size:var(--type-meta); border-radius:6px; font-weight:500; }
+.bento-app [data-wealth=locked] .asset-status.is-neutral { color:var(--locked); background:var(--locked-tint); }
+.bento-app [data-wealth=property] .asset-status.is-neutral { color:#8B6028; background:var(--property-tint); }
+.bento-app .is-warning,.bento-app .flow-state-flag { color:var(--warning); background:var(--warning-tint); border-radius:6px; }
+.bento-app .asset-row > .row-chevron { display:none; }
+.bento-app .flow-entry-row { min-height:60px; padding-block:14px; }
+.bento-app .flow-entry-row[data-direction=out] .flow-entry-money { color:var(--debt); }
+.bento-app .flow-experimental { display:none; }
+.bento-app .pension-flag { border-radius:6px; background:var(--warning-tint); color:var(--warning); padding:5px 8px; font-size:var(--type-meta); }
+.bento-financial-flags { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.bento-app .flow-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.bento-app .flow-table,.bento-app .flow-table tbody { display:block; width:100%; }
+.bento-app .flow-table tbody tr:not(.flow-table-group) { display:grid; grid-template-columns:minmax(0,1fr) auto 44px; align-items:center; gap:12px; padding:12px 4px; min-height:60px; border-bottom:1px solid var(--border-card); }
+.bento-app .flow-table td,.bento-app .flow-table th { border:0; padding:0; background:none; }
+.bento-app .flow-table-group { display:block; padding:16px 4px 10px; color:var(--text-secondary); }
+.bento-app .lifeline-info { width:44px; height:44px; min-width:44px; }
+.bento-app .lifeline-layout.has-adjustments { grid-template-columns:minmax(0,1fr) 340px; }
+.bento-app .lifeline-adjustments { width:340px; }
+.bento-app .lifeline-alerts { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.bento-app .lifeline-inspector dl>div,.bento-app .lifeline-breakdown dl>div { min-height:44px; padding-block:10px; }
+.bento-app .lifeline-date-controls button { min-width:44px; min-height:44px; }
+.bento-app .plan-controls .plan-slider-label { font-size:var(--type-meta); font-weight:600; }
+.bento-app .plan-controls .plan-slider-label output { display:none; }
+.bento-app .plan-controls .plan-exact { min-width:62px; }
+.bento-app .plan-control-card { border:1px solid var(--border-card); background:var(--bg-hover); border-radius:12px; }
+.bento-app .plan-control-card>summary { min-height:44px; }
+.bento-sheet-grab { display:none; }
+.bento-app .plan-sheet-handle { display:none; }
+.bento-app .plan-age-warning { margin:0 0 12px; }
+@media(max-width:767px) {
+ .bento-app main { width:calc(100% - 24px); }
+ .bento-app .picture-steps .picture-step { font-size:.75rem; padding:8px 6px; white-space:normal; }
+ .bento-module-switch { width:100%; }
+ .bento-module-switch > * { flex:1; padding:8px 10px; }
+ .bento-app .bento-outcome { flex-wrap:wrap; padding:20px; gap:14px; }
+ .bento-outcome > div { flex:1 1 100%; }
+ .bento-outcome .bento-status { align-self:flex-start; }
+ .bento-app #canvas-screen .asset-totals,.bento-app .flow-kpi-grid,.bento-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+ .bento-app .asset-totals>div:last-child,.bento-app .flow-kpi-grid>div:last-child,.bento-kpi-grid>div:last-child { grid-column:1/-1; }
+ .bento-app .asset-totals>div,.bento-app .bento-kpi:not(.bento-outcome),.bento-kpi-grid>div { padding:16px; }
+ .bento-app .asset-row { grid-template-columns:minmax(0,1fr) auto; padding:14px 12px; gap:10px; }
+ .asset-row-leading { grid-template-columns:38px minmax(0,1fr); gap:10px; }
+ .bento-app .asset-name-line .holding-name,.bento-app .asset-row-value { font-size:.88rem; }
+ .bento-app .asset-owner-pill { font-size:.7rem; }
+ .bento-app .asset-row-figures { max-width:140px; }
+ .bento-app .asset-status,.bento-app .asset-equity-pill { font-size:.72rem; }
+ .bento-app .lifeline-layout.has-adjustments { grid-template-columns:minmax(0,1fr); }
+ .bento-app .lifeline-adjustments { width:100%; left:0; right:0; bottom:0; max-height:80dvh; height:var(--sheet-height,55vh); border-radius:20px 20px 0 0; padding-bottom:env(safe-area-inset-bottom); }
+ .bento-app .plan-lifeline .lifeline-adjustments #plan-controls { height:100%; max-height:100%; border-radius:20px 20px 0 0; padding:0 16px calc(20px + env(safe-area-inset-bottom)); }
+ .bento-app .plan-sheet-handle { display:block; position:sticky; top:0; min-height:44px; margin:0 -16px; width:calc(100% + 32px); z-index:4; touch-action:none; background:white; border:0; border-radius:0; }
+ .bento-app .plan-sheet-handle::after { top:12px; border-radius:10px; }
+ .bento-app .plan-lifeline .plan-controls-heading { top:44px; margin:0; padding:8px 0; }
+ .bento-app dialog[open] { position:fixed!important; inset:auto 0 0!important; margin:0!important; width:100%!important; max-width:100%!important; max-height:90dvh!important; padding:0 20px calc(24px + env(safe-area-inset-bottom))!important; border-radius:20px 20px 0 0!important; box-sizing:border-box; overflow:auto; overscroll-behavior:contain; }
+ .bento-app .bento-sheet-grab { display:block; position:sticky; top:0; z-index:8; width:calc(100% + 40px); min-height:44px; margin:0 -20px 6px; border:0; border-radius:20px 20px 0 0; background:white; touch-action:none; }
+ .bento-sheet-grab::after { content:''; display:block; width:38px; height:5px; border-radius:10px; background:#C7C7CC; margin:auto; }
+ .bento-app dialog .icon-button,.bento-app dialog button[aria-label*="Close"] { min-width:44px; min-height:44px; }
+ .bento-app .flow-table tbody tr:not(.flow-table-group) { gap:8px; grid-template-columns:minmax(0,1fr) auto 44px; }
+}
+@media(prefers-reduced-motion:reduce) { .bento-app * { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
+
+/* Flow is money over a period; balances remain line charts. */
+.bento-app .lifeline-flow-chart { overflow-x:auto; overflow-y:hidden; max-width:100%; }
+.bento-app .lifeline-flow-chart svg { display:block; max-width:none; touch-action:pan-y; }
+.lifeline-bar.is-income,.lifeline-key-income { fill:#1F8A5B; background:#1F8A5B; }
+.lifeline-bar.is-withdrawals,.lifeline-key-withdrawals { fill:#7C5CBF; background:#7C5CBF; }
+.lifeline-bar.is-paid,.lifeline-key-paid { fill:#44444B; background:#44444B; }
+.lifeline-bar.is-unpaid { fill:url(#lifeline-unpaid-hatch); }
+.lifeline-key-unpaid { background:repeating-linear-gradient(135deg,#FF3B30 0 3px,#FFADAA 3px 4px); }
+.lifeline-bar.is-current { fill:#007AFF; }.lifeline-bar.is-baseline { fill:#AEB6C3; }.lifeline-bar.is-scenario { fill:#C58B3B; }
+.lifeline-selection-band { fill:#007AFF; opacity:.09; pointer-events:none; }
+.lifeline-shortfall-band { fill:#FF3B30; opacity:.07; pointer-events:none; }
+.lifeline-chart-flag { cursor:pointer; outline-offset:3px; }
+.lifeline-chart-flag line { stroke:#CC6600; stroke-dasharray:3 4; opacity:.5; }
+.lifeline-chart-flag circle { fill:#FFF4E5; stroke:#CC6600; }.lifeline-chart-flag text { fill:#A54F00; font-size:12px; font-weight:700; }
+.lifeline-chart-flag.is-gap circle,.lifeline-chart-flag.is-exhausted circle { fill:#FFECEB; stroke:#FF3B30; }.lifeline-chart-flag.is-gap text,.lifeline-chart-flag.is-exhausted text { fill:#B3231A; }
+.bento-app .lifeline-turning-points { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 20px; }
+.bento-app .lifeline-turning-point { display:flex; flex-direction:column; align-items:flex-start; gap:3px; padding:10px 12px; background:#FFF4E5; color:#A54F00; border:1px solid transparent; border-radius:10px; font-size:.8rem; text-align:left; }
+.bento-app .lifeline-turning-point strong { font-size:.95rem; }.bento-app .lifeline-turning-point.is-gap,.bento-app .lifeline-turning-point.is-exhausted { background:#FFECEB; color:#B3231A; }
+.lifeline-period-status { display:inline-block; padding:8px 12px; border-radius:10px; background:#E6F5EE; color:#176943; font-size:.95rem; font-weight:600; }
+.lifeline-period-status.is-assets { background:#F1ECFA; color:#6744A8; }.lifeline-period-status.is-shortfall { background:#FFECEB; color:#B3231A; }
+.lifeline-event-cash,.lifeline-event-depleted { border-left:3px solid #CC6600; }.lifeline-event-exhausted { border-left:3px solid #FF3B30; }
+@media(max-width:767px){.bento-app .lifeline-turning-point { flex:1 1 125px; }.bento-app .lifeline-legend { gap:10px; }.bento-app .lifeline-cash-legend { display:grid; grid-template-columns:1fr 1fr; }}
+.bento-app .lifeline-cash-legend i { width:12px; height:12px; border:0; border-radius:3px; flex-shrink:0; }
+.bento-app #lifeline-cashflow.is-preview dd { grid-template-columns:1fr; gap:4px; }
+.bento-app .lifeline-cash-legend { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:10px 0; }
+.bento-app .lifeline-cash-legend>div { display:flex; flex-direction:column; gap:6px; }
+.bento-app .lifeline-cash-legend strong { font-size:.8rem; color:var(--text-primary); font-weight:600; }
+.bento-app .lifeline-cash-legend span { display:flex; align-items:center; gap:7px; }

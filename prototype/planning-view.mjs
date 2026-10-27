@@ -1,4 +1,5 @@
 import {outlookParameters,sameOutlookParameter,baselineOutlookScenario} from './outlook-parameters.mjs?v=20261025outlook1';
+import {retirementControlBounds} from './financial-ui-checks.mjs?v=20261027bento1';
 import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261024persona1';
 import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from './grouped-number-input.mjs?v=20261022grouped1';
@@ -154,6 +155,7 @@ export function mountPlanning(root,getInputs) {
   toolbar.append(method);
   const sheetBackdrop=el('div','plan-sheet-backdrop');sheetBackdrop.setAttribute('aria-hidden','true');root.append(sheetBackdrop);
   const sheet=$('plan-controls'),handle=root.querySelector('.plan-sheet-handle');
+  const ageWarning=el('p','bento-warning plan-age-warning');ageWarning.id='plan-age-warning';ageWarning.setAttribute('role','alert');ageWarning.hidden=true;sheet.querySelector('.plan-controls-heading').after(ageWarning);
   function syncSheetSemantics(){const modal=!integration && matchMedia('(max-width:767px)').matches && root.classList.contains('plan-controls-open');if(modal){sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','Your scenario');sheet.setAttribute('aria-modal','true');}else{sheet.removeAttribute('role');sheet.removeAttribute('aria-modal');}}
   $('plan-sheet-close').addEventListener('click',()=>$('plan-adjust').click());sheetBackdrop.addEventListener('click',()=>$('plan-adjust').click());
   root.addEventListener('keydown',event=>{
@@ -165,10 +167,10 @@ export function mountPlanning(root,getInputs) {
     if(event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
   });
   let drag=null;
-  function setSheetHeight(percent){const next=Math.max(35,Math.min(80,percent));sheet.style.setProperty('--sheet-height',`${next}vh`);handle.setAttribute('aria-valuenow',String(Math.round(next)));}
+  function setSheetHeight(percent){const next=Math.max(35,Math.min(80,percent));sheet.style.setProperty('--sheet-height',`${next}vh`);integration?.aside.style.setProperty('--sheet-height',`${next}vh`);handle.setAttribute('aria-valuenow',String(Math.round(next)));}
   handle.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={y:event.clientY,height:sheet.getBoundingClientRect().height};handle.setPointerCapture(event.pointerId);});
   handle.addEventListener('pointermove',event=>{if(drag)setSheetHeight((drag.height+drag.y-event.clientY)/innerHeight*100);});
-  for(const event of ['pointerup','pointercancel'])handle.addEventListener(event,()=>{drag=null;});
+  for(const type of ['pointerup','pointercancel'])handle.addEventListener(type,event=>{if(type==='pointerup'&&drag&&event.clientY-drag.y>120){if(integration)setAdjustmentsOpen(false);else $('plan-adjust').click();}drag=null;});
   handle.addEventListener('keydown',event=>{if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;event.preventDefault();const current=Number(handle.getAttribute('aria-valuenow'));setSheetHeight(event.key==='Home' ? 35 : event.key==='End' ? 80 : current+(event.key==='ArrowUp' ? 5 : -5));});
   window.addEventListener('resize',syncSheetSemantics);
   $('plan-growth-slot').append(growthPanel);
@@ -198,7 +200,7 @@ export function mountPlanning(root,getInputs) {
     const label=el('label','plan-slider');label.htmlFor=id;
     const line=el('span','plan-slider-label',title),out=el('output','',`${value}${suffix}`);out.htmlFor=id;line.append(out);
     const input=el('input');input.id=id;input.type='range';input.min=min;input.max=max;input.step=suffix==='%' ? '.1' : '1';input.value=value;
-    input.addEventListener('input',()=>{out.textContent=`${input.value}${suffix}`;if(label.querySelector('.plan-exact'))label.querySelector('.plan-exact').value=input.value;callback(Number(input.value));refresh();});const exact=el('input','plan-exact');exact.type='number';exact.min=min;exact.max=max;exact.step=input.step;exact.value=value;exact.setAttribute('aria-label',`${title}: exact value${suffix ? ` (${suffix.trim()})` : ''}`);exact.addEventListener('input',()=>{if(exact.value==='' || !exact.checkValidity())return;const next=Number(exact.value);input.value=next;out.textContent=`${next}${suffix}`;callback(next);refresh();});input.addEventListener('input',()=>{exact.value=input.value;});label.append(line,input,exact);target.append(label);
+    input.addEventListener('input',()=>{out.textContent=`${input.value}${suffix}`;if(label.querySelector('.plan-exact'))label.querySelector('.plan-exact').value=input.value;callback(Number(input.value));refresh();});const exact=el('input','plan-exact');exact.type='number';exact.min=min;exact.max=max;exact.step=input.step;exact.value=value;exact.setAttribute('aria-label',`${title}: exact value${suffix ? ` (${suffix.trim()})` : ''}`);exact.addEventListener('input',()=>{if(exact.value==='' || !exact.checkValidity()){exact.setAttribute('aria-invalid','true');if(id.startsWith('plan-retire-')||id==='plan-horizon-slider'){ageWarning.textContent=`Enter a value from ${exact.min} to ${exact.max}; retirement must be after your current age and before the horizon.`;ageWarning.hidden=false;}return;}exact.removeAttribute('aria-invalid');const next=Number(exact.value);input.value=next;out.textContent=`${next}${suffix}`;callback(next);refresh();});input.addEventListener('input',()=>{exact.value=input.value;});label.append(line,input,exact);target.append(label);
   }
   function buildControls(flow,holdings) {
     scenario.retirementYears=resolveRetirementYears(flow,holdings,scenario.retirementYears);
@@ -215,7 +217,8 @@ export function mountPlanning(root,getInputs) {
       // The engine's approximate birth month is the opening month. A final pay
       // month before that anniversary belongs to the previous age.
       const ageOffset=Number(flow.pay[owner].endDate?.slice(5) || 12)<Number(startMonth.slice(5)) ? 1 : 0;
-      slider($('plan-retirement'),`plan-retire-${owner}`,knownAge ? `${name} retirement age` : `${name} final working year`,knownAge ? age-1 : startYear-1,knownAge ? age+45 : startYear+45,knownAge ? age+year-startYear-ageOffset : year,value=>scenario.retirementYears[owner]=knownAge ? startYear+value-age+ageOffset : value);
+      const bounds=retirementControlBounds(flow,holdings,scenario,owner);
+      slider($('plan-retirement'),`plan-retire-${owner}`,knownAge ? `${name} retirement age` : `${name} final working year`,bounds.min,bounds.max,knownAge ? age+year-startYear-ageOffset : year,value=>scenario.retirementYears[owner]=knownAge ? startYear+value-age+ageOffset : value);
       $(`plan-retire-${owner}`).dataset.retirementBasis=knownAge ? 'age' : 'year';
       if(knownAge){const yearHint=el('small','plan-timing-year',` · ${year}`);yearHint.id=`plan-retirement-year-${owner}`;$(`plan-retire-${owner}`).closest('label').querySelector('.plan-slider-label').append(yearHint);}
       const timing=el('p','plan-retirement-date');timing.id=`plan-retirement-date-${owner}`;$('plan-retirement').append(timing);
@@ -533,6 +536,11 @@ export function mountPlanning(root,getInputs) {
       $('plan-horizon-year').textContent=` · ${projection.endMonth.slice(0,4)}`;$('plan-horizon-year').title=`Plan ends ${monthLabel(projection.endMonth)}`;
       const baseHousehold=Object.values(flow.spending).reduce((sum,value)=>sum+value,0)+(flow.customSpending || []).reduce((sum,item)=>sum+item.amount,0);
       $('plan-spending-budget').textContent=`Now: ${currency(baseHousehold)}/month · today’s money`;
+      const bounds=(holdings.partnerName?['primary','partner']:['primary']).map(owner=>({owner,...retirementControlBounds(flow,holdings,scenario,owner)}));
+      const issues=bounds.filter(b=>b.issue);ageWarning.hidden=!issues.length;ageWarning.textContent=issues.map(b=>`${b.owner==='primary'?(holdings.name||'You'):holdings.partnerName}: ${b.issue}`).join(' ');
+      for(const b of bounds){const range=$(`plan-retire-${b.owner}`),exact=range?.closest('label').querySelector('.plan-exact');if(range&&exact){range.min=b.min;range.max=b.max;exact.min=b.min;exact.max=b.max;}}
+      const horizon=$('plan-horizon-slider'),horizonExact=horizon.closest('label').querySelector('.plan-exact');if(scenario.planToAge!=null){const min=Math.max(70,...bounds.filter(b=>b.retirementAge!=null).map(b=>b.retirementAge+1));horizon.min=min;horizonExact.min=min;}
+
       const realPay=((1+projection.assumptions.incomeGrowth/100)/(1+projection.assumptions.inflation/100)-1)*100;
       $('plan-real-growth').textContent=`Pay/rent: ${projection.assumptions.incomeGrowth}% nominal → ${Math.abs(realPay)<.005 ? 0 : realPay.toFixed(1)}% real at ${projection.assumptions.inflation}% inflation, before tax. Tax thresholds stay fixed.`;
       if($('plan-payoff-summary')){
@@ -669,7 +677,7 @@ export function mountPlanning(root,getInputs) {
     controls.querySelector('.plan-controls-heading h2').textContent='Adjust outlook';
     const referenceLabel=el('p','lifeline-adjustment-reference');referenceLabel.id='lifeline-adjustment-reference';const count=el('p','lifeline-adjustment-count');count.id='lifeline-adjustment-count';count.setAttribute('aria-live','polite');actionRow.after(referenceLabel,count);
     integration={layout,main,aside,tools,reference:null,referenceLabel,count};
-    controls.querySelector('.plan-sheet-handle').hidden=true;syncSheetSemantics();
+    controls.querySelector('.plan-sheet-handle').hidden=false;syncSheetSemantics();
     tools.addEventListener('toggle',()=>{if(tools.open&&projection)renderComparison(getInputs().holdings);});
   }
   return {refresh,snapshot,restore,applyScenario,undoScenario,saveScenario,integrateLifeline,updateReference,openAdjustments:()=>setAdjustmentsOpen(true),exportLedger:()=>{const original=real;real=false;try{exportCalculations();}finally{real=original;}}};

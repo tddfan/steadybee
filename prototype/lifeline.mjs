@@ -2,11 +2,13 @@
 import {projectPlan} from './planning.mjs?v=20261024persona1';
 import {resolveRetirementYears} from './planning-retirement.mjs?v=20261024persona1';
 import {activeBaseline,baselineMonths,validBaselineDate} from './baseline-history.mjs?v=20261025baseline1';
-import {activeTrackingEntries,trackingMonthOffset} from './tracking.mjs?v=20261025tracking1';
+import {activeTrackingEntries,trackingMonthOffset,rewindTrackedInputs,applyTrackedBalances} from './tracking.mjs?v=20261025tracking1';
 import {eligibleWithdrawalBucket} from './withdrawals.mjs?v=20261024persona1';
 
-export const LIFELINE_METRICS=Object.freeze({netWorth:{title:'Net assets',stock:true},accessible:{title:'Accessible investments',stock:true},assets:{title:'Assets',stock:true},debts:{title:'Debt',stock:true},income:{title:'Income after tax',stock:false},funding:{title:'Income & funding',stock:false},saving:{title:'New savings',stock:false},spending:{title:'Spending',stock:false},tax:{title:'Tax & NI',stock:false}});
-export const LIFELINE_DEFAULTS=Object.freeze({version:1,view:'life',metric:'netWorth',real:true,yearBasis:'calendar',selectedMonth:null,selectedDate:null,baselineId:null});
+import {lifelineTurningPoints} from './lifeline-health.mjs?v=20261027cashflow1';
+
+export const LIFELINE_METRICS=Object.freeze({netWorth:{title:'Net assets',stock:true},accessible:{title:'Accessible investments',stock:true},assets:{title:'Assets',stock:true},debts:{title:'Debt',stock:true},income:{title:'Income after tax',stock:false},funding:{title:'Money in & out',stock:false},saving:{title:'New savings',stock:false},spending:{title:'Spending',stock:false},tax:{title:'Tax & NI',stock:false}});
+export const LIFELINE_DEFAULTS=Object.freeze({version:1,view:'life',metric:'funding',real:true,yearBasis:'calendar',selectedMonth:null,selectedDate:null,baselineId:null});
 const validMonth=m=>typeof m==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(m);
 const round=n=>Math.round(n*100)/100;
 export const shiftLifelineMonth=(m,n)=>{const [y,month]=m.split('-').map(Number);return new Date(Date.UTC(y,month-1+n,1)).toISOString().slice(0,7);};
@@ -51,6 +53,23 @@ export function lifelineSeries(months,{view='life',metric='netWorth',real=true,b
   const values=rows.map(r=>lifelineValue(r,basis)),valid=values.every(v=>v!==null);
   return {key,startMonth:rows[0].month,endMonth:rows.at(-1).month,date:lifelineMonthEnd(rows.at(-1).month),months:rows.length,estimated:true,value:valid?round(LIFELINE_METRICS[metric].stock?values.at(-1):values.reduce((a,b)=>a+b,0)):null,rows};
  });
+}
+/** Sum each monthly component independently: annual surpluses cannot cancel unpaid months. */
+export function lifelineCashflowSeries(months,options={}){
+ const {view='life',...basis}=options,groups=new Map();
+ for(const r of months){const key=view==='life'?r.month.slice(0,4):r.month;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+ return [...groups].map(([key,rows])=>{
+  const sum=fn=>round(rows.reduce((s,r)=>s+lifelineMoney(fn(r),r.month,basis),0));
+  return {key,startMonth:rows[0].month,endMonth:rows.at(-1).month,months:rows.length,rows,
+   income:sum(r=>r.incomeTotal),withdrawals:sum(r=>r.withdrawalNet),moneyIn:sum(r=>r.incomeTotal+r.withdrawalNet),
+   costs:sum(r=>r.spendingTotal),paid:sum(r=>Math.max(0,r.spendingTotal-r.unfunded)),shortfall:sum(r=>r.unfunded),
+   shortMonths:rows.filter(r=>r.unfunded>.01).length,saved:sum(r=>Math.max(0,r.remainder))};
+ });
+}
+export function lifelinePeriodStatus(rows){
+ if(rows.some(r=>r.unfunded>.01))return {kind:'shortfall',label:'Some costs unpaid'};
+ if(rows.some(r=>r.withdrawalNet>.01))return {kind:'assets',label:'Covered using assets'};
+ return {kind:'income',label:'Covered by income'};
 }
 function totals(rows,basis){
  if(!rows.length)return null;const closing=rows.at(-1),result={startMonth:rows[0].month,endMonth:closing.month,months:rows.length,rows,estimated:true,taxIncomplete:rows.some(r=>r.taxIncomplete)};
@@ -97,7 +116,8 @@ function lifelineEvents(model){
  }
  for(const entry of picture.flow.datedEntries||[])if(entry.startMonth)add({id:`scheduled-${entry.id}`,date:`${entry.startMonth}-01`,label:entry.label,kind:'scheduled',precision:'month',detail:entry.frequency==='once'?'One-off, in the scheduled month':'Scheduled recurring income or spending starts'});
  for(let i=1;i<current.months.length;i++)for(const debt of current.months[i].estateDebts||[])if(debt.balance===0&&(current.months[i-1].estateDebts||[]).some(d=>d.id===debt.id&&d.balance>0)&&!events.some(e=>e.kind==='recorded'&&e.date.startsWith(current.months[i].month)&&e.record.changes.some(c=>c.target.kind==='debt'&&c.target.id===debt.id)))add({id:`paid-${debt.id}-${current.months[i].month}`,date:lifelineMonthEnd(current.months[i].month),label:`${debt.label||'Debt'} paid off`,kind:'debt',precision:'month',detail:'Modelled repayment completion'});
- if(current.firstUnfundedMonth)add({id:'first-gap',date:`${current.firstUnfundedMonth}-01`,label:'First spending gap',kind:'gap',precision:'month',detail:'Modelled spending is not fully funded under these assumptions'});
+ const opening=rewindTrackedInputs(picture.flow,picture.holdings).holdings;if(picture.flow.tracking)applyTrackedBalances(opening,picture.flow.tracking,current.startMonth,{beforeStart:true});
+ for(const event of lifelineTurningPoints(current,opening))add(event);
  if(current.stressTest?.month)add({id:'stress',date:`${current.stressTest.month}-01`,label:'Market shock test',kind:'scheduled',precision:'month',detail:'The active stress-test assumption, not an actual market event'});
  for(let year=Number(model.startMonth.slice(0,4));year<=Number(model.endMonth.slice(0,4));year++)add({id:`tax-year-${year}`,date:`${year}-04-06`,label:`UK tax year ${year}/${String(year+1).slice(-2)}`,kind:'taxYear',precision:'day',detail:'The monthly tax model groups April–March; it does not split April at 6 April'});
  return events.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));

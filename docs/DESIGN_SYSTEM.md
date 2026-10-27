@@ -1,5 +1,17 @@
 # Steadybee — Design System
 
+## Current prototype contract · 27 October 2026
+
+The approved Apple Health / Copilot Money Bento specification is implemented through `prototype/bento-system.css`. Main sections are Assets & debt, Income & spending and Planning. Planning has a separate raised segmented switch for Lifeline and Goals & insights; owner/category filters remain pills. The saved routes and the default Lifeline journey stay supported.
+
+Use a #F2F2F7 canvas, white 18px Bento cards and 10px controls. Primary blue is #007AFF; liquid assets use #1F8A5B, pensions #7C5CBF, property #C58B3B, liabilities #FF3B30 and review warnings #CC6600. User ownership must not recolour an asset-category icon. Numeric values always use tabular numerals.
+
+Follow outcome → three driver KPIs → unified chart workspace → grouped item lists. The five-tier scale is hero `clamp(1.85rem,3vw,2.5rem)`, KPI `clamp(1.3rem,2vw,1.65rem)`, card heading 1.15rem, row .95rem and metadata .8rem on the 18px root. This latest user-approved metadata scale supersedes the older minimum-size guidance below; primary prose and controls remain readable and targets are at least 44px.
+
+At widths below 768px, dialogs become bottom sheets with swipe-to-close handles and a keyboard close option. The 340px desktop scenario inspector becomes a resizable, swipeable bottom sheet. Respect safe areas and reduced motion. Currency values are grouped while typing; debts and expenses derive their display sign from category and are stored as positive amounts.
+
+Access-gap warnings reuse the drawdown engine's eligibility rules and actual projected shortfalls. Future retirement inputs require a retirement age above current age and below an explicitly chosen horizon age. Past retirement records remain valid and are never rewritten to satisfy an input control.
+
 The job of the UI is **trust and clarity**, for an anxious 45–70 audience trusting us with their life
 savings. Calm beats flashy. (Summary lives in [CLAUDE.md](../CLAUDE.md).)
 

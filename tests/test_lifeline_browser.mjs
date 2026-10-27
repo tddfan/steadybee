@@ -58,7 +58,7 @@ async function seedLifeline(){
 test('default Lifeline compares frozen references, drills into dates, exports and retains existing tools',async()=>{
  const f=await seedLifeline(),p=await page(f.userId);
  await p.goto(`${origin}/app.html?fixture_user=${f.userId}`);await p.waitForFunction(()=>document.querySelector('#picture-save-status').textContent.includes('Default household'));
- assert.equal(new URL(p.url()).hash,'#lifeline');await p.locator('#lifeline-chart svg').waitFor();assert.equal(await p.locator('#lifeline-error').isVisible(),false);
+ assert.equal(new URL(p.url()).hash,'#lifeline');await p.locator('#lifeline-chart svg').waitFor();assert.equal(await p.locator('#lifeline-metric').inputValue(),'funding');assert.equal(await p.locator('#lifeline-error').isVisible(),false);
  assert.equal(await p.locator('#lifeline-planning-tools').count(),0);assert.equal(await p.locator('#plan-chart').isVisible(),false);assert.equal(await p.locator('#plan-saved-scenarios').isVisible(),true);
  await p.locator('#lifeline-reference').selectOption('lifeline-v1');const current=await p.locator('.lifeline-kpi strong').allTextContents();
  await p.locator('#lifeline-reference').selectOption('lifeline-v2');assert.deepEqual(await p.locator('.lifeline-kpi strong').allTextContents(),current);
@@ -112,4 +112,25 @@ test('old Planning route opens Lifeline and public example stays distinct from a
  const f=await seedLifeline(),p=await page(f.userId,1280,true);await p.goto(`${origin}/app.html?fixture_user=${f.userId}&example=1#planning`);await p.locator('#lifeline-chart svg').waitFor();
  assert.equal(new URL(p.url()).hash,'#lifeline');assert.match(await p.locator('#lifeline-reference-note').innerText(),/Fictional example/);assert.equal(await p.locator('#lifeline-baseline').isVisible(),false);
  assert.equal(await p.locator('#lifeline-reference option').count(),1);await p.close();
+});
+test('cash-flow bars distinguish income, asset use and unpaid costs on desktop and 375px',async()=>{
+ const f=await seed(),picture=f.picture;
+ picture.holdings.assets=[{id:'cash-test',kind:'cash',label:'Reserve',owner:'primary',value:1000}];picture.holdings.debts=[];
+ for(const pay of Object.values(picture.flow.pay)){pay.annualGross=0;pay.annualTakeHome=0;pay.annualBonus=0;pay.employeePension=0;pay.employeePensionRate=0;pay.employerPension=0;pay.employerPensionRate=0;}
+ for(const key of Object.keys(picture.flow.income))picture.flow.income[key]=0;
+ picture.flow.statePensions={};picture.flow.datedEntries=[];picture.flow.customSpending=[];
+ picture.planning.scenario={years:3,retirementYears:{primary:2049,partner:2051}};
+ picture.lifeline={version:1,view:'life',metric:'income',real:true,yearBasis:'calendar',selectedMonth:'2026-10',selectedDate:'2026-10-31',baselineId:null};
+ await query({op:'update',filters:[['id',f.id]],value:{picture}});
+ const p=await page(f.userId);await p.locator('#assets-to-planning').click();await p.locator('.lifeline-bar.is-unpaid').first().waitFor();
+ assert.equal(await p.locator('#lifeline-metric').inputValue(),'funding');assert.equal(await p.locator('#lifeline-metric option[value=income]').count(),0);
+ assert.match(await p.locator('#lifeline-outcome-label').innerText(),/First unpaid cost/);
+ assert.ok(await p.locator('.lifeline-bar.is-withdrawals').count()>0);assert.ok(await p.locator('.lifeline-chart-flag.is-gap').count()>0);
+ await p.locator('.lifeline-turning-point.is-gap').click();assert.equal(await p.locator('[data-lifeline-view=year]').getAttribute('aria-pressed'),'true');assert.match(await p.locator('#lifeline-period-status').innerText(),/Some costs unpaid/);
+ await p.screenshot({path:'test-artifacts/lifeline-cashflow-desktop.png',fullPage:true});
+ await p.setViewportSize({width:375,height:900});await p.locator('[data-lifeline-view=life]').click();assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await p.screenshot({path:'test-artifacts/lifeline-cashflow-mobile.png',fullPage:true});
+ await p.locator('.lifeline-chart-flag.is-gap').focus();await p.keyboard.press('Enter');assert.equal(await p.locator('[data-lifeline-view=year]').getAttribute('aria-pressed'),'true');
+ await p.locator('#lifeline-metric').selectOption('netWorth');await p.locator('.lifeline-line-current').first().waitFor({state:'attached'});assert.equal(await p.locator('.lifeline-cash-legend').isVisible(),false);assert.equal(await p.locator('#lifeline-error').isVisible(),false);
+ await p.close();
 });

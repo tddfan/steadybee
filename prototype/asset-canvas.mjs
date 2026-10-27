@@ -24,6 +24,8 @@ import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
+import {assetTone,WEALTH_COLORS} from './financial-ui-checks.mjs?v=20261027bento1';
+import {mountBentoErgonomics} from './bento-ergonomics.mjs?v=20261027bento1';
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -79,10 +81,11 @@ function setTotals() {
   $("asset-count").textContent = `${draft.assets.length} ${draft.assets.length===1 ? "asset" : "assets"} entered`;
   $("debt-count").textContent = `${draft.debts.length} ${draft.debts.length===1 && draft.debts[0].kind==="mortgage" ? "mortgage" : draft.debts.length===1 ? "debt" : "debts"}`;
   $("accessible-caption").textContent = draft.assets.some(asset=>!["cash","isa"].includes(asset.kind) && accessBucket(asset)==="accessible") ? "Confirmed-access assets" : "Cash & ISAs";
+  const review=draft.assets.filter(asset=>accessBucket(asset)==='review').length,status=$('asset-outcome-status');status.textContent=summary.netWorth<0?'Debt exceeds assets':review?`${review} access detail${review===1?'':'s'} to review`:'Your current position';status.className=`bento-status${summary.netWorth<0?' is-shortfall':review?' is-warning':''}`;
   return summary;
 }
 
-const chartColours = ["#1F7A68", "#7C5CBF", "#C58B3B", "#007AFF", "#60A894", "#A18BCD", "#8E8E93", "#CC6600"];
+const chartColours = ["#1F8A5B", "#7C5CBF", "#C58B3B", "#007AFF", "#60A894", "#A18BCD", "#8E8E93", "#CC6600"];
 const chartViews = {
   owner: { title: "Assets by person", context: "Select a category to view its assets." },
   type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
@@ -90,6 +93,7 @@ const chartViews = {
 };
 const accessLabels = { accessible: "Generally accessible", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm" };
 const share = (value, total) => `${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value / total * 100)}%`;
+function groupColour(group,index){return chartView==='owner'?chartColours[index%chartColours.length]:chartView==='access'?({accessible:WEALTH_COLORS.liquid,pension:WEALTH_COLORS.locked,illiquid:WEALTH_COLORS.property,review:WEALTH_COLORS.warning})[group.key]:WEALTH_COLORS[assetTone(group.key)];}
 
 function chartGroups(summary) {
   if (chartView === "owner") return ["primary", "partner", "shared"]
@@ -126,7 +130,7 @@ function renderChart(summary) {
     const fraction = group.value / summary.assetTotal;
     const segment = document.createElementNS(ns, "circle");
     segment.setAttribute("cx", "120"); segment.setAttribute("cy", "120"); segment.setAttribute("r", "88");
-    segment.setAttribute("fill", "none"); segment.setAttribute("stroke", chartColours[index % chartColours.length]);
+    segment.setAttribute("fill", "none"); segment.setAttribute("stroke", groupColour(group,index));
     segment.setAttribute("stroke-width", chartSelection === group.key ? "37" : "30");
     segment.setAttribute("stroke-dasharray", `${Math.max(0, fraction * circumference - 2)} ${circumference}`);
     segment.setAttribute("stroke-dashoffset", String(-offset * circumference));
@@ -149,7 +153,7 @@ function renderChart(summary) {
     const button = make("button", "chart-category");
     button.type = "button"; button.dataset.chartKey = group.key;
     button.setAttribute("aria-pressed", String(chartSelection === group.key));
-    const swatch = make("span", "chart-swatch"); swatch.style.background = chartColours[index % chartColours.length];
+    const swatch = make("span", "chart-swatch"); swatch.style.background = groupColour(group,index);
     button.append(swatch, make("span", "chart-category-name", group.label), make("strong", "", money(group.value)), make("small", "", `${share(group.value, summary.assetTotal)} of assets →`));
     list.append(button);
   }
@@ -291,6 +295,7 @@ function renderOrbit(summary) {
       const access=type==='debt' ? (linkedAsset ? itemName(linkedAsset,ASSET_TYPES) : 'Debt') : item.kind==='dc-pension' ? (item.pensionAccessAge ? `Age ${item.pensionAccessAge}+` : '55 → 57') : ({accessible:'Available',pension:'Pension',illiquid:'Needs sale',review:'Check access'})[accessBucket(item)];
       const review=type==='asset' && needsAccessReview(item);
       const row=make('button',`holding-row asset-row owner-${owner}${type==='debt' ? ' is-debt' : ''}`);row.type='button';row.dataset.orbitType=type;row.dataset.orbitId=item.id;
+      row.dataset.wealth=assetTone(item.kind,type==='debt');
       row.setAttribute('aria-label',`Edit ${ownerName(owner)} ${itemName(item,types)}, ${money(value)}${review ? `, ${access}` : ''}${item.confidence==='review' ? ', review value' : ''}`);
       const pictogram=make('span','asset-icon');pictogram.setAttribute('aria-hidden','true');pictogram.append(icon(item.kind));
       const content=make('span','asset-row-content'),nameLine=make('span','asset-name-line');nameLine.append(make('strong','holding-name',itemName(item,types)));
@@ -299,7 +304,7 @@ function renderOrbit(summary) {
       if(linkedDebts.length){const balance=linkedDebts.reduce((sum,debt)=>sum+debt.balance,0);content.append(make('span','asset-equity-pill',`${linkedDebts.length===1 && linkedDebts[0].kind==='mortgage' ? 'Linked mortgage' : 'Linked debt'}: −${money(balance)} → ${money(item.value-balance)} net equity`));}
       const figures=make('span','asset-row-figures');figures.append(make('strong','asset-row-value',`${type==='debt' ? '−' : ''}${money(value)}`),make('span',`asset-status ${review ? 'is-warning' : access==='Available' ? 'is-available' : 'is-neutral'}`,`${review ? '⚠ ' : ''}${access}`));
       if(item.confidence==='review')figures.append(make('span','asset-status is-warning','⚠ Review value'));
-      const chevron=make('span','row-chevron','›');chevron.setAttribute('aria-hidden','true');row.append(pictogram,content,figures,chevron);
+      const chevron=make('span','row-chevron','›');chevron.setAttribute('aria-hidden','true');const leading=make('span','asset-row-leading');leading.append(pictogram,content);row.append(leading,figures,chevron);
       const listItem=make('div','asset-list-item');listItem.setAttribute('role','listitem');listItem.append(row);list.append(listItem);
     }
     section.append(heading,list);container.append(section);
@@ -312,6 +317,7 @@ function render() {
   const hasItems = draft.assets.length + draft.debts.length > 0;
   $("first-piece").hidden = hasItems || mode === "example";
   document.querySelector(".constellation-centre").hidden = !hasItems && mode !== "example";
+  $('asset-outcome').hidden=!hasItems&&mode!=='example';
   document.querySelector(".explore-panel").hidden = draft.assets.length === 0 && mode !== "example";
   document.querySelector(".people-panel").hidden = !hasItems && mode !== "example";
   document.querySelector(".snapshot-caveat").hidden = !hasItems && mode !== "example";
@@ -329,11 +335,11 @@ function render() {
 }
 
 const flowColors = {
-  primaryPay:'#1F7A68',partnerPay:'#7C5CBF',pensionIncome:'#7C5CBF',otherIncome:'#C58B3B',
+  primaryPay:'#1F8A5B',partnerPay:'#1F8A5B',pensionIncome:'#7C5CBF',otherIncome:'#C58B3B',
   homeBills:'#C58B3B',everyday:'#C58B3B',transport:'#C58B3B',lifestyle:'#C58B3B',other:'#8E8E93',
-  rent:'#C58B3B',mortgage:'#FF3B30',datedIncome:'#1F7A68',datedSpending:'#FF3B30',
-  tax:'#FF3B30',nationalInsurance:'#FF3B30',pensionContribution:'#7C5CBF',saving:'#1F7A68',
-  unallocated:'#8E8E93',gap:'#FF3B30','cash-reserve':'#1F7A68','isa-primary':'#1F7A68','isa-partner':'#7C5CBF',trading:'#C58B3B'
+  rent:'#C58B3B',mortgage:'#FF3B30',datedIncome:'#1F8A5B',datedSpending:'#FF3B30',
+  tax:'#FF3B30',nationalInsurance:'#FF3B30',pensionContribution:'#7C5CBF',saving:'#1F8A5B',
+  unallocated:'#CC6600',gap:'#FF3B30','cash-reserve':'#1F8A5B','isa-primary':'#1F8A5B','isa-partner':'#1F8A5B',trading:'#1F8A5B'
 };
 const svgNS = "http://www.w3.org/2000/svg";
 function svgElement(tag, attributes = {}) {
@@ -343,7 +349,7 @@ function svgElement(tag, attributes = {}) {
 }
 function flowColor(item) {
   if (["mortgage", "datedSpending", "spending"].includes(item.kind)) return "#FF3B30";
-  if(item.kind==="saving")return item.key?.startsWith("partner") || item.owner==="partner" ? "#7C5CBF" : "#1F7A68";
+  if(item.kind==="saving")return "#1F8A5B";
   return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#8E8E93";
 }
 function flowIconPath(item) {
@@ -767,6 +773,7 @@ function renderDatedEntries(summary) {
     const column = make("section","flow-entry-column"); column.append(make("h3","",title));
     for (const item of items) {
       const row = make("button","flow-entry-row"); row.type="button";
+      row.dataset.direction=side==='spending'?'out':'in';
       if(item.key.startsWith("entry:"))row.dataset.flowScheduleEntry=item.key.slice(6);
       const compactName=item.key==='primaryPay' ? `${draft.name || 'Your'} take-home` : item.key==='partnerPay' ? `${draft.partnerName || 'Partner'} take-home` : item.label.replace(/ estimated payment$/, '');
       const name=make("span","flow-entry-name",compactName);name.title=item.label;
@@ -774,7 +781,7 @@ function renderDatedEntries(summary) {
       const dated=summary.entryDetails.find((entry)=>`entry:${entry.id}`===item.key);
       if(dated) name.append(make("small","",`${dated.startMonth ? `From ${flowMonthLabel(dated.startMonth)}` : "Already started"}${dated.endMonth ? ` · until ${flowMonthLabel(dated.endMonth)}` : " · ongoing"}`));
       row.setAttribute("aria-label",`Edit ${item.label}, ${money(item.amount)}`);
-      row.append(name,make("span","flow-entry-money",money(item.amount)),make("span","flow-entry-arrow","›"));
+      row.append(name,make("span","flow-entry-money",`${side==='spending'?'−':''}${money(item.amount)}`),make("span","flow-entry-arrow","›"));
       row.addEventListener("click",()=>editFlowEntry(item,side)); column.append(row);
     }
     if (!items.length) column.append(make("p","flow-entry-empty",`No ${title.toLowerCase()} yet.`));
@@ -891,6 +898,10 @@ function renderFlow() {
   $("flow-kpi-deductions").textContent=`${deductions ? '−' : ''}${money(deductions)}`;$("flow-kpi-spending").textContent=`${summary.spendingTotal ? '−' : ''}${money(summary.spendingTotal)}`;
   $("flow-kpi-saving").textContent=`${summary.remainder>0 ? '+' : summary.remainder<0 ? '−' : ''}${money(Math.abs(summary.remainder))}`;$("flow-kpi-saving-label").textContent=summary.remainder<0 ? 'Monthly shortfall' : 'Monthly savings surplus';
   $("flow-kpi-saving").closest('.bento-kpi').classList.toggle('is-shortfall',summary.remainder<0);$("flow-kpis").hidden=!summary.hasEntries;
+  const flowStatus=$('flow-outcome-status');flowStatus.textContent=!summary.hasEntries?'Add income and spending':summary.remainder<0?'Costs exceed entered income':'Income covers entered costs';flowStatus.className=`bento-status${!summary.hasEntries?'':summary.remainder<0?' is-shortfall':' is-covered'}`;
+  let financialFlags=$('flow-financial-flags');if(!financialFlags){financialFlags=make('div','bento-financial-flags');financialFlags.id='flow-financial-flags';$('flow-kpis').after(financialFlags);}financialFlags.replaceChildren();
+  if(summary.remainder>0&&!plan.enabled){const button=make('button','bento-warning',`Unallocated cash · ${money(summary.remainder)}/month`);button.type='button';button.title='No saving route is selected. No transfer is made by this app.';button.addEventListener('click',()=>$('flow-allocation-panel').scrollIntoView({block:'start',behavior:'smooth'}));financialFlags.append(button);}
+  financialFlags.hidden=!financialFlags.children.length;
   let taxFlags=$('flow-tax-flags');if(!taxFlags){taxFlags=make('div','flow-tax-flags');taxFlags.id='flow-tax-flags';$('flow-kpis').after(taxFlags);}taxFlags.replaceChildren();
   for(const pay of summary.payDetails.filter(item=>item.active && !item.enteredTakeHome && item.estimate.personalAllowance<12570)){
     const flag=make('details','pay-tax-flag'),adjusted=pay.annualGross-pay.employeePension;
@@ -1186,18 +1197,21 @@ function updateDialogFields(selectedLink = "") {
   $("pension-access-field").hidden = dialogType !== "asset" || $("item-kind").value !== "dc-pension";
   if (!$("pension-access-field").hidden) $("item-additional").open = true;
   $("item-amount-label").textContent = dialogType === "asset" ? "Current value" : "Balance owed";
+  $('item-amount').parentElement.querySelector('span').textContent=dialogType==='debt'?'−£':'£';
 
   if (dialogType === "debt") populateLinks(selectedLink);
   updateEquityPreview();
 }
 
 function updateEquityPreview() {
-  const debt = editingId && dialogType === "asset" ? draft.debts.filter(item => item.linkedAssetId === editingId).reduce((sum, item) => sum + item.balance, 0) : 0;
   const note = $("item-equity"), value = groupedNumberValue($("item-amount"));
-  note.hidden = !debt || !$("item-amount").value || !Number.isFinite(value);
-  note.textContent = note.hidden ? "" : `Linked debt ${money(debt)} · Equity ${money(value - debt)}`;
+  const linked=dialogType==='debt'?draft.assets.find(a=>a.id===$('item-linked-asset').value):null;
+  const debts=draft.debts.filter(d=>d.linkedAssetId===(linked?.id||editingId)&&d.id!==editingId).reduce((sum,d)=>sum+d.balance,0),assetValue=linked?.value??value,balance=dialogType==='debt'?value+debts:debts;
+  note.hidden=!Number.isFinite(value)||!$('item-amount').value||(dialogType==='debt'?!linked:!debts);
+  note.textContent=note.hidden?'':`Asset ${money(assetValue)} − linked debt ${money(balance)} = ${money(assetValue-balance)} net equity`;
 }
 $("item-amount").addEventListener("input", updateEquityPreview);
+$('item-linked-asset').addEventListener('change',updateEquityPreview);
 
 function showItemDialog(type, id = null, trigger = null, initialKind = "", initialOwner = "primary") {
   dialogType = type;
@@ -2122,6 +2136,7 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 });
 
 setupFlowInputs();
+document.querySelector('.flow-map-panel').after($('flow-input-shortcuts'));
 lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),applyScenario:value=>planningController.applyScenario(value),onPreviewApply:()=>insightsController?.markApplied(),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
 planningController.integrateLifeline(lifelineController.hosts);
 inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}));
@@ -2180,3 +2195,4 @@ if(entryParams.get('account')==='1'){
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('account');history.replaceState(history.state,'',cleanUrl);
   accountController.open();
 }
+mountBentoErgonomics();

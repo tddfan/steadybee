@@ -42,6 +42,7 @@ for (const path of files.filter((path) => path.endsWith(".html"))) {
       .replace(/asset-canvas\.mjs\?v=[^"]+/, `asset-canvas.mjs?v=${version}`)
       .replace(/asset-canvas\.css\?v=[^"]+/, `asset-canvas.css?v=${version}`)
       .replace(/finance-theme\.css\?v=[^"]+/, `finance-theme.css?v=${version}`);
+  if (path === 'app.html') html=html.replace(/bento-system\.css\?v=[^"]+/,`bento-system.css?v=${version}`);
   if (path === 'index.html') html=html.replace(/welcome-view\.mjs\?v=[^"]+/,`welcome-view.mjs?v=${version}`).replace(/landing\.css\?v=[^"]+/,`landing.css?v=${version}`);
   await writeFile(
     join(output, path),
