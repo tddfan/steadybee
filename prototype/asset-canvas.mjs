@@ -64,6 +64,7 @@ function itemName(item, types) { return item.label?.trim() || types[item.kind].l
 function countLabel(count) { return `(${count})`; }
 function trackingEnabled(){return mode==='personal'&&Boolean(baselineHistory?.entries.length||flowDraft.tracking);}
 function trackingStartMonth(){return flowEditSession?.before.flow.tracking?.startMonth||flowDraft.tracking?.startMonth||[flowDraft.timelineStartMonth||flowDraft.asOfMonth,baselineHistory?.entries[0]?.startDate.slice(0,7)].filter(Boolean).sort()[0];}
+function outlookFlow(){const first=baselineHistory?.entries[0],anchor=flowDraft.tracking?.startMonth||(first&&first.startDate<=trackingToday()?first.forecast.startMonth:flowDraft.timelineStartMonth||flowDraft.asOfMonth);return {...flowDraft,timelineStartMonth:anchor,asOfMonth:anchor};}
 function applyTrackedPicture(picture){const valid=validatePicture(picture);draft=valid.holdings;flowDraft=valid.flow;syncFlowInputs();render();}
 function datedTrackingDate(entry){const today=trackingToday().slice(0,7),month=entry?.frequency==='once'||!editingFlowEntryId?[entry?.startMonth||today,today].sort()[0]:today;return `${[month,trackingStartMonth()].sort().at(-1)}-01`;}
 
@@ -1109,7 +1110,9 @@ function syncFlowInputs() {
 }
 function showScreen(screen, {updateHistory=true} = {}) {
   if(screen==="lifeline")screen="planning";
-  const route=screen==="planning"?"lifeline":screen;
+  if(screen==="plan")screen="insights";
+  if(screen==="insights"&&location.hash==='#insights'&&!updateHistory)history.replaceState(history.state,'','#plan');
+  const route=screen==="planning"?"lifeline":screen==="insights"?"plan":screen;
   if(!updateHistory && location.hash==='#planning')history.replaceState(history.state,'','#lifeline');
   $("welcome-screen").hidden=true;
   if(updateHistory && location.hash!==`#${route}`)history.pushState(null,"",`#${route}`);
@@ -2022,8 +2025,7 @@ function organizeFlowInputs() {
   $("flow-split").classList.add("flow-routing-split");
   $("planning-content").append($("flow-growth-panel"));
   planningController = mountPlanning($("planning-content"), () => {
-    const first=baselineHistory?.entries[0],anchor=flowDraft.tracking?.startMonth||(first&&first.startDate<=trackingToday()?first.forecast.startMonth:flowDraft.timelineStartMonth||flowDraft.asOfMonth);
-    return {flow:{...flowDraft,timelineStartMonth:anchor},holdings:draft,mode,editPension:owner=>{showScreen("flow");openStatePension(owner);}};
+    return {flow:outlookFlow(),holdings:draft,mode,editPension:owner=>{showScreen("flow");openStatePension(owner);}};
   });
 }
 
@@ -2120,10 +2122,10 @@ $("flow-dated-replaces").addEventListener("change",()=>{
 });
 
 setupFlowInputs();
-lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
+lifelineController=mountLifeline($('lifeline-content'),{getPicture:currentHousehold,showSection:showScreen,announce,onReference:reference=>planningController.updateReference(reference),exportLedger:()=>planningController.exportLedger(),applyScenario:value=>planningController.applyScenario(value),onPreviewApply:()=>insightsController?.markApplied(),openBaseline:()=>$('baseline-manage').click(),openScenario:()=>planningController.openAdjustments(),inspectFlow:month=>{flowDraft.asOfMonth=month;syncFlowInputs();showScreen('flow');}});
 planningController.integrateLifeline(lifelineController.hosts);
-inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}));
-insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:flowDraft,planning:planningController.snapshot()}),{analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value)});
+inheritanceController=mountInheritance($("inheritance-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}));
+insightsController=mountInsights($("insights-content"),()=>({holdings:draft,flow:outlookFlow(),planning:planningController.snapshot()}),{getPicture:currentHousehold,analysisToken:()=>accountController.analysisToken(),showSection:showScreen,applyScenario:value=>planningController.applyScenario(value),undoScenario:()=>planningController.undoScenario(),saveScenario:(name,value)=>planningController.saveScenario(name,value),previewOnLifeline:(value,label)=>lifelineController.previewScenario(value,label)});
 document.querySelectorAll("[data-open-insights]").forEach(button=>button.addEventListener("click",()=>showScreen("insights")));
 $("insights-screen").querySelectorAll("[data-section]").forEach(button=>button.addEventListener("click",()=>showScreen(button.dataset.section)));
 document.querySelectorAll("[data-open-inheritance]").forEach(button=>button.addEventListener("click",()=>showScreen("inheritance")));
@@ -2132,9 +2134,9 @@ syncFlowInputs();
 render();
 $("canvas-screen").hidden = false;
 
-window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','lifeline','inheritance','insights'].includes(section))showScreen(section,{updateHistory:false});});
+window.addEventListener('popstate',()=>{const section=location.hash.slice(1);if(['assets','flow','planning','lifeline','inheritance','insights','plan'].includes(section))showScreen(section,{updateHistory:false});});
 
-if(['flow','planning','lifeline','inheritance','insights'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
+if(['flow','planning','lifeline','inheritance','insights','plan'].includes(location.hash.slice(1)))showScreen(location.hash.slice(1));
 else if(!location.hash)showScreen('lifeline');
 
 let flowResizeTimer;window.addEventListener('resize',()=>{clearTimeout(flowResizeTimer);flowResizeTimer=setTimeout(()=>{if(!$("flow-screen").hidden)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));},100);});
@@ -2148,7 +2150,7 @@ function restoreAccountPicture(picture,{sectionOverride='',keepExample=false,kee
     baselineHistory=picture.baselines?structuredClone(picture.baselines):null;
     lifelineController.restore(picture.lifeline);
     draft=structuredClone(picture.holdings);flowDraft=structuredClone(picture.flow);mode=keepExample&&picture.example?'example':'personal';chartSelection=null;holdingsOwner="all";
-    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','lifeline','inheritance','insights'].includes(section)?section:'lifeline',{updateHistory:!keepAuthUrl});
+    planningController.restore(picture.planning);inheritanceController.restore(picture.inheritance);insightsController.restore(picture.insights);syncFlowInputs();render();showScreen(['assets','flow','planning','lifeline','inheritance','insights','plan'].includes(section)?section:'lifeline',{updateHistory:!keepAuthUrl});
     if(!draft.name.trim() || draft.age==null){$('canvas-screen').hidden=true;$('flow-screen').hidden=true;$('planning-screen').hidden=true;$('inheritance-screen').hidden=true;$('insights-screen').hidden=true;$('welcome-screen').hidden=false;}
     announce('Your saved household is open.');
 }

@@ -1484,7 +1484,7 @@ h2 { font-size:26px; }
 @media(max-width:780px) {
  .site-header { min-height:56px; }
  .canvas-screen,.flow-screen,.planning-screen { padding-top:12px; }
- .picture-steps,.planning-screen .picture-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:14px; }
+ .picture-steps,.planning-screen .picture-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:14px; }
  .picture-step { min-height:44px; width:100%; padding:5px 6px; }
  .picture-step > span { display:none; }
  .canvas-heading h1,.flow-heading h1,.planning-heading h1 { font-size:32px; }

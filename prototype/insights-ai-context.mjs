@@ -29,8 +29,9 @@ export const AI_LIMITATIONS=Object.freeze({
  taxInputsIncomplete:'Tax estimates have incomplete inputs or opening-year history. After-tax income cannot be used to reconstruct gross pay and tax.',
  debtPaymentsIncomplete:'Some debts have no complete repayment schedule, so spending coverage is incomplete.'
 });
-export function buildContextualAnalysis(flow,holdings,planning,projection,goal){
- const scenario=planning.scenario,baseline=summary(insightSummary(projection)),available=buildInsights(flow,holdings,scenario,projection,goal).available;
+export function buildContextualAnalysis(flow,holdings,planning,projection,goal,review=null){
+ const goalContext=review?{goal:review.goal,basisMonth:review.basisMonth,inflation:review.inflation,reserveMonths:flow.assumptions.cashReserveMonths??6}:null;
+ const scenario=planning.scenario,baseline=summary(insightSummary(projection,goalContext)),available=buildInsights(flow,holdings,scenario,projection,goal).available;
  const snapshot=summarizeMonthlyFlow({...flow,asOfMonth:projection.startMonth},holdings),first=projection.months[0];
  const byOwner={primary:assets(),partner:assets(),shared:assets()};
  for(const asset of holdings.assets){const owner=['primary','partner','shared'].includes(asset.owner)?asset.owner:'primary';byOwner[owner][kindOf(asset.kind)]+=asset.value;}
@@ -49,12 +50,13 @@ export function buildContextualAnalysis(flow,holdings,planning,projection,goal){
  const tested=[];
  const choices=available.map(recipe=>({id:recipe,recipe,options:{}}));
  if(people.length===2)for(const recipe of ['retireEarlier','retireLater'])if(available.includes(recipe))for(const person of people)choices.push({id:`${recipe}_${person.person}`,recipe,options:{retirementOwner:person.person}});
- for(const candidate of choices){try{const preview=createInsightPreview(flow,holdings,scenario,candidate.recipe,projection,candidate.options);if(preview.changed)tested.push({...candidate,preview});}catch{/* Unsupported or out-of-range scenarios are not offered to the model. */}}
+ for(const candidate of choices){try{const preview=createInsightPreview(flow,holdings,scenario,candidate.recipe,projection,candidate.options,goalContext);if(preview.changed)tested.push({...candidate,preview});}catch{/* Unsupported or out-of-range scenarios are not offered to the model. */}}
  const cash=Object.values(byOwner).reduce((sum,group)=>sum+group.cash,0),reserveMonths=flow.assumptions.cashReserveMonths ?? DEFAULT_RESERVE_MONTHS;
  const opportunities=[];
  if(people.some(p=>p.annualGrossPay>0 || p.annualTakeHomePay>0)){opportunities.push('pensionRelief');if(current.monthlySurplus>0)opportunities.push('pensionVsIsa','isaCapacity');}
  if(cash<(current.monthlySpending+current.monthlyDebtPayments)*reserveMonths)opportunities.push('cashReserve');
  const brief={...buildAnalysisBrief(baseline,goal,available),version:2,context:{startMonth:projection.startMonth,people,assets:byOwner,debts,current,baseline,assumptions:{inflation:projection.assumptions.inflation,incomeGrowth:projection.assumptions.incomeGrowth,growth:projection.assumptions.growth,cashReserveMonths:reserveMonths,isaAllowancePerPerson:flow.assumptions.isaAllowance ?? ISA_ALLOWANCE_2026_27,withdrawalOrder:scenario.withdrawalOrder || 'generalFirst',savingRouting:scenario.savingsDestination==='general'?'general':'existing',retirementStress:Boolean(scenario.retirementStress)},milestones,scheduled:flow.datedEntries.filter(entry=>!entry.endMonth || entry.endMonth>=projection.startMonth).slice(0,12).map(entry=>({side:entry.side,amount:rounded(entry.amount),frequency:entry.frequency,startMonth:entry.startMonth || null,endMonth:entry.endMonth || null})),limitations:['taxRulesHeldFixed','salarySacrificeNotModelled','contributionLimitsNotModelled','survivorNotModelled',...(projection.taxLimitations.length?['taxInputsIncomplete']:[]),...(projection.unmodelledDebt>0?['debtPaymentsIncomplete']:[])]},candidates:tested.map(item=>({id:item.id,recipe:item.recipe,person:item.options.retirementOwner || 'household',after:summary(item.preview.after),delta:Object.fromEntries(Object.entries(item.preview.delta).map(([key,v])=>[key,Math.round(v)])),spendingYear:item.preview.spendingYear ?? null,monthlySpendingReduction:Math.round(item.preview.monthlySpendingReduction || 0),payoff:item.preview.payoff?{paid:Math.round(item.preview.payoff.paid),remaining:Math.round(item.preview.payoff.remaining),tax:Math.round(item.preview.payoff.tax)}:null})),opportunities};
+ if(review){brief.version=3;brief.review={...Object.fromEntries(['asOfDate','basisMonth','inflation','goal','checkpoint','progress','recordedUpdates','isaChecks'].map(k=>[k,structuredClone(review[k])])),candidateGoals:tested.map(c=>({candidateId:c.id,checkpoint:c.preview.goalAfter}))};}
  validateAnalysisBrief(brief);
  return {brief,tested};
 }

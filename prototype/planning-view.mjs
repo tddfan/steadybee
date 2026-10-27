@@ -222,8 +222,6 @@ export function mountPlanning(root,getInputs) {
     }
     if(scenario.planToAge!=null)slider($('plan-horizon'),'plan-horizon-slider','Plan to age',70,120,scenario.planToAge,value=>scenario.planToAge=value);else slider($('plan-horizon'),'plan-horizon-slider','Plan length',1,100,scenario.years??30,value=>scenario.years=value,' years');
     const horizonYear=el('small','plan-timing-year');horizonYear.id='plan-horizon-year';$('plan-horizon-slider').closest('label').querySelector('.plan-slider-label').append(horizonYear);
-    const lastWorkYear=Math.max(...['primary',...(holdings.partnerName ? ['partner'] : [])].map(owner=>scenario.retirementYears[owner] ?? (Number(flow.pay[owner].endDate?.slice(0,4)) || startYear+20)));
-    scenario.spendingChanges ??= [{year:lastWorkYear+1,percent:100}];
     renderSpendingChanges(flow);
     slider($('plan-pension-controls'),'plan-state-age','State Pension scenario age',67,70,scenario.statePensionAge ?? 67,value=>scenario.statePensionAge=value);
     slider($('plan-pension-controls'),'plan-personal-age','Pension access age',55,75,scenario.pensionAccessAge ?? 55,value=>scenario.pensionAccessAge=value);

@@ -26,15 +26,16 @@ export function buildAnalysisBrief(summary,goal,recipes){
 }
 const recipes=['spendLess','retireLater','retireEarlier','stress','withdrawalOrder','mortgagePayoff'];
 export function validateAnalysisBrief(v){
- if(!v || Object.keys(v).sort().join()!==(v.version===2?'candidates,context,endMonth,facts,goal,moneyBasis,opportunities,recipes,version':'endMonth,facts,goal,moneyBasis,recipes,version') || ![1,2].includes(v.version) || !['security','retirement','legacy'].includes(v.goal) || v.moneyBasis!=='today' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(v.endMonth) || !Array.isArray(v.facts) || v.facts.length!==5 || !Array.isArray(v.recipes) || v.recipes.length>6)throw Error('Invalid analysis summary.');
+ if(!v || Object.keys(v).sort().join()!==(v.version===3?'candidates,context,endMonth,facts,goal,moneyBasis,opportunities,recipes,review,version':v.version===2?'candidates,context,endMonth,facts,goal,moneyBasis,opportunities,recipes,version':'endMonth,facts,goal,moneyBasis,recipes,version') || ![1,2,3].includes(v.version) || !['security','retirement','legacy'].includes(v.goal) || v.moneyBasis!=='today' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(v.endMonth) || !Array.isArray(v.facts) || v.facts.length!==5 || !Array.isArray(v.recipes) || v.recipes.length>6)throw Error('Invalid analysis summary.');
  if(new Set(v.recipes).size!==v.recipes.length || v.recipes.some(r=>!recipes.includes(r)))throw Error('Invalid experiments.');
  for(const [index,id] of Object.keys(AI_REASONS).entries()){const f=v.facts[index];if(!f || Object.keys(f).sort().join()!=='flag,id,value' || f.id!==id || typeof f.flag!=='boolean' || !Number.isSafeInteger(f.value) || Math.abs(f.value)>1e12)throw Error('Invalid calculation fact.');}
- if(v.version===2)validateContext(v);
+ if(v.version>=2)validateContext(v);
+ if(v.version===3)validateGoalReview(v);
  return structuredClone(v);
 }
 export function validateAnalysisResult(result,brief){
  validateAnalysisBrief(brief);
- if(brief.version===2)return validateContextResult(result,brief);
+ if(brief.version>=2)return validateContextResult(result,brief);
  if(!result || Object.keys(result).sort().join()!=='experiments,observations' || !Array.isArray(result.observations) || result.observations.length<1 || result.observations.length>3 || !Array.isArray(result.experiments) || result.experiments.length>2)throw Error('Unsupported analysis response.');
  if(new Set(result.observations).size!==result.observations.length || result.observations.some(id=>!brief.facts.some(f=>f.id===id && f.flag)) || new Set(result.experiments).size!==result.experiments.length || result.experiments.some(id=>!brief.recipes.includes(id)))throw Error('Analysis references unsupported facts or experiments.');
  return structuredClone(result);
@@ -64,6 +65,24 @@ function validateContext(v){
  if(!Array.isArray(v.candidates) || v.candidates.length>10 || new Set(v.candidates.map(item=>item.id)).size!==v.candidates.length)fail();
  for(const item of v.candidates){if(!own(item,'id,recipe,person,after,delta,spendingYear,monthlySpendingReduction,payoff') || !v.recipes.includes(item.recipe) || !oneOf(item.person,['primary','partner','household']) || item.id!==(item.person==='household'?item.recipe:`${item.recipe}_${item.person}`) || (item.person!=='household' && !['retireEarlier','retireLater'].includes(item.recipe)) || !validSummary(item.after) || item.after.endMonth!==v.endMonth || !own(item.delta,'unfunded,tax,netAssets,accessible,cash') || !Object.values(item.delta).every(amount) || !nullable(x=>Number.isInteger(x)&&x>=1900&&x<=2200,item.spendingYear) || !amount(item.monthlySpendingReduction) || !nullable(p=>own(p,'paid,remaining,tax')&&Object.values(p).every(amount),item.payoff))fail();}
  if(!Array.isArray(v.opportunities) || v.opportunities.length>4 || new Set(v.opportunities).size!==v.opportunities.length || !v.opportunities.every(key=>oneOf(key,['pensionVsIsa','pensionRelief','isaCapacity','cashReserve'])))fail();
+}
+function validateGoalReview(brief){
+ const r=brief.review,fail=()=>{throw Error('Invalid goal review context.');};
+ const date=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+'T12:00:00Z'))&&new Date(d+'T12:00:00Z').toISOString().slice(0,10)===d;
+ const finite=n=>typeof n==='number'&&numeric(n),nullableNumber=n=>nullable(finite,n);
+ if(!own(r,'asOfDate,basisMonth,inflation,goal,checkpoint,progress,recordedUpdates,isaChecks,candidateGoals')||!date(r.asOfDate)||!month(r.basisMonth)||r.basisMonth!==r.asOfDate.slice(0,7)||!finite(r.inflation)||!Number.isInteger(r.recordedUpdates)||r.recordedUpdates<0||r.recordedUpdates>200)fail();
+ if(r.goal!==null){const g=r.goal;if(!g||typeof g!=='object'||Array.isArray(g)||Object.keys(g).some(k=>!['type','person','targetMonth','targetAmount','targetMonthly'].includes(k))||!oneOf(g.type,['retireBy','spending','event','legacy'])||g.person!=null&&!oneOf(g.person,['primary','partner','household'])||g.targetMonth!=null&&!month(g.targetMonth)||['targetAmount','targetMonthly'].some(k=>g[k]!=null&&(!finite(g[k])||g[k]<0||g[k]>100000000)))fail();}
+ const measure=c=>{
+  if(r.goal===null)return c===null;
+  if(!own(c,'status,metric,month,value,target,difference,months,finalPay,firstGap,unfunded,reserve,cash')||!oneOf(c.status,['ready','missing','outside'])||c.metric!==({retireBy:'retirement',spending:'spending',event:'accessible',legacy:'netAssets'})[r.goal.type]||!nullable(month,c.month)||c.month!==(r.goal.targetMonth||null)||!['value','target','difference','unfunded','reserve','cash'].every(k=>nullableNumber(c[k]))||!Number.isInteger(c.months)||c.months<0||c.months>12||!own(c.finalPay,'primary,partner')||!Object.values(c.finalPay).every(d=>nullable(month,d))||!nullable(month,c.firstGap))return false;
+  const target=r.goal.type==='retireBy'?0:r.goal.type==='spending'?r.goal.targetMonthly??null:r.goal.targetAmount??null;
+  return c.target===target&&(c.status!=='ready'||c.value!==null&&c.target!==null&&Math.abs(c.value-c.target-c.difference)<.02)&&(c.status!=='outside'||c.value===null&&c.difference===null);
+ };
+ if(!measure(r.checkpoint))fail();
+ const p=r.progress;if(!own(p,'month,current,baseline,difference,baselineNumber,baselineDate')||p.month!==r.basisMonth||!['current','baseline','difference'].every(k=>nullableNumber(p[k]))||!nullable(n=>Number.isInteger(n)&&n>=1&&n<=12,p.baselineNumber)||!nullable(date,p.baselineDate)||p.difference!==null&&(p.current===null||p.baseline===null||Math.abs(p.current-p.baseline-p.difference)>.02))fail();
+ if(!Array.isArray(r.isaChecks)||r.isaChecks.length!==brief.context.people.length||new Set(r.isaChecks.map(c=>c.person)).size!==r.isaChecks.length)fail();
+ for(const c of r.isaChecks)if(!own(c,'person,taxYear,sourceMonth,status,recorded,limit,remaining')||!brief.context.people.some(p=>p.person===c.person)||!/^\d{4}-\d{4}$/.test(c.taxYear)||!month(c.sourceMonth)||!oneOf(c.status,['recorded','over','unknown','stale','unsupported'])||!['recorded','limit','remaining'].every(k=>nullableNumber(c[k]))||c.limit!==null&&c.limit!==20000||c.remaining!==null&&c.remaining<0)fail();
+ if(!Array.isArray(r.candidateGoals)||r.candidateGoals.length!==brief.candidates.length||new Set(r.candidateGoals.map(c=>c.candidateId)).size!==r.candidateGoals.length||!r.candidateGoals.every(c=>own(c,'candidateId,checkpoint')&&brief.candidates.some(b=>b.id===c.candidateId)&&measure(c.checkpoint)))fail();
 }
 function validateContextResult(result,brief){
  const text=value=>typeof value==='string'&&value.trim().length>0&&value.length<=320&&!/[\d£$€%<>]|https?:|\b(?:hundred|thousand|million|billion|percent|pounds?|dollars?|euros?)\b/i.test(value);
