@@ -97,3 +97,5 @@ becomes an annual ritual. The unique thread running through both is the **connec
 ## Explicitly out of scope (v1)
 Native mobile app · broker API integrations · IHT · fund/security recommendations · anything that
 constitutes regulated advice.
+
+The current research prototype also contains a user-requested, secondary inheritance illustration. This historical launch-scope list does not require removing that prototype feature.

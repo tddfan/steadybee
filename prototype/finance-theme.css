@@ -227,7 +227,6 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
 .flow-map-heading .section-kicker { display:none; }
 .flow-view-switch { width:auto; }
 .flow-view-switch svg { color:currentColor; }
-.flow-experimental > summary { min-height:40px; padding:6px 12px; color:var(--text-secondary); font-size:13px; }
 #flow-view-help { display:flex; align-items:center; gap:0; margin:0; font-size:13px; color:var(--text-tertiary); }
 #flow-payroll-note { margin:0; font-size:15px; color:var(--text-secondary); }
 #flow-payroll-note > summary { display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; background:none; color:var(--accent-primary); border-radius:999px; list-style:none; cursor:pointer; }
@@ -523,7 +522,6 @@ main,.site-footer { width:min(calc(100% - 48px),1440px); }
   .flow-map-heading > div:first-child { width:100%; }
   .flow-view-switch { width:100%; }
   .flow-view-switch button { flex:1; width:auto; font-size:14px; }
-  .flow-experimental > summary { padding:5px 8px; font-size:12px; }
   #flow-sankey-mobile { display:block; width:100%; min-width:0; margin-top:16px; }
   #flow-sankey { display:none; }
   .flow-entry-overview,.flow-record-pair { grid-template-columns:1fr; gap:16px; }

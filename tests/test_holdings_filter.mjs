@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {filterHoldings} from '../prototype/holdings-filter.mjs';
+const h={assets:[{id:'home',kind:'home',owner:'shared',value:200000},{id:'isa',kind:'isa',owner:'primary',value:1000},{id:'pot',kind:'dc-pension',owner:'partner',value:2000}],debts:[{id:'loan',kind:'mortgage',owner:'shared',linkedAssetId:'home',balance:100000},{id:'card',kind:'credit-card',owner:'primary',balance:200}]};
+test('type and access filters include related liabilities without altering the source',()=>{const before=JSON.stringify(h);assert.deepEqual(filterHoldings(h,'type','home').assets.map(a=>a.id),['home']);assert.deepEqual(filterHoldings(h,'type','home').debts.map(a=>a.id),['loan']);assert.deepEqual(filterHoldings(h,'access','pension').assets.map(a=>a.id),['pot']);assert.deepEqual(filterHoldings(h,'access','accessible').assets.map(a=>a.id),['isa']);assert.equal(JSON.stringify(h),before);});
+test('owner filtering includes standalone debt; clearing restores every item',()=>{assert.deepEqual(filterHoldings(h,'owner','primary').debts.map(a=>a.id),['card']);assert.equal(filterHoldings(h,'type',null).assets.length,3);assert.equal(filterHoldings(h,'type',null).debts.length,2);});

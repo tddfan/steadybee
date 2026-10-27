@@ -72,7 +72,7 @@ test('default Lifeline compares frozen references, drills into dates, exports an
  for(let i=0;i<100;i++){const row=await query({op:'select',filters:[['id',f.id]],one:true});if(row.data.picture.lifeline?.view==='month')break;await new Promise(r=>setTimeout(r,100));}
  const data=await query({op:'select',filters:[['id',f.id]],one:true});assert.equal(data.data.picture.lifeline.view,'month');assert.deepEqual(data.data.picture.baselines,f.picture.baselines);
  await p.reload();await p.locator('#lifeline-date-label:not([hidden])').waitFor();assert.equal(await p.locator('#lifeline-date').inputValue(),'2026-10-18');
- await p.locator('#lifeline-edit-month').click();await p.locator('#flow-title').waitFor();await p.locator('#flow-to-planning').click();
+ await p.locator('#lifeline-edit-month').click();await p.locator('#flow-title').waitFor();await p.locator('#app-navigation [data-section=planning]').click();
  await p.locator('#lifeline-adjust').click();await p.locator('#lifeline-adjustments').waitFor();
  assert.match(await p.locator('#baseline-param-inflation').textContent(),/Baseline 3%.*changed/);
  await p.locator('#lifeline-reference').selectOption('lifeline-v1');assert.match(await p.locator('#baseline-param-inflation').textContent(),/Baseline 2%/);
@@ -90,10 +90,10 @@ test('default Lifeline compares frozen references, drills into dates, exports an
  await p.locator('#plan-saved-scenarios').click();await p.locator('#experiments-dialog').waitFor();await p.locator('#experiment-name').fill('Baseline assumptions');await p.locator('#experiment-save-form button[type=submit]').click();await p.locator('#experiments-list').getByText('Baseline assumptions',{exact:true}).waitFor();await p.locator('#experiments-close').click();
  await p.locator('#lifeline-info').click();const ledger=p.waitForEvent('download');await p.locator('#lifeline-ledger-export').click();const ledgerText=await readFile(await (await ledger).path(),'utf8');assert.match(ledgerText,/Monthly tax ledger/);assert.match(ledgerText,/Cumulative tax/);await p.locator('#lifeline-detail-close').click();
  assert.equal(await p.locator('#lifeline-error').isVisible(),false);
- await p.locator('#planning-to-assets').click();await p.locator('#canvas-title').waitFor();await p.close();
+ await p.locator('#app-navigation [data-section=assets]').click();await p.locator('#canvas-title').waitFor();await p.close();
 });
 test('375px Lifeline stays readable, keyboard scrubs and event chips inspect recorded dates',async()=>{
- const f=await seedLifeline(),p=await page(f.userId,375);await p.locator('#assets-to-planning').click();await p.locator('#lifeline-chart svg').waitFor();
+ const f=await seedLifeline(),p=await page(f.userId,375);await p.locator('#app-navigation [data-section=planning]').click();await p.locator('#lifeline-chart svg').waitFor();
  await p.locator('.lifeline-event-recorded').click();assert.equal(await p.locator('#lifeline-date').inputValue(),'2026-10-18');
  await p.locator('#lifeline-scrubber').focus();await p.keyboard.press('ArrowRight');assert.equal(await p.locator('#lifeline-date').inputValue(),'2026-11-30');
  await p.locator('[data-lifeline-view="year"]').click();await p.locator('#lifeline-metric').selectOption('tax');
@@ -122,7 +122,7 @@ test('cash-flow bars distinguish income, asset use and unpaid costs on desktop a
  picture.planning.scenario={years:3,retirementYears:{primary:2049,partner:2051}};
  picture.lifeline={version:1,view:'life',metric:'income',real:true,yearBasis:'calendar',selectedMonth:'2026-10',selectedDate:'2026-10-31',baselineId:null};
  await query({op:'update',filters:[['id',f.id]],value:{picture}});
- const p=await page(f.userId);await p.locator('#assets-to-planning').click();await p.locator('.lifeline-bar.is-unpaid').first().waitFor();
+ const p=await page(f.userId);await p.locator('#app-navigation [data-section=planning]').click();await p.locator('.lifeline-bar.is-unpaid').first().waitFor();
  assert.equal(await p.locator('#lifeline-metric').inputValue(),'funding');assert.equal(await p.locator('#lifeline-metric option[value=income]').count(),0);
  assert.match(await p.locator('#lifeline-outcome-label').innerText(),/First unpaid cost/);
  assert.ok(await p.locator('.lifeline-bar.is-withdrawals').count()>0);assert.ok(await p.locator('.lifeline-chart-flag.is-gap').count()>0);

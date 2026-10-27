@@ -76,7 +76,6 @@
 .bento-app .asset-row > .row-chevron { display:none; }
 .bento-app .flow-entry-row { min-height:60px; padding-block:14px; }
 .bento-app .flow-entry-row[data-direction=out] .flow-entry-money { color:var(--debt); }
-.bento-app .flow-experimental { display:none; }
 .bento-app .pension-flag { border-radius:6px; background:var(--warning-tint); color:var(--warning); padding:5px 8px; font-size:var(--type-meta); }
 .bento-financial-flags { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 .bento-app .flow-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
@@ -157,3 +156,39 @@
 .bento-app .lifeline-cash-legend>div { display:flex; flex-direction:column; gap:6px; }
 .bento-app .lifeline-cash-legend strong { font-size:.8rem; color:var(--text-primary); font-weight:600; }
 .bento-app .lifeline-cash-legend span { display:flex; align-items:center; gap:7px; }
+
+/* A single app shell and one canonical entry list. */
+.bento-app .site-header { flex-wrap:wrap; gap:8px 14px; }
+.bento-app #app-navigation { position:static; flex-basis:100%; margin:0; border:0; padding:3px; border-radius:10px; background:var(--bg-canvas); box-shadow:none; }
+.bento-app .lifeline-adjustments { top:calc(var(--app-header-height,132px) + 12px); max-height:calc(100dvh - var(--app-header-height,132px) - 24px); }
+.bento-app #flow-input-shortcuts { padding:22px; background:white; border:1px solid var(--border-card); border-radius:18px; box-shadow:var(--shadow-bento); }
+.bento-app .flow-input-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.bento-app .flow-input-heading h2 { margin:0 0 6px; }.bento-app #flow-entry-period { color:var(--text-secondary); font-size:.8rem; }
+.bento-app .entry-filter-pills { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 16px; }
+.bento-app .entry-filter-pills button { border:0; border-radius:999px; padding:6px 14px; background:var(--bg-canvas); color:var(--text-secondary); font:600 .8rem var(--font-sans); }
+.bento-app .entry-filter-pills button[aria-pressed=true] { background:var(--primary-tint); color:var(--primary); }
+.bento-app .flow-entry-column { border:0; box-shadow:none; padding:0; border-radius:0; }
+.bento-app #flow-entry-overview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.bento-app #flow-state-records,.bento-app #flow-dated-list { border:0; border-top:1px solid var(--border-hairline); border-radius:0; box-shadow:none; margin-top:18px; padding:14px 0 0; }
+.bento-app #flow-state-records h3,.bento-app #flow-dated-list h3 { font-size:.95rem; }
+.bento-app #flow-dated-list { display:grid; gap:4px; }
+.bento-app #flow-edit-dialog [data-entry-pane] { padding:0; border:0; background:none; width:100%; max-width:100%; box-shadow:none; }
+.bento-app #flow-edit-dialog #flow-state-dialog>.flow-state-form { padding:0; }
+.bento-app #flow-state-form>.flow-dialog-heading,#flow-dated-form>h3 { display:none; }
+.bento-app #flow-edit-dialog .flow-dialog-heading { display:flex; align-items:center; gap:12px; justify-content:space-between; }
+.bento-app #flow-edit-dialog .flow-dialog-heading h2 { flex:1; font-size:1.15rem; margin:0; }
+.bento-app #flow-edit-close { font-size:1.6rem; min-width:44px; padding:4px 8px; }
+.bento-app .flow-event-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+.bento-app .flow-event-options button { text-align:left; padding:14px; border:1px solid var(--border-hairline); border-radius:10px; background:var(--bg-hover); color:var(--text-primary); font:600 .95rem var(--font-sans); }
+.bento-app .flow-event-options small { display:block; color:var(--text-secondary); font-size:.8rem; font-weight:400; margin-top:6px; }
+.bento-app #saving-settings-dialog .flow-routing-settings { border:0; margin:0; padding:0; }.bento-app #saving-settings-dialog .saving-settings-heading h3 { display:none; }
+.bento-app .flow-allocation-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.bento-app #flow-allocation-panel .section-kicker,.bento-app #flow-allocation-context { display:none; }
+.bento-app .flow-property-details { margin-top:16px; }
+@media(max-width:767px){
+ .bento-app #flow-input-shortcuts { padding:16px; }.bento-app #flow-entry-overview { grid-template-columns:1fr; gap:18px; }
+ .bento-app .flow-input-heading { align-items:flex-start; }.bento-app #flow-entry-add { padding:8px 10px; white-space:nowrap; font-size:.8rem; }
+ .bento-app .flow-event-options { grid-template-columns:1fr; }.bento-app #flow-edit-dialog { scroll-padding-top:70px; }
+ .bento-app .lifeline-adjustments { top:auto; max-height:80dvh; }
+}
+.bento-app #flow-edit-dialog .flow-editor-part>summary { display:none; }

@@ -28,6 +28,10 @@ Planning combines the question and qualified coverage result, with milestone sho
 
 Starting a blank household is under More. Edit People sits beside the owner filters. Official pension forecast links open GOV.UK, and pay-only Personal Allowance notices link to HMRC. Owner filters hide redundant owner pills, while linked property rows show mortgage and net equity. Additional account and calculation details open on request. Savings routes show Cash → ISA → General for one period at a time.
 
+## Entry and navigation simplification · 27 October 2026
+
+One shared header provides Assets & debt, Income & spending and Planning. Monthly Entries has All / Income / Spending / Scheduled filters and one editor shell for salary, regular amounts, dated entries and State Pension. Chart quick-add buttons use the same editor; the Flow table is read-only for audit. A selected asset donut category filters the holdings list, including linked liabilities, and Clear filter restores all items. Saving settings opens the existing routing inputs beside a single waterfall. Lifeline’s destination switch is explicitly a scenario override. Inheritance, baseline versions and dated tracking remain available. Experimental cash-flow charts have been removed. See the [implementation notes](docs/2026-10-27-entry-simplification-plan.md).
+
 ## Run locally
 
 The current baseline/tracking increment keeps the existing input screens. In a personal household, set a starting baseline, then use **Log update** with an effective/statement date. Pay and spending edits can be ongoing or for one month; the person's monthly-pay option records actual take-home. **History** shows earlier rates and corrections while baseline versions remain frozen. Values save through the existing account document. See [Phase 2 behaviour, calculation conventions and limits](docs/2026-10-25-phase2-tracking-delivery.md). Phase 3 adds the default Lifeline comparison workspace. See below.

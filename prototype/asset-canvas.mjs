@@ -27,6 +27,9 @@ import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue
 import {assetTone,WEALTH_COLORS} from './financial-ui-checks.mjs?v=20261027bento1';
 import {mountBentoErgonomics} from './bento-ergonomics.mjs?v=20261027bento1';
 
+import {filterHoldings} from './holdings-filter.mjs?v=20261027entries1';
+import {mountFlowLedger} from './flow-ledger-view.mjs?v=20261027entries1';
+
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
   style: "currency", currency: "GBP", maximumFractionDigits: value % 1 === 0 ? 0 : 2,
@@ -55,7 +58,7 @@ let returnToFlowAssetId = null;
 let editingFlowEntryId = null;
 let flowEntryTrigger = null;
 let flowDatedRequireStart = false;
-let flowChartPath = [];
+let flowLedger=null,entrySchedule=false;
 let chartView = "type";
 let chartSelection = null;
 let holdingsOwner = "all";
@@ -87,9 +90,9 @@ function setTotals() {
 
 const chartColours = ["#1F8A5B", "#7C5CBF", "#C58B3B", "#007AFF", "#60A894", "#A18BCD", "#8E8E93", "#CC6600"];
 const chartViews = {
-  owner: { title: "Assets by person", context: "Select a category to view its assets." },
-  type: { title: "Assets by type", context: "Each slice shows a type of asset. Related borrowing is listed in the detail view." },
-  access: { title: "Assets by access", context: "Access describes when money may generally be available; account and sale rules still apply." },
+  owner: { title: "Assets by person", context: "Select a person to filter the holdings below." },
+  type: { title: "Assets by type", context: "Select a type to filter assets and linked debts below." },
+  access: { title: "Assets by access", context: "Select an access category to filter the holdings below." },
 };
 const accessLabels = { accessible: "Generally accessible", pension: "Pensions", illiquid: "Property & possessions", review: "Access to confirm" };
 const share = (value, total) => `${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value / total * 100)}%`;
@@ -112,7 +115,7 @@ function chartGroups(summary) {
 
 function renderChart(summary) {
   const groups = chartGroups(summary).filter((group) => group.value > 0);
-  if (!groups.some((group) => group.key === chartSelection)) chartSelection = null;
+  if (!chartGroups(summary).some((group) => group.key === chartSelection)) chartSelection = null;
   for (const button of document.querySelectorAll("[data-chart-view]")) button.setAttribute("aria-pressed", String(button.dataset.chartView === chartView));
   $("donut-title").textContent = chartViews[chartView].title;
   $("chart-context").textContent = chartViews[chartView].context;
@@ -157,35 +160,7 @@ function renderChart(summary) {
     button.append(swatch, make("span", "chart-category-name", group.label), make("strong", "", money(group.value)), make("small", "", `${share(group.value, summary.assetTotal)} of assets →`));
     list.append(button);
   }
-  const detail = $("chart-drilldown");
-  detail.replaceChildren(); detail.hidden = !chartSelection || chartView === "owner";
-  if (!chartSelection || chartView === "owner") return;
-  const group = groups.find((entry) => entry.key === chartSelection);
-  const heading = make("div", "drill-heading");
-  const back = make("button", "drill-back", "← All categories"); back.type = "button"; back.dataset.chartBack = "";
-  heading.append(back, make("h3", "", group.label), make("strong", "", money(group.value)));
-  detail.append(heading);
-  const items = make("div", "drill-items");
-  for (const asset of group.assets) {
-    const button = make("button", "drill-item"); button.type = "button"; button.dataset.drillType = "asset"; button.dataset.drillId = asset.id;
-    button.append(make("span", "", itemName(asset, ASSET_TYPES)), make("strong", "", money(asset.value)));
-    items.append(button);
-  }
-  detail.append(items);
-  if (group.debts.length) {
-    detail.append(make("p", "drill-debt-label", "Related debt · deducted from net worth, not from the asset slices"));
-    const debtItems = make("div", "drill-items");
-    for (const debt of group.debts) {
-      const button = make("button", "drill-item drill-debt"); button.type = "button"; button.dataset.drillType = "debt"; button.dataset.drillId = debt.id;
-      button.append(make("span", "", itemName(debt, DEBT_TYPES)), make("strong", "", `−${money(debt.balance)}`));
-      debtItems.append(button);
-    }
-    detail.append(debtItems);
-  }
-  if (chartView === "owner" && group.debts.length) {
-    const net = group.value - group.debts.reduce((sum, debt) => sum + debt.balance, 0);
-    detail.append(make("p", "drill-net", `${group.label} net today: ${money(net)}`));
-  }
+  $("chart-drilldown").hidden=true;
 }
 
 const iconPaths = {
@@ -264,30 +239,22 @@ function renderAccessReview() {
   }
 }
 function renderOrbit(summary) {
-  const owners = ["all", "primary", ...(draft.partnerName?.trim() ? ["partner", "shared"] : [])];
-  if (!owners.includes(holdingsOwner)) holdingsOwner = "all";
-  const filters = $("holdings-owner-filter");
-  filters.replaceChildren();
-  for (const owner of owners) {
-    const button = make("button", "holdings-owner-button", owner === "all" ? "All" : ownerName(owner));
-    button.type = "button"; button.dataset.holdingsOwner = owner;
-    button.setAttribute("aria-pressed", String(holdingsOwner === owner));
-    filters.append(button);
-  }
-  $("people-title").textContent = holdingsOwner === "all" ? "All items" : holdingsOwner === "shared" ? "Shared items" : `${ownerName(holdingsOwner)}’s items`;
-  const selected = holdingsOwner === "all" ? summary : summary.ownership[holdingsOwner];
-  $("holdings-subtotal").textContent = holdingsOwner === "all" ? "" : `${ownerName(holdingsOwner)} · net worth ${money(selected.netWorth)}`;
+  const groups=chartGroups(summary),filters=$('holdings-owner-filter');filters.replaceChildren();filters.setAttribute('aria-label',`Filter holdings by ${chartView==='owner'?'person':chartView}`);
+  for(const [key,label] of [['all','All'],...groups.map(g=>[g.key,g.label])]){const button=make('button','holdings-owner-button',label);button.type='button';button.dataset.holdingsFilter=key;if(chartView==='owner')button.dataset.holdingsOwner=key;button.setAttribute('aria-pressed',String((chartSelection||'all')===key));filters.append(button);}
+  holdingsOwner=chartView==='owner'?(chartSelection||'all'):'all';
+  const selected=groups.find(g=>g.key===chartSelection);$('people-title').textContent=selected?selected.label:'Holdings';$('holdings-subtotal').textContent='';
+  $('holdings-clear-filter').hidden=!chartSelection;
+  const filtered=filterHoldings(draft,chartView,chartSelection);
   const container = $("orbit-items"); container.replaceChildren();
   let count = 0;
-  for (const [type, entries, types, title] of [["asset", draft.assets, ASSET_TYPES, "Assets"], ["debt", draft.debts, DEBT_TYPES, "Debt"]]) {
-    const items = entries.filter(item => holdingsOwner === "all" || (item.owner || "primary") === holdingsOwner)
-      .toSorted((a, b) => (type === "asset" ? b.value - a.value : b.balance - a.balance));
+  for (const [type, entries, types, title] of [["asset", filtered.assets, ASSET_TYPES, "Assets"], ["debt", filtered.debts, DEBT_TYPES, "Debt"]]) {
+    const items = entries.toSorted((a, b) => (type === "asset" ? b.value - a.value : b.balance - a.balance));
     count += items.length;
     if (!items.length) continue;
     const section = make("section", "holdings-section");
     const heading = make("div", "holdings-section-heading");
     const label = make("h3", "", title); label.append(make("small", "", String(items.length)));
-    heading.append(label, make("strong", "", money(items.reduce((sum, item) => sum + (type === "asset" ? item.value : item.balance), 0))));
+    heading.append(label);
     const list=make("div","asset-grouped-list");list.setAttribute("role","list");list.setAttribute("aria-label",title);
     for(const item of items) {
       const owner=item.owner || "primary",value=type==='asset' ? item.value : item.balance;
@@ -386,7 +353,7 @@ function labelPositions(items, chartHeight, minGap = 38) {
 function editFlowEntry(item, side) {
   if (item.kind === "gap") return;
   if (item.kind === "statePension") { openStatePension(item.owner || item.key.split(":")[1]); return; }
-  if (item.kind === "saving") { $("flow-allocation-panel").scrollIntoView({block:"start",behavior:"smooth"}); return; }
+  if (item.kind === "saving") { openSavingSettings(); return; }
   if (["datedIncome", "datedSpending"].includes(item.kind)) { showDatedForm(side, item.key.slice(6)); return; }
   if (item.kind === "rent") { editLinkedAsset(item.key.slice(5), $("flow-sankey")); return; }
   if (item.kind === "mortgage") { showScreen("assets"); returnToFlowAssetId = item.key.slice(9); showItemDialog("debt", item.key.slice(9), $("flow-sankey")); return; }
@@ -502,309 +469,22 @@ function renderSankey(summary) {
   let outCursor=netY;
   for (const row of uses) { ribbon(x.net+nodeWidth,outCursor,x.out,row.y,row.height,flowColor(row),row,"spending"); node(x.out,row,flowColor(row),"spending"); label(x.out+27,row.y+row.height/2,row.label.replace(/ estimated payment$/, ""),row.amount,"start",row,"spending"); outCursor+=row.height; }
 }
-function renderFlowBridge(diagram) {
-  const root = $("flow-bridge-view"); root.replaceChildren();
-  if (!diagram.hasEntries) { root.append(make("p", "flow-empty", "Add income or spending below to build this view.")); return; }
-  const gross = diagram.sources.filter((item) => item.kind !== "gap").reduce((sum, item) => sum + item.amount, 0);
-  const deductions = diagram.deductions.reduce((sum, item) => sum + item.amount, 0);
-  const equation = make("div", "flow-bridge-equation");
-  for (const [label, value, kind, operator] of [
-    ["Gross pay and other income", gross, "gross", ""],
-    ["Tax, NI and employee pension", deductions, "deductions", "−"],
-    ["Money after deductions", diagram.incomeTotal, "net", "="],
-  ]) {
-    if (operator) equation.append(make("span", "flow-bridge-operator", operator));
-    const card = make("div", `flow-bridge-amount flow-bridge-${kind}`);
-    card.append(make("span", "", label), make("strong", "", money(value)));
-    equation.append(card);
-  }
-  root.append(equation);
-  const groups = [
-    { label: "Home", color: "#ae744b", test: (item) => item.key === "homeBills" || item.kind === "mortgage" },
-    { label: "Everyday", color: "#c2935d", test: (item) => item.key === "everyday" },
-    { label: "Car payments", color: "#967c64", test: (item) => item.key === "carPayment" },
-    { label: "Dated costs", color: "#b56d5d", test: (item) => item.kind === "datedSpending" },
-  ];
-  const spending = diagram.uses.filter((item) => item.kind === "spending" || item.kind === "mortgage" || item.kind === "datedSpending");
-  const assigned = new Set();
-  const buckets = groups.map((group) => {
-    const items = spending.filter((item) => group.test(item));
-    items.forEach((item) => assigned.add(item));
-    return { ...group, items, amount: items.reduce((sum, item) => sum + item.amount, 0) };
-  });
-  const other = spending.filter((item) => !assigned.has(item));
-  if (other.length) buckets.push({ label: "Other costs", color: "#a88968", items: other, amount: other.reduce((sum, item) => sum + item.amount, 0) });
-  const saving = diagram.uses.filter((item) => item.kind === "saving");
-  const savingTotal = saving.reduce((sum, item) => sum + item.amount, 0);
-  const section = make("section", "flow-bridge-breakdown");
-  const heading = make("div", "flow-bridge-breakdown-heading");
-  heading.append(make("h3", "", "Where that money goes"), make("p", "", `${money(diagram.spendingTotal)} spending · ${money(savingTotal)} saving`));
-  section.append(heading);
-  const bar = make("div", "flow-bridge-bar"); bar.setAttribute("role", "img");
-  bar.setAttribute("aria-label", `Monthly spending ${money(diagram.spendingTotal)}; saving ${money(savingTotal)}${diagram.remainder < 0 ? `; uncovered gap ${money(-diagram.remainder)}` : ""}`);
-  const total = diagram.spendingTotal + savingTotal;
-  for (const group of buckets.filter((group) => group.amount > 0)) {
-    const segment = make("span", "flow-bridge-segment"); segment.style.width = `${group.amount / total * 100}%`; segment.style.background = group.color;
-    segment.title = `${group.label}: ${money(group.amount)}`; bar.append(segment);
-  }
-  if (savingTotal) { const segment = make("span", "flow-bridge-segment"); segment.style.width = `${savingTotal / total * 100}%`; segment.style.background = "#398568"; segment.title = `Saving: ${money(savingTotal)}`; bar.append(segment); }
-  section.append(bar);
-  if (diagram.remainder < 0) section.append(make("p", "flow-bridge-gap", `${money(-diagram.remainder)} of this spending is not covered by recorded income. No funding source is assumed.`));
-  const list = make("div", "flow-bridge-groups");
-  for (const group of buckets.filter((bucket) => bucket.amount > 0)) {
-    const detail = make("details", "flow-bridge-group");
-    const heading = make("summary", "");
-    const label = make("span", "flow-bridge-group-label");
-    const swatch = make("span", "flow-bridge-swatch"); swatch.style.background = group.color;
-    label.append(swatch, document.createTextNode(group.label));
-    heading.append(label, make("strong", "", money(group.amount))); detail.append(heading);
-    const items = make("ul", "flow-bridge-items");
-    for (const item of group.items) { const row = make("li", ""); row.append(make("span", "", item.label), make("strong", "", money(item.amount))); items.append(row); }
-    detail.append(items); list.append(detail);
-  }
-  if (savingTotal) {
-    const detail = make("div", "flow-bridge-group flow-bridge-saving");
-    const heading = make("div", "flow-bridge-saving-heading");
-    const label = make("span", "flow-bridge-group-label"); const swatch = make("span", "flow-bridge-swatch"); swatch.style.background = "#398568";
-    label.append(swatch, document.createTextNode("Saving")); heading.append(label, make("strong", "", money(savingTotal))); detail.append(heading);
-    const items = make("ul", "flow-bridge-items");
-    for (const item of saving) { const row = make("li", ""); row.append(make("span", "", item.label), make("strong", "", money(item.amount))); items.append(row); }
-    detail.append(items); list.append(detail);
-  }
-  section.append(list); root.append(section);
-}
-const flowChartPalette = ["#2d8067", "#c38a55", "#8b6ca7", "#678ba0", "#bd6e58", "#82965f", "#d0a844", "#6f8c7b"];
-function flowChartHierarchy(diagram) {
-  const uses = diagram.uses.filter((item) => ["spending", "mortgage", "datedSpending"].includes(item.kind));
-  const spendingGroups = [
-    ["Home", (item) => item.key === "homeBills" || item.kind === "mortgage"],
-    ["Everyday", (item) => item.key === "everyday"],
-    ["Car payments", (item) => item.key === "carPayment"],
-    ["Other and dated", (item) => item.key === "other" || item.key?.startsWith("custom:") || item.kind === "datedSpending"],
-  ].map(([label, matches], index) => {
-    const children = uses.filter(matches).map((item) => ({ id: `item:${item.key}`, label: item.label, amount: item.amount, color: flowChartPalette[(index + 1) % flowChartPalette.length], children: [] }));
-    return { id: `group:${index}`, label, amount: children.reduce((sum, item) => sum + item.amount, 0), color: flowChartPalette[(index + 1) % flowChartPalette.length], children };
-  }).filter((group) => group.amount > 0);
-  const spendTotal = spendingGroups.reduce((sum, group) => sum + group.amount, 0);
-  const savingItems = diagram.uses.filter((item) => item.kind === "saving");
-  const saveTotal = savingItems.reduce((sum, item) => sum + item.amount, 0);
-  const children = [];
-  if (spendTotal > 0) children.push({ id: "spending", label: "Spending", amount: spendTotal, color: "#bd8555", children: spendingGroups });
-  if (saveTotal > 0) children.push({ id: "saving", label: "Saving", amount: saveTotal, color: "#398568", children: savingItems.map((item, index) => ({ id: `saving:${index}`, label: item.label, amount: item.amount, color: flowChartPalette[index], children: [] })) });
-  return { id: "outgoings", label: "Spending and saving", amount: children.reduce((sum, item) => sum + item.amount, 0), color: "#315b4d", children, remainder: diagram.remainder };
-}
-function nodeAtPath(root, path) { return path.reduce((node, id) => node?.children?.find((child) => child.id === id), root) || root; }
-function flowHierarchyHeader(root, path, container) {
-  const nav = make("div", "flow-hierarchy-nav");
-  if (path.length) {
-    const back = make("button", "flow-hierarchy-back", "← Back"); back.type = "button"; back.addEventListener("click", () => { flowChartPath.pop(); renderFlow(); }); nav.append(back);
-  }
-  const crumbs = make("div", "flow-hierarchy-crumbs");
-  const crumbNodes = [{ node: root, path: [] }];
-  let branch = root;
-  const validPath = [];
-  path.forEach((id) => { branch = branch?.children?.find((item) => item.id === id); if (branch) validPath.push(id); });
-  if (validPath.length !== path.length) flowChartPath = validPath;
-  branch = root;
-  validPath.forEach((id, index) => { branch = branch.children.find((item) => item.id === id); crumbNodes.push({ node: branch, path: validPath.slice(0, index + 1) }); });
-  crumbNodes.forEach(({ node, path: crumbPath }, index) => {
-    if (index) crumbs.append(make("span", "", " / "));
-    if (index === crumbNodes.length - 1) crumbs.append(make("strong", "", node.label));
-    else { const crumb = make("button", "flow-hierarchy-crumb", node.label); crumb.type = "button"; crumb.addEventListener("click", () => { flowChartPath = crumbPath; renderFlow(); }); crumbs.append(crumb); }
-  });
-  nav.append(crumbs, make("strong", "flow-hierarchy-total", money(nodeAtPath(root, path).amount)));
-  container.append(nav);
-  const selected = nodeAtPath(root, path);
-  const help = make("p", "flow-hierarchy-help", selected.children.length ? "Select a section to open its next level." : "This is the most detailed level in the current entries.");
-  container.append(help);
-  return selected;
-}
-function chartPathFor(node, start, end, inner, outer, cx, cy) {
-  const point = (radius, angle) => [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
-  const [x1, y1] = point(outer, start), [x2, y2] = point(outer, end), [x3, y3] = point(inner, end), [x4, y4] = point(inner, start);
-  if (end - start >= Math.PI * 2 - 0.001) {
-    const [xo, yo] = point(outer, start + Math.PI), [xi, yi] = point(inner, start + Math.PI);
-    return `M ${x1} ${y1} A ${outer} ${outer} 0 1 1 ${xo} ${yo} A ${outer} ${outer} 0 1 1 ${x1} ${y1} L ${x4} ${y4} A ${inner} ${inner} 0 1 0 ${xi} ${yi} A ${inner} ${inner} 0 1 0 ${x4} ${y4} Z`;
-  }
-  const large = end - start > Math.PI ? 1 : 0;
-  return `M ${x1} ${y1} A ${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`;
-}
-function hierarchyEntries(root) {
-  const result = [];
-  const visit = (node, path = [], depth = 0, parentAmount = root.amount) => {
-    for (const child of node.children || []) {
-      const next = [...path, child.id];
-      result.push({ node: child, path: next, depth, parentAmount });
-      visit(child, next, depth + 1, child.amount);
-    }
-  };
-  visit(root);
-  return result;
-}
-function flowChartGap(container, diagram) {
-  if (diagram.remainder < 0) container.append(make("p", "flow-hierarchy-gap", `${money(-diagram.remainder)} monthly gap: spending is greater than recorded income. No funding source is assumed.`));
-}
-function hierarchyLegend(container, selected) {
-  const list = make("div", "flow-hierarchy-legend");
-  for (const child of selected.children) {
-    const button = make("button", "flow-hierarchy-legend-item"); button.type = "button";
-    if (child.children.length) button.addEventListener("click", () => { flowChartPath.push(child.id); renderFlow(); });
-    else button.disabled = true;
-    const swatch = make("span", "flow-hierarchy-swatch"); swatch.style.background = child.color;
-    button.append(swatch, make("span", "", child.label), make("strong", "", money(child.amount)));
-    list.append(button);
-  }
-  container.append(list);
-}
-function installChartNavigation(container) {
-  if (container.dataset.navigationInstalled) return;
-  container.dataset.navigationInstalled = "true";
-  const activate = (event) => {
-    const hit = event.target.closest("[data-flow-chart-path]");
-    if (!hit) return;
-    const path = JSON.parse(hit.dataset.flowChartPath);
-    if (path.length) { flowChartPath = path; renderFlow(); }
-  };
-  container.addEventListener("click", activate);
-  container.addEventListener("keydown", (event) => { if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-flow-chart-path]")) { event.preventDefault(); activate(event); } });
-}
-function renderSunburst(diagram) {
-  const root = flowChartHierarchy(diagram), container = $("flow-sunburst-view"); container.replaceChildren();
-  const selected = flowHierarchyHeader(root, flowChartPath, container);
-  flowChartGap(container, diagram);
-  const chart = svgElement("svg", { viewBox: "0 0 520 440", class: "flow-hierarchy-svg flow-sunburst", role: "img", "aria-label": "Sunburst of spending and saving; select a ring to drill down" });
-  const chartTitle = svgElement("title"); chartTitle.textContent = "Sunburst of monthly spending and saving"; chart.append(chartTitle);
-  const cx = 220, cy = 220, entries = hierarchyEntries(root);
-  const angles = new Map([["outgoings", [-Math.PI / 2, Math.PI * 1.5]]]);
-  for (const entry of entries) {
-    const [start, end] = angles.get(entry.path.length === 1 ? "outgoings" : entry.path.at(-2)) || [-Math.PI / 2, Math.PI * 1.5];
-    const siblings = entry.path.length === 1 ? root.children : nodeAtPath(root, entry.path.slice(0, -1)).children;
-    const before = siblings.slice(0, siblings.indexOf(entry.node)).reduce((sum, item) => sum + item.amount, 0);
-    const total = siblings.reduce((sum, item) => sum + item.amount, 0) || 1;
-    const a0 = start + (end - start) * before / total;
-    const a1 = a0 + (end - start) * entry.node.amount / total;
-    angles.set(entry.node.id, [a0, a1]);
-    const inner = 48 + entry.depth * 49, outer = inner + 46;
-    const sector = svgElement("path", { d: chartPathFor(entry.node, a0, a1, inner, outer, cx, cy), fill: entry.node.color, stroke: "#fffefa", "stroke-width": 2, tabindex: "0", role: entry.node.children.length ? "button" : "img", "aria-label": `${entry.node.label}, ${money(entry.node.amount)}${entry.node.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(entry.node.children.length ? entry.path : []) });
-    const title = svgElement("title"); title.textContent = `${entry.node.label}: ${money(entry.node.amount)}`; sector.append(title); chart.append(sector);
-  }
-  const centreLabel = svgElement("text", { x: cx, y: cy - 4, "text-anchor": "middle", class: "flow-chart-centre-label" }); centreLabel.textContent = selected.label;
-  const centreValue = svgElement("text", { x: cx, y: cy + 19, "text-anchor": "middle", class: "flow-chart-centre-value" }); centreValue.textContent = money(selected.amount);
-  chart.append(centreLabel, centreValue); container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
-}
-function renderTreemap(diagram) {
-  const root = flowChartHierarchy(diagram), container = $("flow-treemap-view"); container.replaceChildren();
-  const selected = flowHierarchyHeader(root, flowChartPath, container);
-  flowChartGap(container, diagram);
-  const chart = svgElement("svg", { viewBox: "0 0 860 420", class: "flow-hierarchy-svg flow-treemap", role: "img", "aria-label": "Treemap of spending and saving; select a rectangle to drill down" });
-  const chartTitle = svgElement("title"); chartTitle.textContent = "Treemap of monthly spending and saving"; chart.append(chartTitle);
-  const children = selected.children;
-  if (!children.length) {
-    const empty = svgElement("text", { x: 430, y: 210, "text-anchor": "middle", class: "flow-chart-empty" }); empty.textContent = "No further breakdown for this section."; chart.append(empty);
-  } else {
-    const total = children.reduce((sum, item) => sum + item.amount, 0) || 1;
-    const horizontal = children.length <= 3;
-    let offset = 0;
-    children.forEach((child) => {
-      const ratio = child.amount / total;
-      const x = horizontal ? offset : 0, y = horizontal ? 0 : offset;
-      const width = horizontal ? 860 * ratio : 860, height = horizontal ? 420 : 420 * ratio;
-      const inset = 4, nx = x + inset, ny = y + inset, nw = Math.max(0, width - inset * 2), nh = Math.max(0, height - inset * 2);
-      const rect = svgElement("rect", { x: nx, y: ny, width: nw, height: nh, rx: 7, fill: child.color, stroke: "#fffefa", "stroke-width": 2, tabindex: child.children.length ? "0" : "-1", role: child.children.length ? "button" : "img", "aria-label": `${child.label}, ${money(child.amount)}${child.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(child.children.length ? [...flowChartPath, child.id] : []) });
-      const title = svgElement("title"); title.textContent = `${child.label}: ${money(child.amount)}`; rect.append(title); chart.append(rect);
-      const label = svgElement("text", { x: nx + 16, y: ny + Math.min(34, nh / 2), class: "flow-treemap-label", "pointer-events": "none" }); label.textContent = child.label; chart.append(label);
-      if (nw > 120 && nh > 52) { const amount = svgElement("text", { x: nx + 16, y: ny + Math.min(62, nh / 2 + 26), class: "flow-treemap-amount", "pointer-events": "none" }); amount.textContent = money(child.amount); chart.append(amount); }
-      offset += horizontal ? 860 * ratio : 420 * ratio;
-    });
-  }
-  container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
-}
-function renderDrillDonut(diagram) {
-  const root = flowChartHierarchy(diagram), container = $("flow-donut-view"); container.replaceChildren();
-  const selected = flowHierarchyHeader(root, flowChartPath, container);
-  flowChartGap(container, diagram);
-  const chart = svgElement("svg", { viewBox: "0 0 520 390", class: "flow-hierarchy-svg flow-drill-donut", role: "img", "aria-label": "Drill-down donut of monthly spending and saving" });
-  const chartTitle = svgElement("title"); chartTitle.textContent = `${selected.label}: ${money(selected.amount)}`; chart.append(chartTitle);
-  const cx = 195, cy = 195, radius = 145, inner = 78; let angle = -Math.PI / 2;
-  selected.children.forEach((node) => {
-    const portion = node.amount / (selected.amount || 1), end = angle + Math.PI * 2 * portion;
-    const sector = svgElement("path", { d: chartPathFor(node, angle, end, inner, radius, cx, cy), fill: node.color, stroke: "#fffefa", "stroke-width": 2, tabindex: node.children.length ? "0" : "-1", role: node.children.length ? "button" : "img", "aria-label": `${node.label}, ${money(node.amount)}${node.children.length ? ", drill down" : ""}`, "data-flow-chart-path": JSON.stringify(node.children.length ? [...flowChartPath, node.id] : []) });
-    const title = svgElement("title"); title.textContent = `${node.label}: ${money(node.amount)}`; sector.append(title); chart.append(sector); angle = end;
-  });
-  const centreLabel = svgElement("text", { x: cx, y: cy - 4, "text-anchor": "middle", class: "flow-chart-centre-label" }); centreLabel.textContent = selected.label;
-  const centreValue = svgElement("text", { x: cx, y: cy + 19, "text-anchor": "middle", class: "flow-chart-centre-value" }); centreValue.textContent = money(selected.amount);
-  chart.append(centreLabel, centreValue); container.append(chart); hierarchyLegend(container, selected); installChartNavigation(container);
-}
-function flowListItem(item, side) {
-  const payOwner = item.key === "primaryPay" ? "primary" : item.key === "partnerPay" ? "partner" : "";
-  const customSpendingId = item.key?.startsWith("custom:") ? item.key.slice(7) : "";
-  const editable = payOwner || customSpendingId || (side === "income" ? INCOME_FIELDS.some((field) => field.key === item.key) : SPENDING_FIELDS.some((field) => field.key === item.key));
+function flowListItem(item) {
   const row = make("tr", "flow-table-row");
   const label = make("th"); label.scope = "row";
   const labelText = make("span", "flow-table-label", item.label);
   const swatch = make("span", "flow-list-swatch"); swatch.style.background = flowColor(item);
   label.append(swatch, labelText);
   const amount = make("td", "flow-table-amount", money(item.amount));
-  const action = make("td", "flow-table-action");
-  if (editable || item.kind === "saving" || item.kind === "rent" || item.kind === "mortgage" || item.kind === "datedIncome" || item.kind === "datedSpending" || item.kind === "statePension") {
-    const button = make("button", "flow-table-edit", "Edit");
-    button.type = "button";
-    button.setAttribute("aria-label", `Edit ${item.label}`);
-    if (item.kind === "statePension") button.dataset.flowStatePension = item.owner;
-    else if (payOwner) button.dataset.flowPay = payOwner;
-    else if (customSpendingId) button.dataset.flowCustomSpending = customSpendingId;
-    else if (editable) button.dataset.flowFocus = `${side}:${item.key}`;
-    else if (item.kind === "saving") button.dataset.flowSaving = item.key === "primarySaving" ? "primary" : "partner";
-    else if (item.kind === "datedIncome" || item.kind === "datedSpending") button.dataset.flowEntry = item.key.slice(6);
-    else if (item.kind === "mortgage") button.dataset.flowDebt = item.key.slice(9);
-    else button.dataset.flowAsset = item.key.slice(5);
-    action.append(button);
-  }
-  row.append(label, amount, action);
+  row.append(label, amount);
   return row;
 }
 function flowMonthLabel(month) {
   return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
 }
-function renderDatedEntries(summary) {
-  const overview = $("flow-entry-overview"); overview.replaceChildren();
-  const groups = [["Income", summary.sources.filter((item)=>item.kind!=="gap"), "income"], ["Spending", summary.uses.filter((item)=>item.kind!=="unallocated"), "spending"]];
-  for (const [title, items, side] of groups) {
-    const column = make("section","flow-entry-column"); column.append(make("h3","",title));
-    for (const item of items) {
-      const row = make("button","flow-entry-row"); row.type="button";
-      row.dataset.direction=side==='spending'?'out':'in';
-      if(item.key.startsWith("entry:"))row.dataset.flowScheduleEntry=item.key.slice(6);
-      const compactName=item.key==='primaryPay' ? `${draft.name || 'Your'} take-home` : item.key==='partnerPay' ? `${draft.partnerName || 'Partner'} take-home` : item.label.replace(/ estimated payment$/, '');
-      const name=make("span","flow-entry-name",compactName);name.title=item.label;
-      if (["rent","mortgage"].includes(item.kind)) name.append(make("small","flow-linked-badge","Linked"));
-      const dated=summary.entryDetails.find((entry)=>`entry:${entry.id}`===item.key);
-      if(dated) name.append(make("small","",`${dated.startMonth ? `From ${flowMonthLabel(dated.startMonth)}` : "Already started"}${dated.endMonth ? ` · until ${flowMonthLabel(dated.endMonth)}` : " · ongoing"}`));
-      row.setAttribute("aria-label",`Edit ${item.label}, ${money(item.amount)}`);
-      row.append(name,make("span","flow-entry-money",`${side==='spending'?'−':''}${money(item.amount)}`),make("span","flow-entry-arrow","›"));
-      row.addEventListener("click",()=>editFlowEntry(item,side)); column.append(row);
-    }
-    if (!items.length) column.append(make("p","flow-entry-empty",`No ${title.toLowerCase()} yet.`));
-    if(side === "income") { const pay = make("button","flow-entry-add","Salary & pensions"); pay.type="button"; pay.addEventListener("click",()=>openFlowEditor("income")); column.append(pay); }
-    const add = make("button","flow-entry-add",side === "income" ? "+ Other income" : "+ Add expense"); add.type="button"; add.addEventListener("click",()=>showDatedForm(side,null,add)); column.append(add);
-    if(side === "spending") { const categories = make("button","flow-entry-add","Manage categories"); categories.type="button"; categories.addEventListener("click",()=>openFlowEditor("spending")); column.append(categories); }
-    overview.append(column);
-  }
-  $("flow-dated-asof").textContent = flowMonthLabel(summary.asOfMonth);
-  $("flow-dated-empty").hidden = true;
-  const list = $("flow-dated-list"); list.replaceChildren();
-  const upcoming=summary.entryDetails.filter((entry)=>entry.status === "future");
-  if(!upcoming.length) list.append(make("p","flow-future-empty","No scheduled changes."));
-  const past = document.createElement("details"); past.className="flow-past-entries"; const pastSummary=make("summary","","Past entries"); past.append(pastSummary);
-  for (const entry of summary.entryDetails.filter((entry)=>entry.status !== "active")) {
-    const row = make("button", "flow-dated-row"); row.type = "button"; row.dataset.flowEntry = entry.id;
-    const main = make("span", "flow-dated-row-main");
-    main.append(make("strong", "", entry.label), make("small", "", `${entry.startMonth ? flowMonthLabel(entry.startMonth) : "Now"}${entry.endMonth ? ` – ${flowMonthLabel(entry.endMonth)}` : entry.frequency === "once" ? "" : " onward"}`));
-    row.setAttribute("aria-label",`Edit ${entry.label}`);
-    row.append(main, make("span", "flow-dated-row-amount", entry.frequency === "once" ? money(entry.amount) : `${money(entry.monthlyAmount)}/mo`), make("span","flow-edit-label","›"));
-    (entry.status === "ended" ? past : list).append(row);
-  }
-  if(past.children.length > 1) list.append(past);
+function renderDatedEntries(summary){
+ $('flow-dated-asof').textContent=flowMonthLabel(summary.asOfMonth);$('flow-dated-empty').hidden=true;
+ flowLedger?.update(summary);
 }
 function renderAllocationOverview(plan) {
   $("flow-allocation-enabled").checked = plan.enabled;
@@ -816,7 +496,7 @@ function renderAllocationOverview(plan) {
   const steps = $("flow-allocation-steps"); steps.replaceChildren();
   if(!plan.enabled) {
     const start=make("button","heading-action","Set saving order");start.type="button";
-    start.addEventListener("click",()=>{document.querySelector('.flow-routing-settings').open=true;$("flow-allocation-enabled").focus();});
+    start.addEventListener("click",openSavingSettings);
     steps.append(start);return;
   }
   const projection=projectTaxYearSaving(flowDraft,draft,{primary:draft.name,partner:draft.partnerName});
@@ -900,7 +580,7 @@ function renderFlow() {
   $("flow-kpi-saving").closest('.bento-kpi').classList.toggle('is-shortfall',summary.remainder<0);$("flow-kpis").hidden=!summary.hasEntries;
   const flowStatus=$('flow-outcome-status');flowStatus.textContent=!summary.hasEntries?'Add income and spending':summary.remainder<0?'Costs exceed entered income':'Income covers entered costs';flowStatus.className=`bento-status${!summary.hasEntries?'':summary.remainder<0?' is-shortfall':' is-covered'}`;
   let financialFlags=$('flow-financial-flags');if(!financialFlags){financialFlags=make('div','bento-financial-flags');financialFlags.id='flow-financial-flags';$('flow-kpis').after(financialFlags);}financialFlags.replaceChildren();
-  if(summary.remainder>0&&!plan.enabled){const button=make('button','bento-warning',`Unallocated cash · ${money(summary.remainder)}/month`);button.type='button';button.title='No saving route is selected. No transfer is made by this app.';button.addEventListener('click',()=>$('flow-allocation-panel').scrollIntoView({block:'start',behavior:'smooth'}));financialFlags.append(button);}
+  if(summary.remainder>0&&!plan.enabled){const button=make('button','bento-warning',`Unallocated cash · ${money(summary.remainder)}/month`);button.type='button';button.title='No saving route is selected. No transfer is made by this app.';button.addEventListener('click',openSavingSettings);financialFlags.append(button);}
   financialFlags.hidden=!financialFlags.children.length;
   let taxFlags=$('flow-tax-flags');if(!taxFlags){taxFlags=make('div','flow-tax-flags');taxFlags.id='flow-tax-flags';$('flow-kpis').after(taxFlags);}taxFlags.replaceChildren();
   for(const pay of summary.payDetails.filter(item=>item.active && !item.enteredTakeHome && item.estimate.personalAllowance<12570)){
@@ -966,7 +646,7 @@ function renderFlow() {
   if (missingMortgages.length) propertySummary.textContent = `${missingMortgages.length} mortgage payment${missingMortgages.length === 1 ? "" : "s"} to add`;
   const groupRow = (title) => {
     const row = make("tr", "flow-table-group");
-    const heading = make("th", "", title); heading.scope = "rowgroup"; heading.colSpan = 3;
+    const heading = make("th", "", title); heading.scope = "rowgroup"; heading.colSpan = 2;
     row.append(heading);
     return row;
   };
@@ -975,10 +655,10 @@ function renderFlow() {
   $("flow-table-scroll").hidden = !summary.hasEntries;
   $("flow-table-empty").hidden = summary.hasEntries;
   renderSankey(diagram);
-  renderFlowBridge(diagram);
-  renderSunburst(diagram);
-  renderTreemap(diagram);
-  renderDrillDonut(diagram);
+
+
+
+
   $("flow-payroll-note").hidden = !diagram.payrollEstimated;
   $("flow-split").hidden = !diagram.hasPartner || summary.remainder <= 0;
   $("flow-split-summary").textContent = `${draft.name || "First person"} ${diagram.primaryShare.toFixed(1)}% · ${draft.partnerName || "Partner"} ${(100 - diagram.primaryShare).toFixed(1)}%`;
@@ -1089,7 +769,7 @@ function renderCustomSpendingInputs() {
 }
 function syncFlowInputs() {
   editingFlowEntryId = null;
-  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
+  $("flow-dated-form").hidden = true;if($("flow-edit-dialog").dataset.entryPane==='dated')$("flow-edit-dialog").close();
   for (const input of document.querySelectorAll("[data-flow-side]")) {
     const value = flowDraft[input.dataset.flowSide][input.dataset.flowKey];
     input.value = value ? String(value) : "";
@@ -1125,6 +805,8 @@ function showScreen(screen, {updateHistory=true} = {}) {
   if(screen==="insights"&&location.hash==='#insights'&&!updateHistory)history.replaceState(history.state,'','#plan');
   const route=screen==="planning"?"lifeline":screen==="insights"?"plan":screen;
   if(!updateHistory && location.hash==='#planning')history.replaceState(history.state,'','#lifeline');
+  $('app-navigation').hidden=false;
+  for(const button of $('app-navigation').querySelectorAll('[data-section]')){const active=button.dataset.section===(['planning','insights','inheritance'].includes(screen)?'planning':screen);button.classList.toggle('is-current',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');}
   $("welcome-screen").hidden=true;
   if(updateHistory && location.hash!==`#${route}`)history.pushState(null,"",`#${route}`);
   $("canvas-screen").hidden = screen !== "assets";
@@ -1149,6 +831,9 @@ function revealCurrentSection(){
   }
 }
 window.addEventListener('resize',revealCurrentSection);
+$('app-navigation').addEventListener('click',event=>{const button=event.target.closest('[data-section]');if(button)showScreen(button.dataset.section);});
+new MutationObserver(()=>{$('app-navigation').hidden=!$('welcome-screen').hidden;}).observe($('welcome-screen'),{attributes:true,attributeFilter:['hidden']});
+new ResizeObserver(()=>document.documentElement.style.setProperty('--app-header-height',`${document.querySelector('.site-header').getBoundingClientRect().height}px`)).observe(document.querySelector('.site-header'));
 
 function populateKinds(type, selected = "") {
   const select = $("item-kind");
@@ -1311,13 +996,8 @@ for (const id of ["person-name", "person-age", "welcome-partner-name", "welcome-
 $("first-piece-add").addEventListener("click", event => showItemDialog("asset", null, event.currentTarget));
 $("first-debt-add").addEventListener("click", event => showItemDialog("debt", null, event.currentTarget));
 for (const [id, type] of [["asset-add", "asset"], ["debt-add", "debt"]]) $(id).addEventListener("click", event => showItemDialog(type, null, event.currentTarget, "", holdingsOwner === "all" ? "primary" : holdingsOwner));
-$("holdings-owner-filter").addEventListener("click", event => {
-  const button = event.target.closest("[data-holdings-owner]"); if (!button) return;
-  holdingsOwner = button.dataset.holdingsOwner;
-  if (chartView === "owner") chartSelection = holdingsOwner === "all" ? null : holdingsOwner;
-  const summary = summarizeDraft(draft); renderChart(summary); renderOrbit(summary);
-  $("holdings-owner-filter").querySelector(`[data-holdings-owner="${holdingsOwner}"]`)?.focus();
-});
+$('holdings-owner-filter').addEventListener('click',event=>{const button=event.target.closest('[data-holdings-filter]');if(!button)return;chartSelection=button.dataset.holdingsFilter==='all'?null:button.dataset.holdingsFilter;const summary=summarizeDraft(draft);renderChart(summary);renderOrbit(summary);$('holdings-owner-filter').querySelector(`[data-holdings-filter="${chartSelection||'all'}"]`)?.focus();});
+$('holdings-clear-filter').addEventListener('click',()=>{chartSelection=null;holdingsOwner='all';const summary=summarizeDraft(draft);renderChart(summary);renderOrbit(summary);$('holdings-owner-filter').querySelector('button')?.focus();});
 $("first-piece").addEventListener("click", (event) => {
   const choice = event.target.closest("[data-first-kind]");
   if (choice) showItemDialog("asset", null, choice, choice.dataset.firstKind);
@@ -1353,41 +1033,15 @@ $("flow-primary-share").addEventListener("input", (event) => {
   flowDraft.savings.primaryShare = value;
   renderFlow();
 });
-function setFlowView(view) {
-  document.querySelector(".flow-experimental").open=false;
-  const table = view === "table";
-  const bridge = view === "bridge";
-  const sunburst = view === "sunburst";
-  const treemap = view === "treemap";
-  const donut = view === "donut";
-  if (flowChartPath.length) {
-    flowChartPath = [];
-    const diagram = buildMonthlyFlowDiagram(flowDraft, draft, { primary: draft.name, partner: draft.partnerName });
-    renderSunburst(diagram); renderTreemap(diagram); renderDrillDonut(diagram);
-  }
-  $("flow-diagram-view").hidden = table || bridge || sunburst || treemap || donut;
-  $("flow-bridge-view").hidden = !bridge;
-  $("flow-sunburst-view").hidden = !sunburst;
-  $("flow-treemap-view").hidden = !treemap;
-  $("flow-donut-view").hidden = !donut;
-  $("flow-table-view").hidden = !table;
-  if(view==="diagram")renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));
-  $("flow-view-diagram").setAttribute("aria-pressed", String(view === "diagram"));
-  $("flow-view-bridge").setAttribute("aria-pressed", String(bridge));
-  $("flow-view-sunburst").setAttribute("aria-pressed", String(sunburst));
-  $("flow-view-treemap").setAttribute("aria-pressed", String(treemap));
-  $("flow-view-donut").setAttribute("aria-pressed", String(donut));
-  $("flow-view-table").setAttribute("aria-pressed", String(table));
-  $("flow-units").textContent = "£ / month";
+function setFlowView(view){
+ const table=view==='table';$('flow-diagram-view').hidden=table;$('flow-table-view').hidden=!table;
+ $('flow-view-diagram').setAttribute('aria-pressed',String(!table));$('flow-view-table').setAttribute('aria-pressed',String(table));
+ if(!table)renderPhoneSankey(buildMonthlyFlowDiagram(flowDraft,draft,{primary:draft.name,partner:draft.partnerName}));
 }
-$("flow-view-diagram").addEventListener("click", () => setFlowView("diagram"));
-$("flow-chart-add-income").addEventListener("click", () => openFlowEditor("income"));
-$("flow-chart-add-expense").addEventListener("click", event => showDatedForm("spending", null, event.currentTarget));
-$("flow-view-bridge").addEventListener("click", () => setFlowView("bridge"));
-$("flow-view-sunburst").addEventListener("click", () => setFlowView("sunburst"));
-$("flow-view-treemap").addEventListener("click", () => setFlowView("treemap"));
-$("flow-view-donut").addEventListener("click", () => setFlowView("donut"));
-$("flow-view-table").addEventListener("click", () => setFlowView("table"));
+$('flow-view-diagram').addEventListener('click',()=>setFlowView('diagram'));
+$('flow-view-table').addEventListener('click',()=>setFlowView('table'));
+$('flow-chart-add-income').addEventListener('click',()=>openEntryChoices('income'));
+$('flow-chart-add-expense').addEventListener('click',()=>openEntryChoices('spending'));
 organizeFlowInputs();
 $("flow-editor").addEventListener("input", (event) => {
   const input = event.target.closest("[data-flow-side], [data-flow-pay-owner], [data-flow-spending-label], [data-flow-custom-spending-label], [data-flow-custom-spending-amount]");
@@ -1555,7 +1209,7 @@ function showDatedForm(side, id = null, trigger = null) {
   $("flow-dated-delete").hidden = !entry;
   $("flow-dated-error").hidden = true;
   $("flow-dated-form").hidden = false;
-  if(!$("flow-dated-dialog").open)$("flow-dated-dialog").showModal();
+  openEntryPane('dated',$('flow-dated-form-title').textContent);
   syncDatedAmountLabel();
   $("flow-dated-label").focus();
   $("flow-dated-form").scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -1599,7 +1253,7 @@ $("flow-dated-form").addEventListener("submit", (event) => {
       const before=currentHousehold(),candidate=validatePicture(appendTrackingUpdate(before,{...before,flow:{...before.flow,datedEntries:entries}},{effectiveDate:datedTrackingDate(entry),label:entry.label,startMonth:trackingStartMonth()}));draft=candidate.holdings;flowDraft=candidate.flow;
     }else flowDraft.datedEntries = entries;
     editingFlowEntryId = null;
-    $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
+    $("flow-dated-form").hidden = true; $("flow-edit-dialog").close();
     renderFlow();
     document.querySelector(`#flow-dated-list [data-flow-entry="${entry.id}"], [data-flow-schedule-entry="${entry.id}"]`)?.focus();
     announce(`${entry.label} saved to income and spending.`);
@@ -1609,7 +1263,7 @@ $("flow-dated-form").addEventListener("submit", (event) => {
   }
 });
 $("flow-dated-cancel").addEventListener("click", () => {
-  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
+  $("flow-dated-form").hidden = true; $("flow-edit-dialog").close();
   if (flowEntryTrigger?.isConnected) flowEntryTrigger.focus();
 });
 $("flow-dated-delete").addEventListener("click", () => {
@@ -1618,9 +1272,9 @@ $("flow-dated-delete").addEventListener("click", () => {
   try{if(trackingEnabled()){const candidate=validatePicture(appendTrackingUpdate(before,{...before,flow:{...before.flow,datedEntries:entries}},{effectiveDate:datedTrackingDate(entry),label:`Removed ${entry.label}`,startMonth:trackingStartMonth()}));draft=candidate.holdings;flowDraft=candidate.flow;}else flowDraft.datedEntries=entries;}
   catch(e){$('flow-dated-error').textContent=e.message;$('flow-dated-error').hidden=false;return;}
   editingFlowEntryId = null;
-  $("flow-dated-form").hidden = true; $("flow-dated-dialog").close();
+  $("flow-dated-form").hidden = true; $("flow-edit-dialog").close();
   renderFlow();
-  $("flow-add-expense").focus();
+  $("flow-entry-add").focus();
   announce("Dated entry removed from the picture.");
 });
 function editLinkedAsset(id, trigger) {
@@ -1635,14 +1289,14 @@ function editLinkedAsset(id, trigger) {
 for (const id of ["flow-source-list", "flow-use-list", "flow-rent-list", "flow-mortgage-list"]) $(id).addEventListener("click", (event) => {
   const state = event.target.closest("[data-flow-state-pension]"); if(state) { openStatePension(state.dataset.flowStatePension); return; }
   const saving = event.target.closest("[data-flow-saving]");
-  if (saving) { $("flow-split").open = true; $("flow-primary-share").focus(); return; }
+  if (saving) { openSavingSettings(); return; }
   const entry = event.target.closest("[data-flow-entry]");
   if (entry) { showDatedForm("income", entry.dataset.flowEntry, entry); return; }
   const pay = event.target.closest("[data-flow-pay]");
-  if (pay) { $("flow-pay-detail").open = true; $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
+  if (pay) { openFlowEditor("income",pay.dataset.flowPay); $(`flow-pay-${pay.dataset.flowPay}-annualTakeHome`).focus(); return; }
   const custom = event.target.closest("[data-flow-custom-spending]");
   if (custom) {
-    $("flow-spending-detail").open = true;
+    openFlowEditor("spending");
     const target = [...document.querySelectorAll("[data-flow-custom-spending-amount]")].find((input) => input.dataset.flowCustomSpendingAmount === custom.dataset.flowCustomSpending);
     target?.focus();
     target?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -1671,21 +1325,12 @@ document.querySelector(".explore-tabs").addEventListener("click", (event) => {
   const button = event.target.closest("[data-chart-view]");
   if (!button) return;
   chartView = button.dataset.chartView;
-  chartSelection = null;
+  chartSelection = null;holdingsOwner="all";
   const summary = summarizeDraft(draft);
   renderChart(summary);
   renderOrbit(summary);
 });
-function chooseChartCategory(key) {
-  chartSelection = chartSelection === key ? null : key;
-  if (chartView === "owner") holdingsOwner = chartSelection || "all";
-  renderChart(summarizeDraft(draft));
-  const scrollBehaviour = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-  if (chartView === "owner") {
-    renderOrbit(summarizeDraft(draft));
-    if (chartSelection) document.querySelector(".holdings-panel")?.scrollIntoView({ block: "start", behavior: scrollBehaviour });
-  } else if (chartSelection) $("chart-drilldown").scrollIntoView({ block: "nearest", behavior: scrollBehaviour });
-}
+function chooseChartCategory(key){chartSelection=chartSelection===key?null:key;const summary=summarizeDraft(draft);renderChart(summary);renderOrbit(summary);$('chart-categories').querySelector(`[data-chart-key="${key}"]`)?.focus({preventScroll:true});}
 $("chart-categories").addEventListener("click", (event) => {
   const add = event.target.closest("[data-chart-add]");
   if (add) { showItemDialog("asset", null, add); return; }
@@ -1901,9 +1546,19 @@ function showBlankPicture() {
 }
 $("confirm-clear-button").addEventListener("click", startBlankPicture);
 
+function openEntryPane(kind,title){
+ const dialog=$('flow-edit-dialog');for(const pane of dialog.querySelectorAll('[data-entry-pane]'))pane.hidden=pane.dataset.entryPane!==kind;
+ dialog.dataset.entryPane=kind;$('flow-edit-title').textContent=title;$('flow-edit-done').hidden=kind!=='pay';
+ if(!dialog.open)dialog.showModal();
+}
+function openEntryChoices(side='all',future=false){
+ entrySchedule=future;for(const button of $('entry-choices').querySelectorAll('[data-entry-kind]'))button.hidden=side==='income'&&['spending','change','cost','categories'].includes(button.dataset.entryKind)||side==='spending'&&['salary','income','windfall','pension'].includes(button.dataset.entryKind);
+ openEntryPane('choose',future?'Schedule an entry':'Add an entry');
+}
+function openSavingSettings(){const d=$('saving-settings-dialog');if(!d.open)d.showModal();}
 function openFlowEditor(side, owner = null) {
   const dialog = $("flow-edit-dialog");
-  if(!dialog.open){
+  if(dialog.dataset.entryPane!=='pay'){
     if(trackingEnabled()){
       const before=currentHousehold(),current=trackedInputsAt(before.flow,before.holdings,trackingToday().slice(0,7),{includePeriods:false});
       flowEditSession={before,reference:{...before,flow:structuredClone(current.flow)},owner,side};flowDraft=structuredClone(current.flow);syncFlowInputs();
@@ -1920,7 +1575,7 @@ function openFlowEditor(side, owner = null) {
   $("flow-income-inputs").closest("fieldset").hidden = Boolean(owner);
   $("flow-pay-detail").querySelector(".flow-input-guidance").hidden = Boolean(owner);
   $("flow-edit-title").textContent = side === "spending" ? "Spending categories" : owner ? `${owner === "primary" ? draft.name : draft.partnerName} · pay and pension` : "Pay and other income";
-  if (!dialog.open) dialog.showModal();
+  openEntryPane('pay',$('flow-edit-title').textContent);
 }
 function syncFlowTrackingMode(){
   const receipt=Boolean(flowEditSession?.owner&&flowEditSession.side==='income'&&flowTrackingControls.mode.value==='period');
@@ -2004,12 +1659,12 @@ function organizeFlowInputs() {
   for (const [detail,side] of [[payDetail,"income"],[spendingDetail,"spending"]]) detail.addEventListener("toggle",()=>{if(detail.open && !dialog.open)openFlowEditor(side);});
   const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Scheduled"));
   const planFuture=make("button","flow-entry-add","+ Add future entry"); planFuture.type="button";
-  planFuture.addEventListener("click",()=>$("flow-event-dialog").showModal());
+  planFuture.addEventListener("click",()=>openEntryChoices('all',true));
   futureHeading.append(planFuture);
   const pensionRecords=make("section","flow-state-records"); pensionRecords.id="flow-state-records";
   inputPanel.append(pensionRecords,$("flow-dated-form"),futureHeading,$("flow-dated-list"),$("flow-dated-empty"));
-  const datedDialog=document.createElement("dialog"); datedDialog.id="flow-dated-dialog"; datedDialog.className="flow-edit-dialog"; datedDialog.setAttribute("aria-labelledby","flow-dated-form-title"); datedDialog.append($("flow-dated-form"));document.body.append(datedDialog);
-  datedDialog.addEventListener("close",()=>{$("flow-dated-form").hidden=true;});
+  const datedDialog=document.createElement("section"); datedDialog.id="flow-dated-dialog"; datedDialog.className="flow-edit-dialog"; datedDialog.setAttribute("aria-labelledby","flow-dated-form-title"); datedDialog.append($("flow-dated-form"));document.body.append(datedDialog);
+
   const property = document.createElement("details"); property.id="flow-more-entries"; property.className="flow-property-details"; property.innerHTML='<summary><span>Property cash flows<small id="flow-property-summary">Linked rent and mortgage amounts</small></span><span aria-hidden="true">⌄</span></summary>';
   extras.removeAttribute("id"); property.append($("flow-link-panel")); inputPanel.append(property);
   const actions=panel.querySelector(".flow-dated-actions") || extras.querySelector(".flow-dated-actions");
@@ -2037,6 +1692,17 @@ function organizeFlowInputs() {
   $('flow-trading-label').closest('label').firstChild.textContent='General account name ';
   allocationPanel.append(settings); inputPanel.after(allocationPanel);
   $("flow-split").classList.add("flow-routing-split");
+  const entryDialog=$('flow-edit-dialog');editor.dataset.entryPane='pay';
+  const datedPane=$('flow-dated-dialog');datedPane.dataset.entryPane='dated';datedPane.hidden=true;entryDialog.append(datedPane);
+  const statePane=$('flow-state-dialog');statePane.dataset.entryPane='state';entryDialog.append(statePane);
+  const choices=make('section','flow-event-options');choices.id='entry-choices';choices.dataset.entryPane='choose';choices.hidden=true;
+  for(const [kind,label,note] of [['salary','Salary & workplace pension','Gross pay, bonus and contributions'],['income','Other income','Recurring receipts with optional dates'],['spending','Expense','Regular costs with optional dates'],['categories','Spending categories','Update the regular household budget'],['change','Change an existing expense','Replace a category from a chosen month'],['windfall','One-off income','Money received once'],['cost','One-off cost','A payment in one month'],['pension','State Pension','NI record or official forecast']]){const b=make('button','',label);b.type='button';b.dataset.entryKind=kind;b.append(make('small','',note));choices.append(b);}entryDialog.append(choices);
+  const close=make('button','heading-action','×');close.id='flow-edit-close';close.type='button';close.setAttribute('aria-label','Close entry editor');close.addEventListener('click',()=>entryDialog.close());entryDialog.querySelector('.flow-dialog-heading').append(close);
+  $('flow-state-close').hidden=true;
+  entryDialog.addEventListener('close',()=>{$('flow-dated-form').hidden=true;entryDialog.dataset.entryPane='';});
+  const savingDialog=make('dialog','flow-edit-dialog saving-settings-dialog');savingDialog.id='saving-settings-dialog';savingDialog.setAttribute('aria-labelledby','saving-settings-title');savingDialog.innerHTML='<div class="flow-dialog-heading"><h2 id="saving-settings-title">Saving settings</h2><button id="saving-settings-close" type="button" class="heading-action">Done</button></div><p class="lifeline-caption">Changes update your household saving route.</p>';savingDialog.append(settings,$('flow-allocation-error'));document.body.append(savingDialog);$('saving-settings-close').addEventListener('click',()=>savingDialog.close());
+  const savingButton=make('button','heading-action','Saving settings');savingButton.id='flow-saving-settings';savingButton.type='button';savingButton.addEventListener('click',openSavingSettings);allocationPanel.querySelector('.flow-allocation-heading').append(savingButton);
+  flowLedger=mountFlowLedger(inputPanel,{money,monthLabel:flowMonthLabel,editEntry:editFlowEntry,editDated:showDatedForm,addEntry:openEntryChoices,editIncome:()=>openFlowEditor('income'),editSpending:()=>openFlowEditor('spending')});
   $("planning-content").append($("flow-growth-panel"));
   planningController = mountPlanning($("planning-content"), () => {
     return {flow:outlookFlow(),holdings:draft,mode,editPension:owner=>{showScreen("flow");openStatePension(owner);}};
@@ -2077,7 +1743,7 @@ function openStatePension(owner="primary") {
   formatGroupedNumberInputs($("flow-state-form"));
   $("flow-state-remove").hidden=!input; $("flow-state-error").hidden=true;
   previewStatePension();
-  if(!$("flow-state-dialog").open) $("flow-state-dialog").showModal();
+  openEntryPane('state',$('flow-state-title').textContent);
   $("flow-state-years").focus();
 }
 function renderStatePensionRecords(summary) {
@@ -2088,7 +1754,7 @@ function renderStatePensionRecords(summary) {
     row.append(make("span","pension-person",person));
     if (detail) row.title = `${detail.qualifyingYears} recorded + ${detail.futureYears} assumed future qualifying years${detail.approximateStart ? "; approximate start from age" : ""}. Edit to review assumptions.`;
     const hasForecast=detail?.annualGross!==null && detail?.annualGross!==undefined;
-    row.append(make("span","pension-amount",hasForecast ? `${money(detail.annualGross / 12)}/mo gross · ${detail.mode === 'official' ? 'Forecast' : 'NI estimate'}${detail.startMonth ? ` · ${flowMonthLabel(detail.startMonth)}` : ''}` : '—'));
+    row.append(make("span","pension-amount",hasForecast ? detail.active?`${money(detail.monthlyNet)}/mo after tax`:`${money(detail.annualGross / 12)}/mo gross · ${detail.startMonth?'from '+flowMonthLabel(detail.startMonth):'Start date needed'}` : '—'));
     if(hasForecast && !detail.startMonth) {
       const flag=make('span','pension-flag',hasForecast ? '⚠ Start date needed' : '⚠ Forecast needed · Add estimate');flag.title=hasForecast ? 'Start month missing' : 'Forecast not added; excluded from income';row.append(flag);
     }
@@ -2099,7 +1765,7 @@ function renderStatePensionRecords(summary) {
   }
 }
 
-$("flow-state-close").addEventListener("click",()=>$("flow-state-dialog").close());
+$("flow-state-close").addEventListener("click",()=>$("flow-edit-dialog").close());
 $("flow-state-owner").addEventListener("change",()=>openStatePension($("flow-state-owner").value));
 $("flow-state-form").addEventListener("input",previewStatePension);
 $("flow-state-form").addEventListener("change",previewStatePension);
@@ -2115,21 +1781,17 @@ $("flow-state-form").addEventListener("submit",event=>{
     estimateStatePension(input,input.assessmentMonth);
     const proposed={...(flowDraft.statePensions || {}),[owner]:input};
     summarizeMonthlyFlow({...flowDraft,statePensions:proposed},draft,{primary:draft.name,partner:draft.partnerName});
-    flowDraft.statePensions=proposed;$("flow-state-dialog").close();renderFlow();document.querySelector(`[data-flow-state-owner="${owner}"]`)?.focus();announce("State Pension details saved. Future qualifying years remain an assumption.");
+    flowDraft.statePensions=proposed;$("flow-edit-dialog").close();renderFlow();document.querySelector(`[data-flow-state-owner="${owner}"]`)?.focus();announce("State Pension details saved. Future qualifying years remain an assumption.");
   } catch(error) { $("flow-state-error").textContent=error.message;$("flow-state-error").hidden=false; }
 });
-$("flow-state-remove").addEventListener("click",()=>{flowDraft.statePensions[$("flow-state-owner").value]=null;$("flow-state-dialog").close();renderFlow();});
-$("flow-event-close").addEventListener("click",()=>$("flow-event-dialog").close());
-$("flow-event-dialog").addEventListener("click",event=>{
-  const choice=event.target.closest("[data-flow-event]");if(!choice)return;
-  $("flow-event-dialog").close();
-  const kind=choice.dataset.flowEvent;
-  if(kind === "pension") {openStatePension("primary");return;}
-  showDatedForm(["income","windfall"].includes(kind) ? "income" : "spending",null,document.querySelector(".flow-scheduled-heading button"));
-  const [year,month]=flowDraft.asOfMonth.split("-").map(Number);
-  $("flow-dated-start").value=new Date(Date.UTC(year,month,1)).toISOString().slice(0,7);
-  if(["cost","windfall"].includes(kind)) {$("flow-dated-frequency").value="once";syncDatedFrequency();}
-  if(kind === "change") {$("flow-dated-replaces-row").hidden=false;$("flow-dated-form-title").textContent="Change future spending";$("flow-dated-replaces").focus();}
+$("flow-state-remove").addEventListener("click",()=>{flowDraft.statePensions[$("flow-state-owner").value]=null;$("flow-edit-dialog").close();renderFlow();});
+$('entry-choices').addEventListener('click',event=>{
+ const button=event.target.closest('[data-entry-kind]');if(!button)return;const kind=button.dataset.entryKind;
+ if(kind==='salary'){openFlowEditor('income');return;}if(kind==='categories'){openFlowEditor('spending');return;}if(kind==='pension'){openStatePension('primary');return;}
+ showDatedForm(['income','windfall'].includes(kind)?'income':'spending',null,button);
+ if(entrySchedule){const [year,month]=flowDraft.asOfMonth.split('-').map(Number);$('flow-dated-start').value=new Date(Date.UTC(year,month,1)).toISOString().slice(0,7);}
+ if(['cost','windfall'].includes(kind)){$('flow-dated-frequency').value='once';syncDatedFrequency();}
+ if(kind==='change'){$('flow-dated-replaces-row').hidden=false;$('flow-dated-form-title').textContent='Change an existing expense';$('flow-dated-replaces').focus();}
 });
 $("flow-dated-replaces").addEventListener("change",()=>{
   const option=$("flow-dated-replaces").selectedOptions[0]; if(option?.value)$("flow-dated-label").value=`${option.textContent} (new amount)`;
