@@ -1,3 +1,5 @@
+import {mountPayEntry,pensionInputIncomplete} from './pay-entry.mjs?v=20261031pay4';
+const payEntryControllers=new Map();
 import {mountActionFeedback,revealAddedItem,completedAction} from './ui-motion.mjs?v=20261027motion1';
 import {
   ASSET_TYPES,
@@ -12,7 +14,7 @@ import {
 } from "./asset-ledger.mjs?v=20261022cashflow2";
 import { INCOME_FIELDS, SPENDING_FIELDS, createBlankMonthlyFlow, createExampleMonthlyFlow, summarizeMonthlyFlow, buildMonthlyFlowDiagram, monthlyFlowEvents, computeAllocationWaterfall, projectTaxYearSaving, ISA_ALLOWANCE_2026_27, DEFAULT_RESERVE_MONTHS } from "./monthly-flow.mjs?v=20261024persona1";
 import { mountAccountStorage } from './account-storage.mjs?v=20261025baseline1';
-import {mountLifeline} from './lifeline-view.mjs?v=20261025lifeline1';
+import {mountLifeline} from './lifeline-view.mjs?v=20261031pay4';
 import {mountBaselines} from './baseline-view.mjs?v=20261025baseline1';
 import {appendTrackingUpdate,trackedInputsAt,diffTrackedInputs} from './tracking.mjs?v=20261025tracking1';
 import {trackingControls,mountTrackingHistory,trackingToday} from './tracking-view.mjs?v=20261025tracking1';
@@ -21,7 +23,7 @@ import {takeSignInDraft} from './sign-in-draft.mjs?v=20261025baseline1';
 import {removePartnerFromPicture} from './household-profile.mjs?v=20261024persona1';
 import {mountInsights} from "./insights-view.mjs?v=20261025localai1";
 import { mountInheritance } from "./inheritance-view.mjs?v=20261024inheritance1";
-import { mountPlanning } from "./planning-view.mjs?v=20261024timing1";
+import { mountPlanning } from "./planning-view.mjs?v=20261031pay4";
 import { estimateStatePension, resolveStatePensionInput } from "./state-pension.mjs?v=20261024persona1";
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
@@ -590,6 +592,8 @@ function renderFlow() {
     flag.append(make('summary','',`${pay.person}: Personal Allowance ${pay.estimate.personalAllowance===0 ? 'fully tapered' : 'reduced'} ⓘ`));
     const text=make('p','',`Pay-only estimate: ${money(adjusted)}/year after modelled employee pensions; Personal Allowance ${money(pay.estimate.personalAllowance)}. Allowance falls £1 per £2 of adjusted net income above £100,000. Other income, reliefs and pension arrangements can change your actual figure. `),link=make('a','','HMRC rules ↗');link.href='https://www.gov.uk/guidance/adjusted-net-income';link.target='_blank';link.rel='noopener noreferrer';text.append(link);flag.append(text);taxFlags.append(flag);
   }
+  for(const owner of (draft.partnerName?['primary','partner']:['primary']))if(pensionInputIncomplete(flowDraft.pay[owner]))taxFlags.append(make('p','bento-warning',`${owner==='primary'?draft.name:draft.partnerName}: pension details incomplete. Unknown contributions and unentered balances are not estimated.`));
+  for(const controller of payEntryControllers.values())controller.refresh();
   taxFlags.hidden=!taxFlags.children.length;
   $("flow-income-total").textContent = money(summary.incomeTotal);
   $("flow-spending-total").textContent = money(summary.spendingTotal);
@@ -600,7 +604,7 @@ function renderFlow() {
   $("flow-result-value").classList.toggle("is-gap", summary.remainder < 0);
   for (const detail of summary.payDetails) {
     $(`flow-pay-${detail.owner}-name`).textContent = detail.person;
-    $(`flow-pay-${detail.owner}-monthly`).textContent = detail.receiptRecorded?`Entered take-home ${money(detail.monthlyTakeHome)} for this month`:!detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : detail.annualTakeHome ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
+    $(`flow-pay-${detail.owner}-monthly`).textContent = detail.receiptRecorded?`Entered take-home ${money(detail.monthlyTakeHome)} for this month`:!detail.active ? `Pay ends after ${flowMonthLabel(detail.endDate)} · not in this month` : (detail.annualTakeHome || detail.enteredTakeHome) ? `${detail.enteredTakeHome ? "Entered" : "Estimated"} take-home ${money(detail.annualTakeHome)}/year · ${money(detail.monthlyTakeHome)}/month in this picture` : "Enter yearly salary or actual take-home pay to start.";
     $(`flow-pay-${detail.owner}-tax`).textContent = detail.annualGross ? `Rough 2026–27 estimate: Income Tax ${money(detail.estimate.incomeTax)}, employee NI ${money(detail.estimate.employeeNI)}, employee pension ${money(detail.employeePension)}${detail.employerPension ? `, employer pension ${money(detail.employerPension)}` : ""} per year. Employer pension is outside take-home pay.` : "";
     const baseSalary = flowDraft.pay[detail.owner].annualGross || 0;
     for (const [kind, label] of [["employee", "Your pension"], ["employer", "Employer pension"]]) {
@@ -705,6 +709,7 @@ function setupFlowInputs() {
     card.append(make("p", "flow-pay-monthly", "")); const monthly = card.lastChild; monthly.id = `flow-pay-${owner}-monthly`;
     card.append(make("p", "flow-pay-tax", "")); card.lastChild.id = `flow-pay-${owner}-tax`;
     $("flow-pay-inputs").append(card);
+    payEntryControllers.set(owner,mountPayEntry(card,owner,{getPay:()=>flowDraft.pay[owner],update:patch=>{Object.assign(flowDraft.pay[owner],patch);renderFlow();},readAmount:groupedNumberValue}));
   }
   for (const [side, fields] of [["income", INCOME_FIELDS], ["spending", SPENDING_FIELDS]]) {
     const container = $(`flow-${side}-inputs`);
@@ -782,8 +787,9 @@ function syncFlowInputs() {
   renderCustomSpendingInputs();
   for (const input of document.querySelectorAll("[data-flow-pay-owner]")) {
     const value = flowDraft.pay[input.dataset.flowPayOwner][input.dataset.flowPayKey];
-    input.value = value || "";
+    input.value = value || (value===0 && input.dataset.flowPayKey==="annualTakeHome" ? "0" : "");
   }
+  for(const controller of payEntryControllers.values())controller.sync();
   $("flow-include-rent").checked = flowDraft.includeLinkedRent;
   $("flow-include-mortgage").checked = flowDraft.includeLinkedMortgage;
   $("flow-inflation-rate").value = flowDraft.assumptions.annualInflation ?? "";

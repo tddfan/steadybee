@@ -23,3 +23,7 @@ test('Tax view and cumulative setting survive saved versions, while calculation-
  p.planning.taxCumulative='yes';assert.throws(()=>validatePicture(p),/tax display/);p.planning.taxCumulative=true;
  p.flow.taxOverrides={primary:{employmentTax:0}};assert.throws(()=>validatePicture(p),/overrides/);
 });
+test('payslip frequency and unknown pension details survive picture validation',()=>{
+ const p=picture();Object.assign(p.flow.pay.primary,{takeHomeFrequency:'fourWeekly',annualTakeHome:26000,employeePensionUnknown:true,pensionBalanceUnknown:true,employerPensionUnit:'amount'});
+ const result=validatePicture(p);assert.deepEqual(result.flow.pay.primary,p.flow.pay.primary);
+});

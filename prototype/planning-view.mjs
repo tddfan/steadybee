@@ -1,3 +1,4 @@
+import {pensionInputIncomplete} from './pay-entry.mjs?v=20261031pay4';
 import {outlookParameters,sameOutlookParameter,baselineOutlookScenario} from './outlook-parameters.mjs?v=20261025outlook1';
 import {retirementControlBounds} from './financial-ui-checks.mjs?v=20261027bento1';
 import {TAX_COMPONENTS,taxPeriodView} from './planning-tax.mjs?v=20261024persona1';
@@ -428,10 +429,12 @@ export function mountPlanning(root,getInputs) {
   }
   function renderOutcome(year,holdings) {
     const current=summarizeCoverage(baseline,{real}),value=summarizeCoverage(projection,{real});
+    const missingPension=(holdings.partnerName?['primary','partner']:['primary']).some(owner=>pensionInputIncomplete(getInputs().flow.pay[owner]));
     const output=$('plan-comparison'),wasOpen=$('plan-baseline-comparison')?.open;output.replaceChildren();
     const caption=el('div',`plan-comparison-caption ${value.covered ? 'is-covered' : 'is-gap'}`);
     caption.title='Illustration under your entered assumptions';
     caption.append(el('strong',value.covered ? '' : 'coverage-gap',value.covered ? (Object.values(value.endAges).length ? `✓ Modelled spending is covered to age ${Math.min(...Object.values(value.endAges))}` : '✓ Modelled spending is covered') : `Gap from ${monthLabel(value.firstGap.month)}`),el('small','',value.covered ? `to ${monthLabel(value.endMonth)} · under assumptions` : `${currency(value.firstGap.amount)} unmet spending · under assumptions`));output.append(caption);
+    if(missingPension){caption.querySelector('strong').textContent=value.firstGap?`Incomplete picture · gap from ${monthLabel(value.firstGap.month)}`:'Pension details incomplete';caption.append(el('span','plan-coverage-caveat','Unknown contributions and unentered balances are excluded. Add pension details in Income & spending.'));}
     if(value.covered && (projection.taxLimitations.length || projection.unmodelledDebt>0))caption.append(el('span','plan-coverage-caveat','Some tax or debt inputs are incomplete; see assumptions below.'));
     const comparison=el('details','plan-baseline-comparison');comparison.id='plan-baseline-comparison';comparison.open=Boolean(wasOpen);comparison.append(el('summary','','Compare plan'));output.append(comparison);
     const figures=el('div','plan-comparison-figures');

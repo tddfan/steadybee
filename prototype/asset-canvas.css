@@ -1696,3 +1696,19 @@ h2 { font-size:26px; }
  .flow-timeline-heading input { grid-column:1/-1; grid-row:2; width:100%; }
  #flow-timeline-now { grid-column:2; grid-row:1; min-height:44px; padding:4px 8px; border:0; background:transparent; text-decoration:underline; }
 }
+
+/* Payslip-sized entry, with only one editable pension unit at a time. */
+.pay-period-entry { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,1fr); gap:12px; }
+.pay-period-entry label { display:grid; gap:6px; min-width:0; }
+.pay-period-entry input,.pay-period-entry select,.flow-pay-card > label > select { width:100%; min-width:0; min-height:44px; padding:8px; font:inherit; border:1px solid #b8cbbb; border-radius:8px; background:#fff; color:inherit; }
+.flow-pay-card > label:has(select) { display:grid; gap:6px; }
+.pay-entry-help { display:block; margin:5px 0 12px; font-size:16px; line-height:1.45; color:#52675a; }
+.pay-unknown-check { display:flex; align-items:center; gap:10px; min-height:44px; }
+.pay-unknown-check input { width:22px; height:22px; min-height:22px; }
+.flow-pay-card label[hidden] { display:none!important; }
+.flow-pay-card .flow-pension-equivalent { display:none; }
+@media(max-width:420px) { .pay-period-entry { grid-template-columns:1fr; gap:8px; } }
+@media(max-width:600px) {
+ .bento-app #flow-edit-dialog .flow-pay-section { padding:0; margin:0; }
+ .bento-app #flow-edit-dialog .flow-pay-card { padding:12px; }
+}
