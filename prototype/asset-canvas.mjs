@@ -1,3 +1,6 @@
+import {createNavigationContext} from './navigation-context.mjs?v=20261031wallet6';
+const navigationContext=createNavigationContext();navigationContext.visit("assets");history.scrollRestoration="manual";
+let navigationRevision=0,flowEditReturn=null,flowEditCommitted=false,selectedFlowKey=null;
 import {mountPayEntry,pensionInputIncomplete} from './pay-entry.mjs?v=20261031pay4';
 const payEntryControllers=new Map();
 import {mountActionFeedback,revealAddedItem,completedAction} from './ui-motion.mjs?v=20261027motion1';
@@ -28,10 +31,10 @@ import { estimateStatePension, resolveStatePensionInput } from "./state-pension.
 import { estimateRepaymentMortgagePayment } from "./mortgage-payment.mjs?v=20261022cashflow2";
 import { enableGroupedNumberInput, formatGroupedNumberInputs, groupedNumberValue } from "./grouped-number-input.mjs?v=20261022grouped1";
 import {assetTone,WEALTH_COLORS} from './financial-ui-checks.mjs?v=20261027bento1';
-import {mountBentoErgonomics} from './bento-ergonomics.mjs?v=20261027bento1';
+import {mountBentoErgonomics} from './bento-ergonomics.mjs?v=20261031wallet6';
 
 import {filterHoldings} from './holdings-filter.mjs?v=20261027entries1';
-import {mountFlowLedger} from './flow-ledger-view.mjs?v=20261027entries1';
+import {mountFlowLedger} from './flow-ledger-view.mjs?v=20261031wallet6';
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => new Intl.NumberFormat("en-GB", {
@@ -308,8 +311,8 @@ function render() {
 const flowColors = {
   primaryPay:'#1F8A5B',partnerPay:'#1F8A5B',pensionIncome:'#7C5CBF',otherIncome:'#C58B3B',
   homeBills:'#C58B3B',everyday:'#C58B3B',transport:'#C58B3B',lifestyle:'#C58B3B',other:'#8E8E93',
-  rent:'#C58B3B',mortgage:'#FF3B30',datedIncome:'#1F8A5B',datedSpending:'#FF3B30',
-  tax:'#FF3B30',nationalInsurance:'#FF3B30',pensionContribution:'#7C5CBF',saving:'#1F8A5B',
+  rent:'#C58B3B',mortgage:'#9A795A',datedIncome:'#1F8A5B',datedSpending:'#9A795A',
+  tax:'#778394',nationalInsurance:'#778394',pensionContribution:'#7C5CBF',saving:'#1F8A5B',
   unallocated:'#CC6600',gap:'#FF3B30','cash-reserve':'#1F8A5B','isa-primary':'#1F8A5B','isa-partner':'#1F8A5B',trading:'#1F8A5B'
 };
 const svgNS = "http://www.w3.org/2000/svg";
@@ -319,7 +322,7 @@ function svgElement(tag, attributes = {}) {
   return node;
 }
 function flowColor(item) {
-  if (["mortgage", "datedSpending", "spending"].includes(item.kind)) return "#FF3B30";
+  if (["mortgage", "datedSpending", "spending"].includes(item.kind)) return "#9A795A";
   if(item.kind==="saving")return "#1F8A5B";
   return flowColors[item.bucket] || flowColors[item.key] || flowColors[item.kind] || "#8E8E93";
 }
@@ -354,7 +357,18 @@ function labelPositions(items, chartHeight, minGap = 38) {
   if (excess > 0) for (let index = 0; index < labels.length; index++) labels[index] -= excess;
   return labels;
 }
-function editFlowEntry(item, side) {
+function rememberFlowOrigin(item,origin=document.activeElement){
+ if(flowEditReturn || $('flow-screen').hidden)return;
+ flowEditReturn={key:item?.key,origin,y:window.scrollY};flowEditCommitted=false;selectedFlowKey=item?.key;markFlowSelection();
+}
+function markFlowSelection(){for(const node of document.querySelectorAll('[data-flow-key]'))node.toggleAttribute('data-flow-selected',Boolean(selectedFlowKey && node.dataset.flowKey===selectedFlowKey));}
+function restoreFlowOrigin(){
+ const context=flowEditReturn;if(!context)return;flowEditReturn=null;
+ const committed=flowEditCommitted;flowEditCommitted=false;
+ requestAnimationFrame(()=>{if($('flow-screen').hidden)return;const candidates=[...document.querySelectorAll('[data-flow-key]')].filter(node=>node.dataset.flowKey===context.key&&node.getClientRects().length);const row=candidates.find(node=>node.matches('button.flow-entry-row'));const target=context.origin?.isConnected&&context.origin.getClientRects().length&&(!context.key||context.origin.dataset.flowKey===context.key)?context.origin:row||candidates.find(node=>node.matches('[tabindex],button'));target?.focus({preventScroll:true});window.scrollTo({top:context.y,behavior:'instant'});markFlowSelection();if(committed){completedAction('Monthly picture updated');const selected=row||target;if(selected){selected.classList.add('flow-entry-updated');setTimeout(()=>selected.classList.remove('flow-entry-updated'),1000);}}});
+}
+function editFlowEntry(item, side, origin=document.activeElement) {
+  rememberFlowOrigin(item,origin);
   if (item.kind === "gap") return;
   if (item.kind === "statePension") { openStatePension(item.owner || item.key.split(":")[1]); return; }
   if (item.kind === "saving") { openSavingSettings(); return; }
@@ -368,7 +382,7 @@ function editFlowEntry(item, side) {
   const target = owner ? $(`flow-pay-${owner}-annualGross`) : item.key?.startsWith("custom:")
     ? [...document.querySelectorAll("[data-flow-custom-spending-amount]")].find((input) => input.dataset.flowCustomSpendingAmount === item.key.slice(7))
     : $(`flow-${side}-${item.key}`);
-  target?.focus();
+  (owner ? $(`pay-received-${owner}`) : target)?.focus();
 }
 function renderPhoneSankey(summary) {
   const svg=$("flow-sankey-mobile");svg.replaceChildren();svg.hidden=!summary.hasEntries;if(!summary.hasEntries)return;
@@ -381,7 +395,7 @@ function renderPhoneSankey(summary) {
   const sourceX=Math.max(95,width*.27),hubX=Math.max(sourceX+24,width*.41),outX=Math.max(hubX+28,width*.59),labelX=outX+16;
   text(4,23,'Money in');text(labelX,23,'Where it goes');
   const link=(x1,y1,x2,y2,h,item,side)=>{const path=svgElement('path',{d:flowBand(x1,y1,x2,y2,Math.max(.7,h)),fill:flowColor(item),opacity:'.38',stroke:'#fffefa','stroke-width':1});svg.append(path);};
-  const label=(x,y,item,side)=>{const group=svgElement('g',{role:side ? 'button' : 'img',...(side ? {tabindex:0} : {}),'aria-label':`${side ? 'Edit ' : ''}${item.label}: ${money(item.amount)} monthly`});group.append(svgElement('rect',{x:x-3,y:y-24,width:134,height:49,fill:'transparent'}));const name=svgElement('text',{x,y:y-5,class:'flow-phone-label'});const short=item.key==='everyday' ? 'Living costs' : / savings$/.test(item.label) ? item.label.replace(/ savings$/,' saving') : item.kind==='mortgage' ? 'Mortgage' : item.key==='taxNI' || /Income Tax/.test(item.label) ? 'Tax & NI' : /Employee pensions/.test(item.label) ? 'Work pension' : /^School fees/.test(item.label) ? 'School fees' : item.label;const limit=Math.max(9,Math.floor((width-x-4)/7.1));name.textContent=short.length>limit ? short.slice(0,limit-1)+'…' : short;const amount=svgElement('text',{x,y:y+16,class:'flow-phone-value'});amount.textContent=money(item.amount);group.append(name,amount);if(side){group.addEventListener('click',()=>editFlowEntry(item,side));group.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();editFlowEntry(item,side);}});}svg.append(group);};
+  const label=(x,y,item,side)=>{const group=svgElement('g',{role:side ? 'button' : 'img',...(side ? {tabindex:0} : {}),'aria-label':`${side ? 'Edit ' : ''}${item.label}: ${money(item.amount)} monthly`});group.append(svgElement('rect',{x:x-3,y:y-24,width:134,height:49,fill:'transparent'}));const name=svgElement('text',{x,y:y-5,class:'flow-phone-label'});const short=item.key==='everyday' ? 'Living costs' : / savings$/.test(item.label) ? item.label.replace(/ savings$/,' saving') : item.kind==='mortgage' ? 'Mortgage' : item.key==='taxNI' || /Income Tax/.test(item.label) ? 'Tax & NI' : /Employee pensions/.test(item.label) ? 'Work pension' : /^School fees/.test(item.label) ? 'School fees' : item.label;const limit=Math.max(9,Math.floor((width-x-4)/7.1));name.textContent=short.length>limit ? short.slice(0,limit-1)+'…' : short;const amount=svgElement('text',{x,y:y+16,class:'flow-phone-value'});amount.textContent=money(item.amount);group.dataset.flowKey=item.key;group.append(name,amount);if(side){group.addEventListener('click',()=>editFlowEntry(item,side,group));group.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();editFlowEntry(item,side,group);}});}svg.append(group);};
   const hubY=top+(bottom-top-total*scale)/2;
   let cursor=hubY,y=top;
   // Ribbons are painted before labels so all amounts remain readable.
@@ -440,7 +454,7 @@ function renderSankey(summary) {
   const node = (px, row, color, side) => {
     const group = svgElement("g", { class: side ? "flow-chart-target" : "" });
     group.append(svgElement("rect", { x:px, y:row.y, width:nodeWidth, height:Math.max(3,row.height), rx:3, fill:color }));
-    if (side) { group.setAttribute("role","presentation"); group.setAttribute("aria-label",`Edit ${row.label}, ${money(row.amount)} per month`); group.addEventListener("click",()=>editFlowEntry(row,side)); group.addEventListener("keydown",(event)=>{ if (["Enter"," "].includes(event.key)) { event.preventDefault(); editFlowEntry(row,side); } }); }
+    if (side) { group.setAttribute("role","presentation"); group.setAttribute("aria-label",`Edit ${row.label}, ${money(row.amount)} per month`); group.addEventListener("click",()=>editFlowEntry(row,side,group)); group.addEventListener("keydown",(event)=>{ if (["Enter"," "].includes(event.key)) { event.preventDefault(); editFlowEntry(row,side,group); } }); }
     svg.append(group); return group;
   };
   const label = (px, cy, name, amount, anchor, row, side) => {
@@ -448,7 +462,7 @@ function renderSankey(summary) {
     if (row.kind === "gap") { group.setAttribute("role","img"); group.removeAttribute("tabindex"); group.setAttribute("aria-label",`${name}: ${money(amount)} not covered by recorded income`); }
     const title = svgElement("text",{x:px,y:cy-4,"text-anchor":anchor,class:"flow-svg-label"}); title.textContent=name.length > 29 ? `${name.slice(0,27)}…` : name;
     const value = svgElement("text",{x:px,y:cy+19,"text-anchor":anchor,class:"flow-svg-value"}); value.textContent=money(amount);
-    group.append(title,value); group.addEventListener("click",()=>editFlowEntry(row,side)); group.addEventListener("keydown",(event)=>{if (["Enter"," "].includes(event.key)){event.preventDefault();editFlowEntry(row,side);}}); svg.append(group);
+    group.dataset.flowKey=row.key;group.append(title,value); group.addEventListener("click",()=>editFlowEntry(row,side,group)); group.addEventListener("keydown",(event)=>{if (["Enter"," "].includes(event.key)){event.preventDefault();editFlowEntry(row,side,group);}}); svg.append(group);
   };
   let grossCursor = grossY, directCursor = netY + payrollNet * scale;
   for (const row of sources) {
@@ -677,6 +691,7 @@ function renderFlow() {
   if (!$("planning-screen").hidden) planningController?.refresh();
   if (!$("inheritance-screen").hidden) inheritanceController?.refresh();
   document.dispatchEvent(new Event("picture-updated"));
+  markFlowSelection();
   formatGroupedNumberInputs();
 }
 function setupFlowInputs() {
@@ -811,6 +826,7 @@ function showScreen(screen, {updateHistory=true} = {}) {
   if(screen==="lifeline")screen="planning";
   if(screen==="plan")screen="insights";
   if(screen==="insights"&&location.hash==='#insights'&&!updateHistory)history.replaceState(history.state,'','#plan');
+  const restoreY=navigationContext.visit(screen,window.scrollY),revision=++navigationRevision;
   const route=screen==="planning"?"lifeline":screen==="insights"?"plan":screen;
   if(!updateHistory && location.hash==='#planning')history.replaceState(history.state,'','#lifeline');
   $('app-navigation').hidden=false;
@@ -828,8 +844,9 @@ function showScreen(screen, {updateHistory=true} = {}) {
   if (screen === "flow" || screen === "planning") {
     renderFlow();
   }
-  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("lifeline-title") : $("canvas-title")).focus();
-  window.scrollTo({ top: 0, behavior: "instant" });
+  (screen === "insights" ? $("insights-title") : screen === "inheritance" ? $("inheritance-title") : screen === "flow" ? $("flow-title") : screen === "planning" ? $("lifeline-title") : $("canvas-title")).focus({preventScroll:true});
+  window.scrollTo({ top: restoreY, behavior: "instant" });
+  requestAnimationFrame(()=>{if(revision===navigationRevision)window.scrollTo({top:restoreY,behavior:"instant"});});
   revealCurrentSection();
 }
 function revealCurrentSection(){
@@ -1286,6 +1303,7 @@ $("flow-dated-delete").addEventListener("click", () => {
   announce("Dated entry removed from the picture.");
 });
 function editLinkedAsset(id, trigger) {
+  rememberFlowOrigin({key:`rent:${id}`},trigger);
   const asset = draft.assets.find((entry) => entry.id === id);
   if (!asset) return;
   holdingsOwner = asset.owner || "primary";
@@ -1367,13 +1385,14 @@ $("item-dialog").addEventListener("close", () => {
     const itemId = returnToFlowAssetId;
     returnToFlowAssetId = null;
     showScreen("flow");
-    document.querySelector(`[data-flow-asset="${itemId}"], [data-flow-debt="${itemId}"]`)?.focus();
+    restoreFlowOrigin();
   } else restoreFocus();
 });
 $("item-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
     const item = itemFromForm();
+    if(returnToFlowAssetId)flowEditCommitted=true;
     const key = dialogType === "asset" ? "assets" : "debts";
     const next = { ...draft, assets: [...draft.assets], debts: [...draft.debts] };
     const index = next[key].findIndex((entry) => entry.id === editingId);
@@ -1557,6 +1576,7 @@ function showBlankPicture() {
 $("confirm-clear-button").addEventListener("click", startBlankPicture);
 
 function openEntryPane(kind,title){
+ if(!flowEditReturn)rememberFlowOrigin(null);
  const dialog=$('flow-edit-dialog');for(const pane of dialog.querySelectorAll('[data-entry-pane]'))pane.hidden=pane.dataset.entryPane!==kind;
  dialog.dataset.entryPane=kind;$('flow-edit-title').textContent=title;$('flow-edit-done').hidden=kind!=='pay';
  if(!dialog.open)dialog.showModal();
@@ -1604,7 +1624,7 @@ function finishFlowEdit(){
       flowEditSession=null;draft=candidate.holdings;flowDraft=candidate.flow;syncFlowInputs();render();announce('Dated update saved. Earlier figures and baselines stay unchanged.');
     }catch(e){$('flow-input-error').textContent=e.message;$('flow-input-error').hidden=false;return;}
   }
-  dialog.close();
+  flowEditCommitted=true;dialog.close();
 }
 function organizeFlowInputs() {
   const panel = $("flow-dated-panel");
@@ -1665,7 +1685,7 @@ function organizeFlowInputs() {
   dialog.append(dialogHeading,editor); document.body.append(dialog); editorHeading.remove();
   flowTrackingControls=trackingControls(editor,'flow-change');
   const receiptRow=make('label','','Take-home received this month · £');receiptRow.id='flow-tracking-receipt-row';receiptRow.hidden=true;const receipt=make('input');receipt.id='flow-tracking-receipt';receipt.type='number';receipt.min='0';receipt.step='.01';enableGroupedNumberInput(receipt);receiptRow.append(receipt);flowTrackingControls.root.append(receiptRow);flowTrackingControls.mode.addEventListener('change',syncFlowTrackingMode);
-  dialog.addEventListener("close",()=>{if(flowEditSession){const before=flowEditSession.before;flowEditSession=null;flowDraft=before.flow;draft=before.holdings;render();}payDetail.open=false;spendingDetail.open=false;syncFlowInputs();for(const x of dialog.querySelectorAll('[aria-invalid]'))x.removeAttribute('aria-invalid');for(const x of dialog.querySelectorAll('.pay-edit-error'))x.hidden=true;});
+  dialog.addEventListener("close",()=>{restoreFlowOrigin();if(flowEditSession){const before=flowEditSession.before;flowEditSession=null;flowDraft=before.flow;draft=before.holdings;render();}payDetail.open=false;spendingDetail.open=false;syncFlowInputs();for(const x of dialog.querySelectorAll('[aria-invalid]'))x.removeAttribute('aria-invalid');for(const x of dialog.querySelectorAll('.pay-edit-error'))x.hidden=true;});
   for (const [detail,side] of [[payDetail,"income"],[spendingDetail,"spending"]]) detail.addEventListener("toggle",()=>{if(detail.open && !dialog.open)openFlowEditor(side);});
   const futureHeading=make("div","flow-scheduled-heading"); futureHeading.append(make("h3","","Scheduled"));
   const planFuture=make("button","flow-entry-add","+ Add future entry"); planFuture.type="button";

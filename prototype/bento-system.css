@@ -40,7 +40,7 @@
 .bento-app .bento-outcome { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:20px; padding:24px; margin:0 0 14px; text-align:left; background:var(--bg-card); border:1px solid var(--border-card); border-radius:18px; box-shadow:var(--shadow-bento); }
 .bento-outcome > div { min-width:0; display:grid; gap:8px; }
 .bento-eyebrow { color:var(--text-secondary); font:500 var(--type-meta) var(--font-sans); }
-.bento-hero-number,.bento-app #net-worth { font-size:var(--type-hero)!important; font-weight:800; line-height:1.1; letter-spacing:-.035em; color:var(--text-primary); overflow-wrap:anywhere; }
+.bento-hero-number,.bento-app #net-worth { font-size:var(--type-hero)!important; font-weight:600; line-height:1.1; letter-spacing:-.035em; color:var(--text-primary); overflow-wrap:anywhere; }
 .bento-outcome small { font-size:var(--type-meta); color:var(--text-secondary); }
 .bento-status { display:inline-flex; align-items:center; justify-content:center; gap:6px; align-self:center; width:fit-content; background:var(--primary-tint); color:var(--primary); border-radius:999px; font-size:var(--type-meta); font-weight:600; padding:7px 12px; text-align:center; }
 .bento-status.is-covered { color:var(--liquid); background:var(--liquid-tint); }
@@ -51,7 +51,7 @@
 .bento-app .asset-totals > div,.bento-app .bento-kpi:not(.bento-outcome),.bento-kpi-grid > div { display:grid; align-content:start; gap:8px; min-width:0; background:white; border:1px solid var(--border-card); border-radius:18px; padding:20px; box-shadow:var(--shadow-bento); }
 .bento-app .asset-totals > div > strong,.bento-app .bento-kpi:not(.bento-outcome)>strong,.bento-kpi-grid strong { font-size:var(--type-kpi); font-weight:700; line-height:1.15; letter-spacing:-.025em; overflow-wrap:anywhere; }
 .bento-app .asset-totals > div > span,.bento-app .asset-totals small,.bento-kpi-grid span,.bento-kpi-grid small { font-size:var(--type-meta); color:var(--text-secondary); }
-.bento-app .flow-kpi-grid .is-outflow strong { color:var(--debt); }
+.bento-app .flow-kpi-grid .is-outflow strong { color:var(--text-primary); }
 .bento-app #flow-outcome.is-shortfall .bento-hero-number { color:var(--debt); }
 .bento-app #flow-outcome:not(.is-shortfall) .bento-hero-number { color:var(--liquid); }
 .bento-app #asset-breakdown,.bento-app #asset-records,.bento-app .flow-map-panel,.bento-app .flow-entry-column,.bento-app .lifeline-card,.bento-app .estate-card { border:1px solid var(--border-card); border-radius:18px; box-shadow:var(--shadow-bento); background:white; }
@@ -61,7 +61,7 @@
 .bento-app .asset-name-line { display:flex; flex-wrap:wrap; grid-column:auto; grid-row:auto; gap:6px; }
 .bento-app .asset-name-line .holding-name { font-size:var(--type-row); font-weight:600; }
 .bento-app .asset-row-figures { display:grid; justify-items:end; grid-column:2; grid-row:auto; gap:6px; min-width:0; max-width:230px; }
-.bento-app .asset-row-value { font-size:var(--type-row); font-weight:700; }
+.bento-app .asset-row-value { font-size:var(--type-row); font-weight:500; }
 .bento-app .asset-icon { grid-row:auto; grid-column:auto; width:38px; height:38px; border-radius:10px; }
 .bento-app [data-wealth=liquid] .asset-icon { background:var(--liquid-tint); color:var(--liquid); }
 .bento-app [data-wealth=locked] .asset-icon { background:var(--locked-tint); color:var(--locked); }
@@ -75,7 +75,7 @@
 .bento-app .is-warning,.bento-app .flow-state-flag { color:var(--warning); background:var(--warning-tint); border-radius:6px; }
 .bento-app .asset-row > .row-chevron { display:none; }
 .bento-app .flow-entry-row { min-height:60px; padding-block:14px; }
-.bento-app .flow-entry-row[data-direction=out] .flow-entry-money { color:var(--debt); }
+.bento-app .flow-entry-row[data-direction=out] .flow-entry-money { color:var(--text-primary); font-weight:500; }
 .bento-app .pension-flag { border-radius:6px; background:var(--warning-tint); color:var(--warning); padding:5px 8px; font-size:var(--type-meta); }
 .bento-financial-flags { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 .bento-app .flow-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
@@ -267,3 +267,39 @@
 .bento-app .insights-dialog .insights-highlights { grid-template-columns:repeat(2,minmax(0,1fr)); }
 @media(max-width:767px){.bento-app .insights-dialog .insights-highlights { grid-template-columns:1fr; }}
 .bento-app .insights-goal-note { grid-column:1/-1; margin:0; font-size:.85rem; color:var(--text-secondary); }
+
+/* Wallet-inspired hierarchy: one leading result, then a quiet supporting row. */
+.bento-app #flow-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:-4px 0 20px; padding:4px 8px 12px; }
+.bento-app #flow-kpis > div { background:none; border:0; border-radius:0; box-shadow:none; padding:8px 16px; gap:5px; }
+.bento-app #flow-kpis > div+div { border-left:1px solid var(--border-hairline); }
+.bento-app #flow-kpis strong { font-size:1.1rem; font-weight:500; letter-spacing:-.01em; }
+.bento-app .flow-map-panel { padding:20px; }
+.bento-app .flow-entry-money { font-weight:500; }
+.bento-app .flow-entry-row[data-flow-selected] { background:var(--primary-tint); }
+.bento-app .flow-chart-target[data-flow-selected] text { fill:var(--primary); }
+.bento-app .flow-chart-target[data-flow-selected] { filter:drop-shadow(0 0 3px #007aff25); }
+.bento-app .flow-entry-updated { animation:flow-edited 1s ease-out; }
+@keyframes flow-edited { from {background:var(--primary-tint);} to {background:transparent;} }
+@media(max-width:767px) {
+ .bento-app .site-header { padding-block:12px; }
+ .bento-app #app-navigation { position:fixed; inset:auto 10px calc(8px + env(safe-area-inset-bottom)); display:flex; width:auto; flex-basis:auto; z-index:90; padding:5px; border:1px solid var(--border-hairline); border-radius:18px; background:rgba(250,250,252,.96); backdrop-filter:blur(16px); box-shadow:0 3px 20px #1c1c1e15; }
+ .bento-app #app-navigation .picture-step { min-height:48px; font-size:.82rem; font-weight:500; }
+ .bento-app .site-shell { padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
+ .bento-app .action-feedback { bottom:calc(85px + env(safe-area-inset-bottom)); }
+ .bento-app #flow-outcome { padding:18px; gap:8px; }
+ .bento-app #flow-kpis { padding:0 0 12px; }
+ .bento-app #flow-kpis > div,.bento-app #flow-kpis > div:last-child { grid-column:auto; padding:8px; }
+ .bento-app #flow-kpis strong { font-size:.94rem; overflow-wrap:anywhere; }
+ .bento-app #flow-kpis small { display:none; }
+ .bento-app #flow-kpis span { font-size:.8rem; }
+ .bento-app .flow-map-panel { padding:16px 12px; }
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more) { .bento-app #app-navigation { background:var(--bg-card); backdrop-filter:none; border:1px solid var(--text-secondary); } }
+@media(prefers-reduced-motion:reduce) { .bento-app .flow-entry-updated { animation:none; } }
+@media(max-width:767px) {
+ /* A filtered header would make its fixed child use the header as its viewport. */
+ .bento-app .site-header { backdrop-filter:none; -webkit-backdrop-filter:none; background:var(--bg-canvas); }
+ .bento-app #app-navigation { top:auto; height:auto; }
+}
+/* Rebuilding chart/list contents must not compete with explicit position restoration. */
+.bento-app main { overflow-anchor:none; }
